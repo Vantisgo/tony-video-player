@@ -9,10 +9,10 @@ export const env = createEnv({
       .default("development"),
   },
   client: {},
-  runtimeEnv: {
-    DATABASE_URL: process.env.DATABASE_URL,
-    NODE_ENV: process.env.NODE_ENV,
+  experimental__runtimeEnv: {
+    ...process.env,
   },
+
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,
 });
