@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { upload as vercelUpload } from "@vercel/blob/client"
 
 export type UploadedFile = {
   name: string
@@ -34,26 +35,28 @@ export function useUpload(fileType: FileType, options: UseUploadOptions = {}) {
         for (let i = 0; i < fileArray.length; i++) {
           const file = fileArray[i]
 
-          // Use streaming upload with query params
-          const params = new URLSearchParams({
-            filename: file.name,
-            type: fileType,
+          // Generate unique pathname
+          const timestamp = Date.now()
+          const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+          const pathname = `${fileType}/${timestamp}-${sanitizedName}`
+
+          // Use Vercel Blob client upload (direct to blob storage, bypasses 4.5MB limit)
+          const blob = await vercelUpload(pathname, file, {
+            access: "public",
+            handleUploadUrl: "/api/upload",
+            onUploadProgress: (progressEvent) => {
+              const fileProgress = progressEvent.percentage
+              const overallProgress =
+                (i / fileArray.length) * 100 +
+                fileProgress / fileArray.length
+              setProgress(overallProgress)
+              options.onUploadProgress?.(overallProgress)
+            },
           })
 
-          const response = await fetch(`/api/upload?${params.toString()}`, {
-            method: "POST",
-            body: file,
-          })
-
-          if (!response.ok) {
-            const error = await response.json()
-            throw new Error(error.error || "Upload failed")
-          }
-
-          const result = await response.json()
           uploadedFiles.push({
-            name: result.name,
-            url: result.url,
+            name: file.name,
+            url: blob.url,
             size: file.size,
           })
 
