@@ -5,26 +5,29 @@ import * as React from "react"
 import { cn } from "~/lib/utils"
 import { Card, CardContent, CardHeader } from "~/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
+import { CoachingTab } from "~/components/coaching"
+import { ScienceTab } from "~/components/science"
+import { useVideoPlayer } from "~/lib/contexts/video-player-context"
 
 interface RightPanelProps {
-  coachingContent: React.ReactNode
-  scienceContent: React.ReactNode
-  defaultTab?: "coaching" | "science"
   className?: string
 }
 
-function RightPanel({
-  coachingContent,
-  scienceContent,
-  defaultTab = "coaching",
-  className,
-}: RightPanelProps) {
+function RightPanel({ className }: RightPanelProps) {
+  const { rightPanelTab, setRightPanelTab } = useVideoPlayer()
+
   return (
     <Card
       data-slot="right-panel"
       className={cn("flex h-full flex-col overflow-hidden", className)}
     >
-      <Tabs defaultValue={defaultTab} className="flex h-full flex-col">
+      <Tabs
+        value={rightPanelTab}
+        onValueChange={(value) =>
+          setRightPanelTab(value as "coaching" | "science")
+        }
+        className="flex h-full flex-col"
+      >
         <CardHeader className="border-b pb-3">
           <TabsList className="w-full">
             <TabsTrigger value="coaching" className="flex-1">
@@ -35,18 +38,18 @@ function RightPanel({
             </TabsTrigger>
           </TabsList>
         </CardHeader>
-        <CardContent className="flex-1 overflow-hidden p-0">
+        <CardContent className="flex-1 overflow-hidden p-0 flex flex-col min-h-0">
           <TabsContent
             value="coaching"
-            className="mt-0 h-full overflow-y-auto p-4"
+            className="mt-0 flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0"
           >
-            {coachingContent}
+            <CoachingTab />
           </TabsContent>
           <TabsContent
             value="science"
-            className="mt-0 h-full overflow-y-auto p-4"
+            className="mt-0 flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0"
           >
-            {scienceContent}
+            <ScienceTab />
           </TabsContent>
         </CardContent>
       </Tabs>

@@ -1,102 +1,101 @@
+import { notFound } from "next/navigation"
+
+import prisma from "~/prisma/prisma"
 import { LessonLayout } from "~/components/layout/lesson-layout"
-import { RightPanel } from "~/components/layout/right-panel"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { LessonClientWrapper } from "./lesson-client"
+import type { LessonData } from "~/lib/contexts/video-player-context"
 
 interface LessonPageProps {
   params: Promise<{ lessonId: string }>
 }
 
+async function getLesson(lessonId: string): Promise<LessonData | null> {
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: {
+      phases: {
+        include: {
+          interventions: {
+            orderBy: { sortOrder: "asc" },
+          },
+        },
+        orderBy: { sortOrder: "asc" },
+      },
+      scienceItems: {
+        orderBy: { sortOrder: "asc" },
+      },
+      comments: {
+        orderBy: { timestamp: "asc" },
+      },
+    },
+  })
+
+  if (!lesson) return null
+
+  // Transform to LessonData format
+  return {
+    id: lesson.id,
+    title: lesson.title,
+    description: lesson.description,
+    videoUrl: lesson.videoUrl,
+    duration: lesson.duration,
+    introAudioUrl: lesson.introAudioUrl,
+    phases: lesson.phases.map((phase) => ({
+      id: phase.id,
+      title: phase.title,
+      description: phase.description,
+      startTimeSec: phase.startTime,
+      endTimeSec: phase.endTime ?? undefined,
+      audioAssetUrl: phase.audioAssetUrl,
+      audioTriggerTime: phase.audioTriggerTime,
+      interventions: phase.interventions.map((int) => ({
+        id: int.id,
+        title: int.title,
+        timestampSec: int.timestampSec,
+        prompt: int.prompt,
+        description: int.description,
+        methodModelFramework: int.methodModelFramework,
+        function: int.function,
+        scientificReferenceFields: int.scientificReferenceFields,
+      })),
+    })),
+    scienceItems: lesson.scienceItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      timestampsSec: item.timestampsSec,
+    })),
+    comments: lesson.comments.map((comment) => ({
+      id: comment.id,
+      content: comment.content,
+      timestamp: comment.timestamp,
+      authorName: comment.authorName,
+      createdAt: comment.createdAt.toISOString(),
+    })),
+  }
+}
+
 export default async function LessonPage({ params }: LessonPageProps) {
   const { lessonId } = await params
 
-  return (
-    <LessonLayout
-      videoSection={<VideoPlaceholder lessonId={lessonId} />}
-      commentsSection={<CommentsPlaceholder />}
-      rightPanel={
-        <RightPanel
-          coachingContent={<CoachingPlaceholder />}
-          scienceContent={<SciencePlaceholder />}
-        />
-      }
-    />
-  )
-}
+  // Check if this is a demo request
+  if (lessonId === "demo") {
+    return (
+      <LessonClientWrapper>
+        <LessonLayout />
+      </LessonClientWrapper>
+    )
+  }
 
-function VideoPlaceholder({ lessonId }: { lessonId: string }) {
-  return (
-    <Card data-slot="video-placeholder">
-      <CardContent className="flex aspect-video items-center justify-center bg-muted">
-        <div className="text-center">
-          <p className="text-lg font-medium text-muted-foreground">
-            Video Player
-          </p>
-          <p className="text-sm text-muted-foreground">Lesson: {lessonId}</p>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+  const lesson = await getLesson(lessonId)
 
-function CommentsPlaceholder() {
-  return (
-    <Card data-slot="comments-placeholder">
-      <CardHeader>
-        <CardTitle>Comments</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="rounded-lg border border-dashed p-4 text-center text-muted-foreground">
-            Comments section will appear here
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+  if (!lesson) {
+    notFound()
+  }
 
-function CoachingPlaceholder() {
   return (
-    <div
-      data-slot="coaching-placeholder"
-      className="space-y-4"
-    >
-      <p className="text-sm text-muted-foreground">
-        Coaching phases and interventions will appear here
-      </p>
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="rounded-lg border border-dashed p-4 text-muted-foreground"
-          >
-            Phase {i} placeholder
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function SciencePlaceholder() {
-  return (
-    <div
-      data-slot="science-placeholder"
-      className="space-y-4"
-    >
-      <p className="text-sm text-muted-foreground">
-        Science corner items will appear here
-      </p>
-      <div className="space-y-2">
-        {[1, 2].map((i) => (
-          <div
-            key={i}
-            className="rounded-lg border border-dashed p-4 text-muted-foreground"
-          >
-            Science Item {i} placeholder
-          </div>
-        ))}
-      </div>
-    </div>
+    <LessonClientWrapper lesson={lesson}>
+      <LessonLayout />
+    </LessonClientWrapper>
   )
 }

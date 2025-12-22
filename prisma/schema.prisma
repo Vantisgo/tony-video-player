@@ -12,3 +12,91 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ============================================================================
+// LESSON MODELS
+// ============================================================================
+
+model Lesson {
+  id          String @id @default(uuid())
+  title       String
+  description String
+  videoUrl    String
+  duration    Float
+
+  // Intro audio overlay
+  introAudioUrl String?
+
+  phases       Phase[]
+  scienceItems ScienceItem[]
+  comments     Comment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Phase {
+  id          String @id @default(uuid())
+  title       String
+  description String
+  startTime   Float
+  endTime     Float?
+  sortOrder   Int
+
+  // Audio overlay
+  audioAssetUrl    String?
+  audioTriggerTime Float?
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  interventions Intervention[]
+
+  @@index([lessonId])
+}
+
+model Intervention {
+  id                        String   @id @default(uuid())
+  title                     String
+  timestampSec              Float
+  prompt                    String
+  description               String
+  methodModelFramework      String
+  function                  String
+  scientificReferenceFields String[]
+  sortOrder                 Int
+
+  phaseId String
+  phase   Phase  @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@index([phaseId])
+}
+
+model ScienceItem {
+  id            String  @id @default(uuid())
+  name          String
+  description   String
+  timestampsSec Float[]
+  sortOrder     Int
+  content       Json?   // Structured content with sections, references, etc.
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+}
+
+model Comment {
+  id         String @id @default(uuid())
+  content    String
+  timestamp  Float
+  authorName String
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([lessonId])
+  @@index([timestamp])
+}
