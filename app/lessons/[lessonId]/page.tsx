@@ -67,6 +67,7 @@ async function getLesson(lessonIdOrSlug: string): Promise<LessonData | null> {
       name: item.name,
       description: item.description,
       timestampsSec: item.timestampsSec,
+      content: item.content,
     })),
     comments: lesson.comments.map((comment) => ({
       id: comment.id,

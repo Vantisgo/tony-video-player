@@ -159,9 +159,9 @@ function ScienceAccordion({
                         <h4 className="text-sm font-semibold text-foreground">
                           References
                         </h4>
-                        <ul className="space-y-1.5">
+                        <ul className="list-disc ml-4 space-y-1.5">
                           {item.content.references.map((ref, refIdx) => (
-                            <li key={refIdx} className="text-xs text-foreground/70">
+                            <li key={refIdx} className="text-xs text-foreground/70 pl-1">
                               {ref.url ? (
                                 <a
                                   href={ref.url}

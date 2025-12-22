@@ -1617,16 +1617,24 @@ async function main() {
         create: [
           {
             name: "Symptoms as Competence",
-            description: "Why Symptoms Make Sense: A Resource- and Competence-Oriented View on Panic and Anxiety",
+            description:
+              "Why Symptoms Make Sense: A Resource- and Competence-Oriented View on Panic and Anxiety",
             timestampsSec: [300, 450, 540, 720],
             sortOrder: 0,
             content: {
               title: "#1 Symptoms as Competence",
-              subtitle: "Why Symptoms Make Sense: A Resource- and Competence-Oriented View on Panic and Anxiety",
+              subtitle:
+                "Why Symptoms Make Sense: A Resource- and Competence-Oriented View on Panic and Anxiety",
               sections: [
                 {
-                  heading: "Symptoms as Adaptive Solutions",
-                  content: "Repeated emotional and physiological patterns do not emerge randomly. Learning theory and affective neuroscience show that behaviors and internal states are stabilized when they reduce perceived threat or restore equilibrium—even if the long-term cost is high.",
+                  heading: "Introduction",
+                  content:
+                    "Symptoms such as panic attacks, chronic anxiety, or compulsive behaviors are commonly treated as malfunctions of the mind or nervous system. Contemporary psychological and neuroscientific research, however, supports a fundamentally different interpretation: symptoms are adaptive regulatory responses, learned and maintained because they successfully fulfill specific functions.\n\nFrom a systems perspective, the nervous system is not designed for happiness or coherence, but for survival, predictability, and regulation. Any pattern that reliably serves these goals tends to persist.",
+                },
+                {
+                  heading: "1. Symptoms as Adaptive Solutions",
+                  content:
+                    "Repeated emotional and physiological patterns do not emerge randomly. Learning theory and affective neuroscience show that behaviors and internal states are stabilized when they reduce perceived threat or restore equilibrium—even if the long-term cost is high.",
                   items: [
                     {
                       text: "A panic attack, for example, provides:",
@@ -1634,36 +1642,37 @@ async function main() {
                         "rapid mobilization of energy (fight-or-flight)",
                         "extreme attentional narrowing",
                         "heightened bodily monitoring",
-                        "a strong sense of certainty (\"something is happening, I know what this is\")",
+                        'a strong sense of certainty ("something is happening, I know what this is")',
                       ],
                     },
+                    {
+                      text: "In the short term, this state can reduce ambiguity and helplessness, which are among the strongest triggers of stress responses. From a learning perspective, panic is negatively reinforced: it ends uncertainty by replacing it with a familiar, highly predictable internal state.",
+                    },
                   ],
                 },
                 {
-                  heading: "Neurobiological Stabilization of Symptoms",
-                  content: "Neuroimaging and neurophysiological studies demonstrate that anxiety and panic are associated with recurrent activation patterns involving the amygdala, insula, brainstem nuclei, and prefrontal regions responsible for threat appraisal and interoception.",
+                  heading: "2. Neurobiological Stabilization of Symptoms",
+                  content:
+                    "Neuroimaging and neurophysiological studies demonstrate that anxiety and panic are associated with recurrent activation patterns involving the amygdala, insula, brainstem nuclei, and prefrontal regions responsible for threat appraisal and interoception.\n\nCrucially, the brain does not distinguish between external danger and internally generated threat signals. What matters is meaning, not objective reality. When a pattern reliably restores a sense of control, neural circuits supporting that pattern are strengthened through experience-dependent plasticity.\n\nThus, symptoms persist not because the system is broken, but because it is doing exactly what it has learned to do well.",
                 },
                 {
-                  heading: "Secondary Gain and Emotional Regulation",
-                  content: "Clinical research consistently shows that symptoms often provide so-called secondary gains—not consciously intended benefits such as:",
+                  heading: "3. Secondary Gain and Emotional Regulation",
+                  content:
+                    "Clinical research consistently shows that symptoms often provide so-called secondary gains—not consciously intended benefits such as:",
                   items: [
+                    { text: "predictability and control" },
+                    { text: "protection from overwhelming demands" },
+                    { text: "relational proximity or care" },
+                    { text: 'stabilization of identity ("this explains me")' },
                     {
-                      text: "predictability and control",
-                    },
-                    {
-                      text: "protection from overwhelming demands",
-                    },
-                    {
-                      text: "relational proximity or care",
-                    },
-                    {
-                      text: "stabilization of identity (\"this explains me\")",
+                      text: "Emotion-regulation research demonstrates that individuals will continue to use maladaptive strategies as long as they are effective in the short term, even when they impair functioning over time. This explains why insight alone rarely leads to lasting change.",
                     },
                   ],
                 },
                 {
-                  heading: "Why Pathologizing Fails",
-                  content: "Approaches that frame symptoms as defects or enemies tend to increase internal threat perception and defensive rigidity. In contrast, competence-oriented models align with empirical findings showing that change becomes possible only when the underlying regulatory function is acknowledged and replaced, not suppressed.",
+                  heading: "4. Why Pathologizing Fails",
+                  content:
+                    "Approaches that frame symptoms as defects or enemies tend to increase internal threat perception and defensive rigidity. In contrast, competence-oriented models align with empirical findings showing that change becomes possible only when the underlying regulatory function is acknowledged and replaced, not suppressed.",
                   items: [
                     {
                       text: "Lasting transformation requires:",
@@ -1673,11 +1682,15 @@ async function main() {
                         "developing alternative strategies that meet the same regulatory needs with lower cost",
                       ],
                     },
+                    {
+                      text: "The goal is not symptom elimination, but functional reassignment, which is exactly the approach Tony takes.",
+                    },
                   ],
                 },
                 {
-                  heading: "Implications for Change",
-                  content: "From a scientific standpoint, symptoms disappear when they become unnecessary, not when they are fought. When the nervous system learns new, equally reliable ways to create safety, predictability, and regulation, old patterns lose their adaptive value.",
+                  heading: "5. Implications for Change",
+                  content:
+                    "From a scientific standpoint, symptoms disappear when they become unnecessary, not when they are fought. When the nervous system learns new, equally reliable ways to create safety, predictability, and regulation, old patterns lose their adaptive value.\n\nIn this sense, symptoms are not signs of weakness, but evidence of a system that learned to survive under constraint—and has not yet been offered a better option.",
                 },
               ],
               references: [
@@ -1711,73 +1724,102 @@ async function main() {
           {
             name: "Placebo as Medicine",
             description:
-              "The Neuroscience of Expectation: Why Placebo Effects Are Real Medicine",
+              "Why Placebos Work: The Placebo Effect as an Adaptive Regulatory Mechanism",
             timestampsSec: [840, 930],
             sortOrder: 1,
             content: {
               title: "#2 Placebo as Medicine",
               subtitle:
-                "The Neuroscience of Expectation: Why Placebo Effects Are Real Medicine",
+                "Why Placebos Work: The Placebo Effect as an Adaptive Regulatory Mechanism",
               sections: [
                 {
-                  heading: "The Placebo Effect Is Signal, Not Noise",
+                  heading: "Introduction",
                   content:
-                    "The placebo effect is often dismissed as a confounding variable in clinical trials — something to be controlled for, subtracted out, and ultimately ignored. But this framing misses the point. The placebo effect is not noise. It is signal. It reveals something fundamental about how the brain regulates the body.",
+                    'The placebo effect is often misunderstood as deception, suggestion, or "imagined" improvement. Contemporary neuroscience and clinical research demonstrate something more precise and more challenging: placebo responses are real, measurable biological effects produced by the brain\'s predictive and regulatory systems.\n\nPlacebos do not work because people are naïve. They work because the nervous system is designed to anticipate, regulate, and optimize physiological states based on expectation and meaning.',
                 },
                 {
-                  heading: "Real Physiological Changes",
+                  heading: "1. Placebo Responses as Functional Adaptations",
                   content:
-                    "When a person believes they are receiving an effective treatment, the brain initiates real physiological changes:",
+                    "At its core, the placebo effect reflects the brain's ability to mobilize endogenous regulatory mechanisms—including analgesia, immune modulation, and autonomic control—when improvement is expected. From an evolutionary perspective, this makes sense. If the organism detects signals of safety, care, or effective intervention, it is adaptive to:",
                   items: [
-                    { text: "Pain diminishes" },
-                    { text: "Inflammation decreases" },
-                    { text: "Neurotransmitter levels shift" },
-                  ],
-                },
-                {
-                  heading: "The Mechanism: Expectation",
-                  content:
-                    "The key mechanism is expectation. The brain is a prediction machine. It constantly generates forecasts about what will happen next and adjusts bodily states accordingly. When a person expects relief, the brain pre-emptively shifts toward that state. This is not deception — it is adaptive regulation.",
-                },
-                {
-                  heading: "Implications for Coaching & Therapy",
-                  content:
-                    "This has profound implications for coaching and therapeutic work:",
-                  items: [
+                    { text: "reduce defensive responses" },
+                    { text: "lower pain and inflammation" },
+                    { text: "shift resources toward repair and recovery" },
                     {
-                      text: "The way an intervention is framed influences outcomes",
-                    },
-                    {
-                      text: "Confidence in delivery activates different neural pathways",
-                    },
-                    {
-                      text: "Context and environment shape treatment effectiveness",
+                      text: "Expectation is not a belief layered on top of physiology; it is part of the causal chain.",
                     },
                   ],
                 },
                 {
-                  heading: "Why Belief Systems Matter",
+                  heading: "2. Neurobiological Mechanisms of Placebo Effects",
                   content:
-                    "The placebo effect explains why belief systems matter. If a person believes they are broken, their brain will regulate toward that state. If they believe change is possible, the brain shifts its predictions accordingly. This is not magical thinking — it is the neuroscience of expectation.",
+                    "Neuroimaging and pharmacological studies show that placebo responses involve well-characterized neural and biochemical pathways, including:",
+                  items: [
+                    {
+                      text: "activation of prefrontal and anterior cingulate regions associated with meaning and control",
+                    },
+                    {
+                      text: "modulation of brainstem and spinal nociceptive pathways",
+                    },
+                    { text: "release of endogenous opioids and dopamine" },
+                    {
+                      text: "Crucially, placebo effects can be blocked by opioid antagonists, demonstrating that they are not subjective illusions but biochemically mediated processes. The brain uses prior experience, context, and expectation to generate predictions about bodily states. When those predictions signal relief, the body adjusts accordingly.",
+                    },
+                  ],
                 },
                 {
-                  heading: "Leveraging Natural Regulatory Mechanisms",
+                  heading: "3. Learning, Conditioning, and Secondary Gain",
                   content:
-                    "Effective practitioners do not manipulate or deceive. They leverage the brain's natural regulatory mechanisms by creating conditions where positive expectation is plausible. The intervention becomes more effective because the brain is working with the process rather than against it.",
+                    "Placebo effects are strengthened through learning and conditioning. Repeated pairings of treatments with relief train the nervous system to respond before the active agent takes effect—or even in its absence. This explains why:",
+                  items: [
+                    {
+                      text: "injections produce stronger placebo effects than pills",
+                    },
+                    { text: "larger pills outperform smaller ones" },
+                    { text: "sham surgeries outperform sham medications" },
+                    {
+                      text: "From a regulation standpoint, placebo responses also provide secondary benefits: restoration of predictability, reduction of uncertainty, reinforcement of trust in external or internal regulators.",
+                    },
+                    {
+                      text: "As long as these regulatory gains occur, placebo mechanisms remain available and active.",
+                    },
+                  ],
+                },
+                {
+                  heading: '4. Why "It\'s Just Placebo" Is Scientifically Wrong',
+                  content:
+                    'Dismissing placebo effects as "not real" reflects a category error. The relevant question is not whether an effect is placebo-mediated, but through which mechanisms improvement occurs.\n\nModern medicine routinely relies on placebo-responsive systems—often unknowingly. When these systems are ignored or pathologized, opportunities for healing are lost. When they are intentionally harnessed, outcomes improve.\n\nThe scientific task is not to eliminate placebo responses, but to understand, predict, and ethically integrate them. In that sense, Tony shifts the placebo expectation from the medication towards the learnings and methods he is presenting.',
+                },
+                {
+                  heading: "5. Implications for Treatment and Change",
+                  content:
+                    "Placebo research demonstrates a broader principle: meaning, expectation, and context are active biological variables.\n\nChange occurs when the nervous system receives sufficient evidence that regulation and recovery are possible. When that evidence is strong enough, endogenous systems do the work—sometimes more effectively than external interventions.\n\nPlacebos do not replace medicine. They reveal how much medicine already depends on the brain's capacity to regulate itself.",
                 },
               ],
               references: [
                 {
-                  text: "Benedetti, F. (2014). Placebo Effects: Understanding the Mechanisms in Health and Disease.",
+                  text: "Benedetti, F., Mayberg, H. S., Wager, T. D., Stohler, C. S., & Zubieta, J.-K. (2005). Neurobiological mechanisms of the placebo effect. Journal of Neuroscience, 25(45), 10390–10402.",
+                  url: "https://doi.org/10.1523/JNEUROSCI.3458-05.2005",
                 },
                 {
-                  text: "Kaptchuk, T. J., & Miller, F. G. (2015). Placebo Effects in Medicine. New England Journal of Medicine.",
+                  text: "Wager, T. D., & Atlas, L. Y. (2015). The neuroscience of placebo effects: Connecting context, learning and health. Nature Reviews Neuroscience, 16(7), 403–418.",
+                  url: "https://doi.org/10.1038/nrn3976",
                 },
                 {
-                  text: "Wager, T. D., & Atlas, L. Y. (2015). The neuroscience of placebo effects: connecting context, learning and health. Nature Reviews Neuroscience.",
+                  text: "Colloca, L., & Benedetti, F. (2005). Placebos and painkillers: Is mind as real as matter? Nature Reviews Neuroscience, 6(7), 545–552.",
+                  url: "https://doi.org/10.1038/nrn1705",
                 },
                 {
-                  text: "Kirsch, I. (2010). The Emperor's New Drugs: Exploding the Antidepressant Myth.",
+                  text: "Finniss, D. G., Kaptchuk, T. J., Miller, F., & Benedetti, F. (2010). Biological, clinical, and ethical advances of placebo effects. The Lancet, 375(9715), 686–695.",
+                  url: "https://doi.org/10.1016/S0140-6736(09)61706-2",
+                },
+                {
+                  text: "Zubieta, J.-K., Bueller, J. A., Jackson, L. R., et al. (2005). Placebo effects mediated by endogenous opioid activity on μ-opioid receptors. Journal of Neuroscience, 25(34), 7754–7762.",
+                  url: "https://doi.org/10.1523/JNEUROSCI.0439-05.2005",
+                },
+                {
+                  text: "Kaptchuk, T. J., & Miller, F. G. (2015). Placebo effects in medicine. New England Journal of Medicine, 373(1), 8–9.",
+                  url: "https://doi.org/10.1056/NEJMp1504023",
                 },
               ],
             },
@@ -1785,80 +1827,96 @@ async function main() {
           {
             name: "What Xanax Is – and What It Actually Does",
             description:
-              "Understanding Benzodiazepines: Why They're a Pause Button, Not a Solution",
+              "Benzodiazepines, Acute Anxiety, and the Misattribution of Relief",
             timestampsSec: [630, 720, 840],
             sortOrder: 2,
             content: {
               title: "#3 What Xanax Is – and What It Actually Does",
               subtitle:
-                "Understanding Benzodiazepines: Why They're a Pause Button, Not a Solution",
+                "Benzodiazepines, Acute Anxiety, and the Misattribution of Relief",
               sections: [
                 {
-                  heading: "How Benzodiazepines Work",
+                  heading: "Introduction",
                   content:
-                    "Benzodiazepines like Xanax (alprazolam) are among the most commonly prescribed medications for anxiety and panic. They work by enhancing the effect of GABA (gamma-aminobutyric acid), the brain's primary inhibitory neurotransmitter. Within minutes, the nervous system slows down, muscles relax, and the subjective experience of anxiety diminishes.",
+                    "Xanax (alprazolam) is a short-acting benzodiazepine widely prescribed for panic disorder and acute anxiety. Clinically, it is classified as an anxiolytic sedative, not a curative intervention. Its primary function is temporary suppression of central nervous system arousal.",
                 },
                 {
-                  heading: "The Critical Distinction",
+                  heading: "1. What Xanax Does Mechanistically",
                   content:
-                    "The drug does not solve the problem. It suppresses the signal. Anxiety is not a chemical imbalance that benzodiazepines correct. It is a regulatory state — a pattern of activation that the brain generates in response to perceived threat. Xanax does not address the threat. It does not change the underlying pattern. It simply dampens the output.",
-                },
-                {
-                  heading: "Two Significant Problems",
+                    "Xanax (active substance: alprazolam) is a medication that turns down the volume of the nervous system. It does not solve the cause of anxiety and it does not remove fear at its root. What it does is reduce how strongly the body's alarm system reacts.\n\nAs a result, people usually feel calmer, less tense, and less overwhelmed. That is the benefit. The trade-off is that Xanax does not only reduce fear. It also dampens alertness, emotional processing, and learning. This is why it can interfere with long-term recovery if it becomes the main strategy.",
                   items: [
+                    { text: "reduced neuronal firing" },
+                    { text: "decreased autonomic arousal" },
+                    { text: "muscle relaxation" },
+                    { text: "subjective calming and sedation" },
                     {
-                      text: "Loss of personal agency",
-                      subItems: [
-                        "The person never learns they can regulate the state themselves",
-                        "The drug becomes the source of relief",
-                        "Sense of personal agency diminishes",
-                      ],
-                    },
-                    {
-                      text: "Rebound anxiety",
-                      subItems: [
-                        "The underlying pattern remains intact",
-                        "It reasserts itself when the drug wears off",
-                        "Often returns with greater intensity",
-                      ],
+                      text: "Importantly, Xanax does not target the cause of anxiety or panic, but dampens the system globally. It lowers signal intensity; it does not change signal meaning.",
                     },
                   ],
                 },
                 {
-                  heading: "The Misattribution Effect",
+                  heading: "2. Onset of Action",
                   content:
-                    "When someone takes Xanax and feels better, they attribute the relief to the drug. But in many cases, the relief would have occurred anyway — panic attacks are self-limiting; the nervous system naturally returns to baseline. The drug captures the credit for a process that was already underway.",
+                    "Tony states that Xanax cannot be what stops a panic attack in the moment because it takes too long to act. Oral alprazolam has a time to peak plasma concentration of ~1–2 hours. Subjective calming can begin earlier in some individuals (~20–40 minutes), but this is not fast enough to abort an acute panic attack, which typically peaks within 5–10 minutes.\n\nTherefore: If panic resolves before that window, like in this case, the termination is not pharmacological.",
                 },
                 {
-                  heading: "A Balanced Perspective",
+                  heading: "3. Misattribution, Placebo, and Learned Dependence",
                   content:
-                    "This is not an argument against medication. For some people, in some contexts, benzodiazepines serve a legitimate function — particularly in acute crisis or as a bridge to longer-term intervention. But they are not a solution. They are a pause button.",
-                },
-                {
-                  heading: "What Effective Intervention Looks Like",
-                  content:
-                    "Effective intervention works differently. It teaches the person to:",
+                    'Where Xanax becomes clinically problematic is not only its pharmacology, but its attributional learning effect.\n\nRepeated pairing of "panic → pill → relief" trains the nervous system to:',
                   items: [
-                    { text: "Recognize the pattern" },
-                    { text: "Understand its components" },
+                    { text: "externalize control" },
+                    { text: "downregulate self-regulation confidence" },
                     {
-                      text: "Develop the capacity to regulate it directly",
+                      text: 'amplify anticipatory anxiety ("What if I don\'t have it?")',
+                    },
+                    {
+                      text: "This is not merely psychological. Conditioning studies show that benzodiazepines interfere with extinction learning, meaning the brain fails to learn that panic is survivable without external dampening.",
+                    },
+                    {
+                      text: "Conceptualizing Xanax as a placebo for immediate control is correct, the scientifically used term would be 'expectancy-driven misattribution layered onto delayed pharmacological sedation'.",
+                    },
+                  ],
+                },
+                {
+                  heading: "4. Dependence, Tolerance, and Long-Term Cost",
+                  content: "Benzodiazepines carry well-documented risks:",
+                  items: [
+                    { text: "tolerance (dose escalation)" },
+                    { text: "physiological dependence" },
+                    { text: "rebound anxiety" },
+                    {
+                      text: "Also, the most frequently (>10% of users) reported side effects include: Discouragement, Feeling sad or empty, Irritability, Drowsiness, Fatigue, Dizziness, Headache",
+                    },
+                    {
+                      text: "Long-term use is associated with worsened anxiety sensitivity, not improvement. This is what Tony mentions, when he says it maintains or deepens the anxiety loop, even if it reduces surface symptoms.",
                     },
                   ],
                 },
               ],
               references: [
                 {
-                  text: "Ashton, C. H. (2002). Benzodiazepines: How They Work and How to Withdraw.",
+                  text: "Nutt, D. J., & Malizia, A. L. (2001). New insights into the role of the GABAA–benzodiazepine receptor in psychiatric disorder. British Journal of Psychiatry, 179(5), 390–396.",
+                  url: "https://doi.org/10.1192/bjp.179.5.390",
                 },
                 {
-                  text: "Lader, M. (2011). Benzodiazepines revisited—will we ever learn? Addiction.",
+                  text: "Baldwin, D. S., et al. (2013). Evidence-based pharmacological treatment of anxiety disorders. International Journal of Neuropsychopharmacology, 16(5), 1023–1041.",
+                  url: "https://doi.org/10.1017/S1461145712001219",
                 },
                 {
-                  text: "Otto, M. W., & Hofmann, S. G. (2010). Avoiding Treatment Failures in the Anxiety Disorders.",
+                  text: "Lader, M. (2011). Benzodiazepines revisited—will we ever learn? Addiction, 106(12), 2086–2109.",
+                  url: "https://doi.org/10.1111/j.1360-0443.2011.03563.x",
                 },
                 {
-                  text: "Barlow, D. H. (2004). Anxiety and Its Disorders: The Nature and Treatment of Anxiety and Panic.",
+                  text: "Otto, M. W., et al. (2010). Benzodiazepine use, cognitive impairment, and cognitive-behavioral therapy for anxiety disorders. American Journal of Psychiatry, 167(11), 1247–1255.",
+                  url: "https://doi.org/10.1176/appi.ajp.2010.10030412",
+                },
+                {
+                  text: "Bouton, M. E. (2004). Context and behavioral processes in extinction. Learning & Memory, 11(5), 485–494.",
+                  url: "https://doi.org/10.1101/lm.78804",
+                },
+                {
+                  text: "Hofmann, S. G., et al. (2012). The efficacy of cognitive behavioral therapy: A review of meta-analyses. Cognitive Therapy and Research, 36(5), 427–440.",
+                  url: "https://doi.org/10.1007/s10608-012-9476-1",
                 },
               ],
             },
@@ -1866,87 +1924,102 @@ async function main() {
           {
             name: "Why 'Scrambling' Works",
             description:
-              "The Neuroscience of Pattern Disruption: How Modifying Mental Representations Changes Emotional States",
+              "Semantic Satiation, Cognitive Defusion, and Affective Re-Tagging",
             timestampsSec: [450, 540, 1020, 1260],
             sortOrder: 3,
             content: {
               title: "#4 Why 'Scrambling' Works",
               subtitle:
-                "The Neuroscience of Pattern Disruption: How Modifying Mental Representations Changes Emotional States",
+                "Semantic Satiation, Cognitive Defusion, and Affective Re-Tagging",
               sections: [
                 {
-                  heading: "What Is Scrambling?",
+                  heading: "Introduction",
                   content:
-                    'One of the most effective techniques for disrupting unwanted emotional patterns is "scrambling" — a process of deliberately distorting the internal representations that generate the state. The technique originated in NLP (Neuro-Linguistic Programming) but has parallels in cognitive defusion (ACT), imagery rescripting, and memory reconsolidation research.',
+                    '"Scrambling" (as Tony uses it) is the deliberate disruption of a distressing phrase by repeating it and changing how it is said (cartoon voice, sexy voice, slow motion, backwards, rap, etc.). It looks silly, but it reliably targets a real problem: when words are fused with threat, they function like triggers. Scrambling aims to break that trigger function fast.',
                 },
                 {
-                  heading: "The Basic Principle",
+                  heading:
+                    '1. Scrambling as an Adaptive Intervention: turning a trigger into "just sounds"',
                   content:
-                    "Emotional states are not stored as abstract data. They are encoded as specific sensory representations — images, sounds, body sensations, and internal dialogue. Change the representation, and you change the state.",
+                    'When a phrase like "What\'s wrong with me?" is repeated rapidly, it can temporarily lose its felt meaning. This effect is known as semantic satiation: repetition reduces the word\'s capacity to evoke its usual meaning and emotional punch.\n\nTony adds a second amplifier: shifting the phrase into bizarre or playful voices. That changes the context in which the words are processed—moving them from "threat signal" to "odd stimulus." The result is often immediate: the phrase becomes harder to take seriously.',
                 },
                 {
-                  heading: "How It Works in Practice",
+                  heading:
+                    '2. Neurocognitive mechanism: weakening the meaning link, not "deleting" memory',
                   content:
-                    "A person is asked to recall an anxiety-provoking memory or imagine a feared scenario. As they do so, they are guided to alter the sensory properties:",
-                  items: [
-                    { text: "Shrinking the image" },
-                    { text: "Moving it further away" },
-                    { text: "Draining the color" },
-                    {
-                      text: "Adding absurd elements (circus music, cartoon voices)",
-                    },
-                    { text: "Running it backwards" },
-                  ],
-                },
-                {
-                  heading: "Why Does This Work?",
-                  content:
-                    'The brain does not distinguish cleanly between "real" and "imagined" experience. The same neural circuits that fire during an actual event also fire during vivid recall or imagination. When you modify the representation, you are literally changing the neural pattern associated with that experience.',
-                },
-                {
-                  heading: "Memory Reconsolidation",
-                  content:
-                    "This is supported by research on memory reconsolidation:",
+                    'The key claim is not "memory is erased." The claim is: the coupling between language and emotion is loosened. Three mechanisms are most plausible and supported:',
                   items: [
                     {
-                      text: "When a memory is recalled, it enters a labile state — temporarily unstable and open to modification",
+                      text: "Semantic satiation / verbal transformation: rapid repetition reduces semantic access and changes subjective meaning (\"it stops landing\"). This is a well-studied phenomenon with experimental work spanning decades and continuing in current computational/neuroscience modeling.",
                     },
                     {
-                      text: "If new information is introduced during this window, the memory is re-encoded with the modification included",
+                      text: "Cognitive defusion (ACT / contextual behavioral science): the goal is to reduce the believability and emotional impact of a thought by changing the context in which it is experienced. Word repetition is one of the classic defusion exercises (historically traced back to early psychology), and controlled studies show it can reduce both discomfort and believability of negative self-referential thoughts—often more than distraction or thought suppression.",
                     },
                     {
-                      text: "The next time the memory is accessed, it carries the new (scrambled) properties",
+                      text: 'Affective "re-tagging" through new pairing: when Tony makes the phrase comical or absurd, he is effectively pairing the old trigger with a new emotional tone (play/absurdity) and a new bodily state (less defensive). This is consistent with principles from evaluative conditioning—changing the emotional response to a stimulus through new pairings—supported by large-scale meta-analysis evidence.',
                     },
                   ],
                 },
                 {
-                  heading: "The Result",
+                  heading:
+                    '3. Why the "voices" matter: context shift beats willpower',
                   content:
-                    "The result is not amnesia. The person still remembers the event. But the emotional charge is reduced, the automatic pattern is disrupted, and the response becomes more flexible. The memory loses its power to hijack the nervous system.",
+                    "Changing the phrase into Mickey Mouse / Donald Duck / sexy / backwards is not decoration. It attacks the core of verbal threat:",
+                  items: [
+                    {
+                      text: "Prosody changes meaning and credibility. The same words, spoken differently, are processed differently.",
+                    },
+                    {
+                      text: "Absurdity disrupts threat appraisal. Humor/play tends to reduce defensive seriousness and makes the mind less likely to treat the phrase as a literal diagnosis.",
+                    },
+                    {
+                      text: 'Contextual control: In defusion terms, the phrase stops functioning as "truth" and starts functioning as "language." That shift alone reduces its power.',
+                    },
+                    {
+                      text: 'This is exactly why scrambling often works better than "positive thinking": it doesn\'t argue with the thought. It changes the thought\'s operating conditions.',
+                    },
+                  ],
                 },
                 {
-                  heading: "When Scrambling Is Most Effective",
+                  heading: "4. What Scrambling is not and how to use it",
                   content:
-                    "Scrambling is particularly effective for patterns that feel automatic and involuntary:",
+                    "Scrambling is a brief language-based intervention that reduces cognitive fusion and emotional impact of a distressing self-referential thought via semantic satiation, contextual re-framing, and new affective pairing—thereby weakening the thought's trigger function and restoring behavioral choice. As such it is very useful, but it is not magic.",
                   items: [
-                    { text: "Panic responses" },
-                    { text: "Phobias" },
-                    { text: "Intrusive thoughts" },
+                    {
+                      text: "It is not a standalone treatment for panic disorder, it is a supplement. It targets one verbal trigger loop (self-labeling, catastrophic questioning, self-diagnosis).",
+                    },
+                    {
+                      text: "It does not necessarily change deeper fear learning unless it is embedded in broader exposure / inhibitory learning and skills training.",
+                    },
+                    {
+                      text: "Effects can be short-lived if the person returns immediately to the same threat-rumination habits without building alternatives.",
+                    },
+                    {
+                      text: "Scrambling can have lasting impact when it creates enough psychological distance for new behavior to emerge. Its strength lies not in standing alone, but in functioning as a catalytic add-on—especially when embedded within a broader intervention framework, as in Tony's coaching. In that context, scrambling helps loosen the grip of verbal threat just enough to make space for more durable change processes, such as breathing regulation, exposure, values-based action, and the introduction of more generative questions.",
+                    },
                   ],
                 },
               ],
               references: [
                 {
-                  text: "Bandler, R. (1985). Using Your Brain—For a Change.",
+                  text: "Masuda, A., Hayes, S. C., Sackett, C. F., & Twohig, M. P. (2004). Cognitive defusion and self-relevant negative thoughts: Examining the impact of a ninety year old technique. Behaviour Research and Therapy, 42(4), 477–485.",
+                  url: "https://doi.org/10.1016/j.brat.2003.10.008",
                 },
                 {
-                  text: "Kindt, M., Soeter, M., & Vervliet, B. (2009). Beyond extinction: erasing human fear responses and preventing the return of fear. Nature Neuroscience.",
+                  text: "Ritzert, T. R., Forsyth, J. P., Berghoff, C. R., Barnes-Holmes, D., & Nicholson, E. (2010). A controlled comparison of the word repeating technique with a word association task and other coping strategies. Journal of Behavior Therapy and Experimental Psychiatry, 41(1), 45–53.",
+                  url: "https://doi.org/10.1016/j.jbtep.2009.09.001",
                 },
                 {
-                  text: "Holmes, E. A., & Mathews, A. (2010). Mental imagery in emotion and emotional disorders. Clinical Psychology Review.",
+                  text: "Zhang, X., Lian, J., Yu, Z., Tang, H., Liang, D., Liu, J., & Liu, J. K. (2024). Revealing the mechanisms of semantic satiation with deep learning models. Communications Biology, 7, Article 191.",
+                  url: "https://www.nature.com/articles/s42003-024-05821-9",
                 },
                 {
-                  text: "Nader, K., & Hardt, O. (2009). A single standard for memory: the case for reconsolidation. Nature Reviews Neuroscience.",
+                  text: "Hofmann, W., De Houwer, J., Perugini, M., Baeyens, F., & Crombez, G. (2010). Evaluative conditioning in humans: A meta-analysis. Psychological Bulletin, 136(3), 390–421.",
+                  url: "https://doi.org/10.1037/a0018916",
+                },
+                {
+                  text: "Sinclair, A. H., & Barense, M. D. (2019). Prediction error and memory reactivation: How incomplete reminders drive reconsolidation. Trends in Neurosciences, 42(10), 727–739.",
+                  url: "https://doi.org/10.1016/j.tins.2019.08.007",
                 },
               ],
             },

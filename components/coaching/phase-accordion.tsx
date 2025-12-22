@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CaretRight, Timer } from "@phosphor-icons/react"
+import { Timer } from "@phosphor-icons/react"
 
 import { cn } from "~/lib/utils"
 import {
@@ -42,6 +42,48 @@ function stripPhasePrefix(title: string): string {
   return title.replace(/^Phase\s*\d+\s*:\s*/i, "")
 }
 
+// Expandable description component
+function ExpandableDescription({
+  description,
+  isCollapsed,
+}: {
+  description: string
+  isCollapsed: boolean
+}) {
+  const [isExpanded, setIsExpanded] = React.useState(false)
+
+  // Reset expanded state when intervention collapses
+  React.useEffect(() => {
+    if (!isCollapsed) {
+      setIsExpanded(false)
+    }
+  }, [isCollapsed])
+
+  if (!isCollapsed || isExpanded) {
+    return (
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        {description}
+      </p>
+    )
+  }
+
+  return (
+    <p className="text-sm text-muted-foreground leading-relaxed">
+      <span className="line-clamp-2">{description}</span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsExpanded(true)
+        }}
+        className="text-primary hover:underline font-medium ml-1"
+      >
+        more
+      </button>
+    </p>
+  )
+}
+
 function PhaseAccordion({
   phases,
   activePhaseId,
@@ -73,6 +115,10 @@ function PhaseAccordion({
       {phases.map((phase, index) => {
         const isActive = phase.id === activePhaseId
         const interventionCount = phase.interventions.length
+        // Check if any intervention in this phase is expanded
+        const hasExpandedIntervention = expandedInterventionId
+          ? phase.interventions.some((i) => i.id === expandedInterventionId)
+          : false
 
         return (
           <AccordionItem
@@ -117,24 +163,26 @@ function PhaseAccordion({
                     />
                   </div>
 
-                  {/* Description */}
-                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                    {phase.description}
-                  </p>
+                  {/* Description - truncated when intervention is expanded */}
+                  <ExpandableDescription
+                    description={phase.description}
+                    isCollapsed={hasExpandedIntervention}
+                  />
 
-                  {/* Meta info */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs gap-1">
-                      <CaretRight weight="bold" className="size-3" />
-                      {interventionCount} intervention{interventionCount !== 1 ? "s" : ""}
-                    </Badge>
-                    {phase.endTimeSec && (
-                      <Badge variant="outline" className="text-xs gap-1 font-mono">
-                        <Timer weight="duotone" className="size-3" />
-                        {Math.round((phase.endTimeSec - phase.startTimeSec) / 60)}m
+                  {/* Meta info - hide intervention count when phase is expanded */}
+                  {expandedPhaseId !== phase.id && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="secondary" className="text-xs">
+                        {interventionCount} intervention{interventionCount !== 1 ? "s" : ""}
                       </Badge>
-                    )}
-                  </div>
+                      {phase.endTimeSec && (
+                        <Badge variant="outline" className="text-xs gap-1 font-mono">
+                          <Timer weight="duotone" className="size-3" />
+                          {Math.round((phase.endTimeSec - phase.startTimeSec) / 60)}m
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </AccordionTrigger>
