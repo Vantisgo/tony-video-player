@@ -1,11 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { Flask, X } from "@phosphor-icons/react"
+import { Flask } from "@phosphor-icons/react"
 
 import { cn } from "~/lib/utils"
-import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 
 interface ScienceTriggerProps {
   title: string
@@ -17,47 +15,32 @@ interface ScienceTriggerProps {
 function ScienceTrigger({
   title,
   onOpen,
-  onDismiss,
   className,
 }: ScienceTriggerProps) {
   return (
-    <Card
+    <div
       data-slot="science-trigger"
       className={cn(
-        "pointer-events-auto animate-in fade-in zoom-in-95 bg-card/95 backdrop-blur-sm shadow-xl max-w-sm",
+        "w-72 pointer-events-auto animate-in fade-in slide-in-from-right-2",
         className
       )}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Flask className="size-5 text-primary" weight="fill" />
-            <CardTitle className="text-base">Science Corner</CardTitle>
+      <div className="bg-gradient-to-br from-orange-500/20 via-amber-500/20 to-yellow-500/20 border border-orange-300/25 rounded-2xl p-4 backdrop-blur-md shadow-2xl">
+        <div className="flex items-center gap-3">
+          <Flask className="size-5 text-orange-400 shrink-0" weight="fill" />
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold">Science Corner</p>
+            <p className="text-orange-100/70 text-xs truncate">{title}</p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={onDismiss}
-            className="text-muted-foreground hover:text-foreground"
+          <button
+            onClick={onOpen}
+            className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-xl text-white text-sm font-medium transition-colors shrink-0"
           >
-            <X className="size-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          &ldquo;{title}&rdquo;
-        </p>
-        <div className="flex gap-2">
-          <Button onClick={onOpen} className="flex-1">
             Open
-          </Button>
-          <Button variant="outline" onClick={onDismiss}>
-            Dismiss
-          </Button>
+          </button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 

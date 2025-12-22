@@ -357,9 +357,9 @@ function VideoPlayer({ className }: VideoPlayerProps) {
           </OverlayContainer>
         )}
 
-        {/* Science Trigger - center */}
+        {/* Science Trigger - top right */}
         {activeOverlay?.type === "science" && (
-          <OverlayContainer position="center">
+          <OverlayContainer position="top-right">
             <ScienceTrigger
               title={activeOverlay.title ?? "Science Corner"}
               onOpen={handleScienceOpen}
