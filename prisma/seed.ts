@@ -478,23 +478,96 @@ async function main() {
         create: [
           {
             name: "Symptoms as Competence",
-            description: `Panic, anxiety, and hypervigilance are often framed as disorders — malfunctions of the brain or nervous system. But from an evolutionary and regulatory perspective, these responses are not errors. They are competencies: precisely calibrated survival mechanisms that activate under specific conditions.
-
-When the brain perceives a threat — real or imagined — it initiates a cascade of physiological responses designed to maximize the chance of survival. Heart rate increases, breathing shallows, blood flow is redirected to the muscles, and non-essential functions like digestion are temporarily suppressed. This is the fight-or-flight response, and it is remarkably effective for what it was designed to do: help us escape from predators, respond to physical danger, and survive in an unpredictable environment.
-
-The problem is not the response itself. The problem is the mismatch between the ancient system and the modern context. The brain cannot distinguish between a saber-toothed tiger and an overdue tax bill. It responds to perceived threat with the same intensity, regardless of whether the threat is physical or psychological, immediate or imagined.
-
-What we call "panic disorder" is often the nervous system doing exactly what it is designed to do — just in the wrong context. The symptom is not a failure; it is an over-application of a competence. The person is not broken. The pattern is simply running in situations where it is no longer adaptive.
-
-This reframe has significant implications for intervention. Rather than trying to suppress or eliminate the symptom, effective approaches work with the underlying competence: acknowledging its protective function, identifying the triggers that activate it, and training the system to recalibrate its threat assessment. The goal is not to disable the alarm — it is to update the conditions under which it fires.
-
-Key References:
-• Porges, S. W. (2011). The Polyvagal Theory: Neurophysiological Foundations of Emotions, Attachment, Communication, and Self-Regulation.
-• LeDoux, J. (2015). Anxious: Using the Brain to Understand and Treat Fear and Anxiety.
-• Sapolsky, R. M. (2004). Why Zebras Don't Get Ulcers: The Acclaimed Guide to Stress, Stress-Related Diseases, and Coping.
-• Nesse, R. M. (2019). Good Reasons for Bad Feelings: Insights from the Frontier of Evolutionary Psychiatry.`,
+            description: "Why Symptoms Make Sense: A Resource- and Competence-Oriented View on Panic and Anxiety",
             timestampsSec: [300, 450, 540, 720],
             sortOrder: 0,
+            content: {
+              title: "#1 Symptoms as Competence",
+              subtitle: "Why Symptoms Make Sense: A Resource- and Competence-Oriented View on Panic and Anxiety",
+              sections: [
+                {
+                  heading: "Symptoms as Adaptive Solutions",
+                  content: "Repeated emotional and physiological patterns do not emerge randomly. Learning theory and affective neuroscience show that behaviors and internal states are stabilized when they reduce perceived threat or restore equilibrium—even if the long-term cost is high.",
+                  items: [
+                    {
+                      text: "A panic attack, for example, provides:",
+                      subItems: [
+                        "rapid mobilization of energy (fight-or-flight)",
+                        "extreme attentional narrowing",
+                        "heightened bodily monitoring",
+                        "a strong sense of certainty (\"something is happening, I know what this is\")",
+                      ],
+                    },
+                  ],
+                },
+                {
+                  heading: "Neurobiological Stabilization of Symptoms",
+                  content: "Neuroimaging and neurophysiological studies demonstrate that anxiety and panic are associated with recurrent activation patterns involving the amygdala, insula, brainstem nuclei, and prefrontal regions responsible for threat appraisal and interoception.",
+                },
+                {
+                  heading: "Secondary Gain and Emotional Regulation",
+                  content: "Clinical research consistently shows that symptoms often provide so-called secondary gains—not consciously intended benefits such as:",
+                  items: [
+                    {
+                      text: "predictability and control",
+                    },
+                    {
+                      text: "protection from overwhelming demands",
+                    },
+                    {
+                      text: "relational proximity or care",
+                    },
+                    {
+                      text: "stabilization of identity (\"this explains me\")",
+                    },
+                  ],
+                },
+                {
+                  heading: "Why Pathologizing Fails",
+                  content: "Approaches that frame symptoms as defects or enemies tend to increase internal threat perception and defensive rigidity. In contrast, competence-oriented models align with empirical findings showing that change becomes possible only when the underlying regulatory function is acknowledged and replaced, not suppressed.",
+                  items: [
+                    {
+                      text: "Lasting transformation requires:",
+                      subItems: [
+                        "identifying the function the symptom fulfills",
+                        "recognizing the competence embedded in that function",
+                        "developing alternative strategies that meet the same regulatory needs with lower cost",
+                      ],
+                    },
+                  ],
+                },
+                {
+                  heading: "Implications for Change",
+                  content: "From a scientific standpoint, symptoms disappear when they become unnecessary, not when they are fought. When the nervous system learns new, equally reliable ways to create safety, predictability, and regulation, old patterns lose their adaptive value.",
+                },
+              ],
+              references: [
+                {
+                  text: "Gross, J. J. (2015). Emotion regulation: Current status and future prospects. Psychological Inquiry, 26(1), 1–26.",
+                  url: "https://doi.org/10.1080/1047840X.2014.940781",
+                },
+                {
+                  text: "Phelps, E. A., & LeDoux, J. E. (2005). Contributions of the amygdala to emotion processing: From animal models to human behavior. Neuron, 48(2), 175–187.",
+                  url: "https://doi.org/10.1016/j.neuron.2005.09.025",
+                },
+                {
+                  text: "Bouton, M. E. (2007). Learning and behavior: A contemporary synthesis. Annual Review of Psychology, 58, 219–245.",
+                  url: "https://doi.org/10.1146/annurev.psych.58.110405.085542",
+                },
+                {
+                  text: "Paulus, M. P., & Stein, M. B. (2010). Interoception in anxiety and depression. Brain Structure and Function, 214(5–6), 451–463.",
+                  url: "https://doi.org/10.1007/s00429-010-0258-9",
+                },
+                {
+                  text: "Carver, C. S., & Scheier, M. F. (1990). Origins and functions of positive and negative affect: A control-process view. Psychological Review, 97(1), 19–35.",
+                  url: "https://doi.org/10.1037/0033-295X.97.1.19",
+                },
+                {
+                  text: "McEwen, B. S. (2007). Physiology and neurobiology of stress and adaptation. Physiological Reviews, 87(3), 873–904.",
+                  url: "https://doi.org/10.1152/physrev.00041.2006",
+                },
+              ],
+            },
           },
           {
             name: "Placebo as Medicine",

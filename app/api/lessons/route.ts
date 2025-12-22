@@ -54,7 +54,7 @@ export async function POST(request: Request) {
             name: item.name,
             description: item.description,
             timestampsSec: item.timestampsSec,
-            content: item.content || null,
+            content: item.content ? JSON.parse(JSON.stringify(item.content)) : null,
             sortOrder: index,
           })),
         },

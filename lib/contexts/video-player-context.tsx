@@ -203,13 +203,6 @@ function createInitialState(lesson?: LessonData): VideoPlayerState {
   // Set intro overlay as active on load if it exists
   const introOverlay = overlayEvents.find((e) => e.id === "audio-intro") ?? null
 
-  // Debug logging
-  if (lesson?.introAudioUrl) {
-    console.log("Intro audio URL:", lesson.introAudioUrl)
-    console.log("Intro overlay:", introOverlay)
-    console.log("All overlay events:", overlayEvents)
-  }
-
   return {
     lessonId: lesson?.id ?? "",
     title: lesson?.title ?? "",
