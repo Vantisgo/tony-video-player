@@ -5,7 +5,7 @@
       "Bash(bun run lint:*)",
       "Bash(bun prisma format:*)",
       "Bash(bun add:*)",
-      "WebFetch(domain:docs.uploadthing.com)",
+
       "Bash(bun run build)",
       "Bash(bun prisma db seed:*)"
     ]
