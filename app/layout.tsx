@@ -27,9 +27,16 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} flex h-dvh flex-col antialiased`}
       >
-        {children}
+        <header className="sticky top-0 z-50 flex shrink-0 items-center bg-black py-5 pl-10 pr-6">
+          <img
+            src="/Lockup Type=Primary White.png"
+            alt="Logo"
+            className="h-14"
+          />
+        </header>
+        <main className="min-h-0 flex-1">{children}</main>
       </body>
     </html>
   );
