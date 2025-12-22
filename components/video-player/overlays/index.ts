@@ -7,5 +7,7 @@ export type { AudioOverlayProps } from "./audio-overlay"
 export { ScienceTrigger } from "./science-trigger"
 export type { ScienceTriggerProps } from "./science-trigger"
 
+export { SectionIndicator } from "./section-indicator"
+
 export { OverlayContainer } from "./overlay-container"
 export type { OverlayContainerProps, OverlayPosition } from "./overlay-container"

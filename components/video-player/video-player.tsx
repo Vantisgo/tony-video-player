@@ -6,12 +6,12 @@ import { cn } from "~/lib/utils"
 import { useVideoPlayer } from "~/lib/contexts/video-player-context"
 import { VideoControls } from "./video-controls"
 import { VideoProgress } from "./video-progress"
-import { ChapterMarkers } from "./chapter-markers"
 import {
   OverlayContainer,
   CTABubble,
   AudioOverlay,
   ScienceTrigger,
+  SectionIndicator,
 } from "./overlays"
 
 interface VideoPlayerProps {
@@ -120,13 +120,6 @@ function VideoPlayer({ className }: VideoPlayerProps) {
       }
     }
   }, [])
-
-  const handleChapterClick = React.useCallback(
-    (_phaseId: string, timestamp: number) => {
-      handleSeek(timestamp)
-    },
-    [handleSeek]
-  )
 
   // Show/hide controls on mouse move
   const handleMouseMove = React.useCallback(() => {
@@ -324,6 +317,11 @@ function VideoPlayer({ className }: VideoPlayerProps) {
 
       {/* Overlay Container */}
       <div className="pointer-events-none absolute inset-0">
+        {/* Section Indicator - top left */}
+        <OverlayContainer position="top-left">
+          <SectionIndicator />
+        </OverlayContainer>
+
         {/* CTA Bubble - top right */}
         {activeOverlay?.type === "cta" && (
           <OverlayContainer position="top-right">
@@ -376,16 +374,6 @@ function VideoPlayer({ className }: VideoPlayerProps) {
           showControls ? "opacity-100" : "opacity-0"
         )}
       >
-        {/* Chapter Markers (above progress) */}
-        <div className="relative mb-1">
-          <ChapterMarkers
-            phases={progressPhases}
-            duration={duration}
-            activePhaseId={activePhaseId}
-            onChapterClick={handleChapterClick}
-          />
-        </div>
-
         {/* Progress Bar */}
         <VideoProgress
           currentTime={currentTime}

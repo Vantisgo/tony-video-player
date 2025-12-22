@@ -1,7 +1,8 @@
 "use client"
 
+import * as React from "react"
 import { Circle, CheckCircle2, ChevronRight } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useVideoPlayer } from "~/lib/contexts/video-player-context"
 
 interface SubsectionItem {
   title: string
@@ -9,25 +10,37 @@ interface SubsectionItem {
   current: boolean
 }
 
-interface SectionIndicatorCollapsibleProps {
-  section: string
-  subsections: SubsectionItem[]
-}
+function SectionIndicator() {
+  const { phases, activePhaseId, activeInterventionId, currentTime } = useVideoPlayer()
 
-export default function SectionIndicatorCollapsible({ section, subsections }: SectionIndicatorCollapsibleProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [prevCurrentIndex, setPrevCurrentIndex] = useState(-1)
-  const [prevSection, setPrevSection] = useState(section)
-  const [showTransition, setShowTransition] = useState(false)
-  const [sectionChanged, setSectionChanged] = useState(false)
-  const [animationState, setAnimationState] = useState<"idle" | "exit" | "enter">("idle")
-  const [justCompletedIndex, setJustCompletedIndex] = useState<number | null>(null)
+  const [isExpanded, setIsExpanded] = React.useState(false)
+  const [prevCurrentIndex, setPrevCurrentIndex] = React.useState(-1)
+  const [prevSection, setPrevSection] = React.useState("")
+  const [showTransition, setShowTransition] = React.useState(false)
+  const [sectionChanged, setSectionChanged] = React.useState(false)
+  const [animationState, setAnimationState] = React.useState<"idle" | "exit" | "enter">("idle")
+  const [justCompletedIndex, setJustCompletedIndex] = React.useState<number | null>(null)
+
+  // Find the active phase
+  const activePhase = phases.find((p) => p.id === activePhaseId)
+  const section = activePhase?.title ?? ""
+
+  // Convert interventions to subsections format
+  const subsections: SubsectionItem[] = React.useMemo(() => {
+    if (!activePhase) return []
+
+    return activePhase.interventions.map((intervention) => ({
+      title: intervention.title,
+      completed: currentTime > intervention.timestampSec,
+      current: intervention.id === activeInterventionId,
+    }))
+  }, [activePhase, activeInterventionId, currentTime])
 
   const currentIndex = subsections.findIndex((s) => s.current)
   const currentSubsection = subsections[currentIndex]
 
-  useEffect(() => {
-    if (prevSection !== section && prevSection !== section) {
+  React.useEffect(() => {
+    if (prevSection !== section && prevSection !== "" && section !== "") {
       // Section changed - trigger exit animation then enter animation
       setSectionChanged(true)
       setAnimationState("exit")
@@ -65,12 +78,19 @@ export default function SectionIndicatorCollapsible({ section, subsections }: Se
       return () => clearTimeout(timer)
     }
     setPrevCurrentIndex(currentIndex)
-    setPrevSection(section)
+    if (section) {
+      setPrevSection(section)
+    }
   }, [currentIndex, prevCurrentIndex, section, prevSection])
+
+  // Don't render if there's no active phase
+  if (!activePhase || subsections.length === 0) {
+    return null
+  }
 
   return (
     <div
-      className={`transition-all duration-500 ease-in-out ${isExpanded ? "w-80" : "w-auto max-w-2xl"}`}
+      className={`pointer-events-auto transition-all duration-500 ease-in-out ${isExpanded ? "w-80" : "w-auto max-w-2xl"}`}
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => !showTransition && setIsExpanded(false)}
     >
@@ -174,3 +194,5 @@ export default function SectionIndicatorCollapsible({ section, subsections }: Se
     </div>
   )
 }
+
+export { SectionIndicator }
