@@ -8,10 +8,11 @@ interface SubsectionItem {
   title: string
   completed: boolean
   current: boolean
+  timestampSec: number
 }
 
 function SectionIndicator() {
-  const { phases, activePhaseId, activeInterventionId, currentTime } = useVideoPlayer()
+  const { phases, activePhaseId, activeInterventionId, currentTime, seek } = useVideoPlayer()
 
   const [isExpanded, setIsExpanded] = React.useState(false)
   const [prevCurrentIndex, setPrevCurrentIndex] = React.useState(-1)
@@ -21,9 +22,10 @@ function SectionIndicator() {
   const [animationState, setAnimationState] = React.useState<"idle" | "exit" | "enter">("idle")
   const [justCompletedIndex, setJustCompletedIndex] = React.useState<number | null>(null)
 
-  // Find the active phase
+  // Find the active phase - show "Intro" if no phase is active
   const activePhase = phases.find((p) => p.id === activePhaseId)
-  const section = activePhase?.title ?? ""
+  const isIntro = !activePhase
+  const section = activePhase?.title ?? "Intro"
 
   // Convert interventions to subsections format
   const subsections: SubsectionItem[] = React.useMemo(() => {
@@ -33,6 +35,7 @@ function SectionIndicator() {
       title: intervention.title,
       completed: currentTime > intervention.timestampSec,
       current: intervention.id === activeInterventionId,
+      timestampSec: intervention.timestampSec,
     }))
   }, [activePhase, activeInterventionId, currentTime])
 
@@ -83,14 +86,9 @@ function SectionIndicator() {
     }
   }, [currentIndex, prevCurrentIndex, section, prevSection])
 
-  // Don't render if there's no active phase
-  if (!activePhase || subsections.length === 0) {
-    return null
-  }
-
   return (
     <div
-      className={`pointer-events-auto transition-all duration-500 ease-in-out ${isExpanded ? "w-80" : "w-auto max-w-2xl"}`}
+      className={`pointer-events-auto transition-all duration-500 ease-in-out ${isExpanded ? "w-96" : "w-auto max-w-2xl"}`}
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => !showTransition && setIsExpanded(false)}
     >
@@ -104,19 +102,21 @@ function SectionIndicator() {
             <span className="text-orange-100 font-medium truncate" title={section}>
               {section}
             </span>
-            <div className="flex items-center gap-2">
-              <ChevronRight className="w-4 h-4 text-orange-300/60 flex-shrink-0" />
-              <span className="text-amber-100/80 font-normal truncate" title={currentSubsection?.title}>
-                {currentSubsection?.title}
-              </span>
-            </div>
+            {currentSubsection && (
+              <div className="flex items-center gap-2">
+                <ChevronRight className="w-4 h-4 text-orange-300/60 flex-shrink-0" />
+                <span className="text-amber-100/80 font-normal truncate" title={currentSubsection.title}>
+                  {currentSubsection.title}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         {isExpanded && (
-          <div className="space-y-4 overflow-hidden">
+          <div className="space-y-3 overflow-hidden">
             <div
-              className={`space-y-4 transition-all duration-400 ${
+              className={`space-y-3 transition-all duration-400 ${
                 animationState === "exit"
                   ? "-translate-x-full opacity-0"
                   : animationState === "enter"
@@ -130,63 +130,76 @@ function SectionIndicator() {
                 <h3 className="text-white text-lg font-bold leading-tight text-pretty">{section}</h3>
               </div>
 
-              {/* Progress Bar */}
-              <div className="space-y-2">
-                <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 rounded-full transition-all duration-700 ease-out"
-                    style={{
-                      width: `${(subsections.filter((s) => s.completed).length / subsections.length) * 100}%`,
-                    }}
-                  />
-                </div>
-                <div className="text-orange-100/60 text-xs">
-                  {subsections.filter((s) => s.completed).length} of {subsections.length} completed
-                </div>
-              </div>
-
-              {/* Subsections List */}
-              <div className="space-y-2">
-                {subsections.map((sub, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-3 p-2 rounded-lg transition-all duration-300 ${
-                      sub.current ? "bg-white/10 scale-[1.02]" : "hover:bg-white/5"
-                    } ${
-                      showTransition && sub.current && !sectionChanged
-                        ? "animate-in slide-in-from-top-2 duration-500"
-                        : ""
-                    }`}
-                  >
-                    <div className="mt-0.5 flex-shrink-0">
-                      {sub.completed ? (
-                        <CheckCircle2
-                          className={`w-4 h-4 text-orange-400 ${
-                            justCompletedIndex === index ? "animate-in zoom-in duration-300" : ""
-                          }`}
-                        />
-                      ) : sub.current ? (
-                        <div className="w-4 h-4 rounded-full border-2 border-orange-400 flex items-center justify-center">
-                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                        </div>
-                      ) : (
-                        <Circle className="w-4 h-4 text-orange-300/30" />
-                      )}
+              {/* Show progress and interventions only if not intro */}
+              {!isIntro && subsections.length > 0 && (
+                <>
+                  {/* Progress Bar */}
+                  <div className="space-y-1.5">
+                    <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 rounded-full transition-all duration-700 ease-out"
+                        style={{
+                          width: `${(subsections.filter((s) => s.completed).length / subsections.length) * 100}%`,
+                        }}
+                      />
                     </div>
-                    <span
-                      className={`text-sm flex-1 leading-relaxed text-pretty ${
-                        sub.current
-                          ? "text-white font-medium"
-                          : sub.completed
-                            ? "text-orange-100/60"
-                            : "text-orange-100/40"
-                      }`}
-                    >
-                      {sub.title}
-                    </span>
+                    <div className="text-orange-100/60 text-xs">
+                      {subsections.filter((s) => s.completed).length} of {subsections.length} completed
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Subsections List */}
+                  <div className="space-y-1">
+                    {subsections.map((sub, index) => (
+                      <div
+                        key={index}
+                        onClick={() => seek(sub.timestampSec)}
+                        className={`flex items-start gap-3 p-1.5 rounded-lg transition-all duration-300 cursor-pointer ${
+                          sub.current ? "bg-white/10 scale-[1.02]" : "hover:bg-white/5"
+                        } ${
+                          showTransition && sub.current && !sectionChanged
+                            ? "animate-in slide-in-from-top-2 duration-500"
+                            : ""
+                        }`}
+                      >
+                        <div className="mt-0.5 flex-shrink-0">
+                          {sub.completed ? (
+                            <CheckCircle2
+                              className={`w-4 h-4 text-orange-400 ${
+                                justCompletedIndex === index ? "animate-in zoom-in duration-300" : ""
+                              }`}
+                            />
+                          ) : sub.current ? (
+                            <div className="w-4 h-4 rounded-full border-2 border-orange-400 flex items-center justify-center">
+                              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+                            </div>
+                          ) : (
+                            <Circle className="w-4 h-4 text-orange-300/30" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-sm flex-1 leading-snug text-pretty ${
+                            sub.current
+                              ? "text-white font-medium"
+                              : sub.completed
+                                ? "text-orange-100/60"
+                                : "text-orange-100/40"
+                          }`}
+                        >
+                          {sub.title}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Intro message when no phase is active */}
+              {isIntro && (
+                <div className="text-orange-100/60 text-sm">
+                  Starting soon...
+                </div>
+              )}
             </div>
           </div>
         )}

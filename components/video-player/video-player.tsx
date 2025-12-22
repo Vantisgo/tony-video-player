@@ -334,9 +334,9 @@ function VideoPlayer({ className }: VideoPlayerProps) {
           </OverlayContainer>
         )}
 
-        {/* Audio Overlay - bottom */}
+        {/* Audio Overlay - bottom right */}
         {activeOverlay?.type === "audio" && (
-          <OverlayContainer position="bottom">
+          <OverlayContainer position="bottom-right">
             <AudioOverlay
               title={activeOverlay.title ?? "Audio Commentary"}
               audioUrl={activeOverlay.audioUrl}
