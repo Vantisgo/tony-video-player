@@ -54,10 +54,10 @@ function InterventionItem({
         </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
-        {/* Prompt */}
+        {/* Quote */}
         <div>
           <p className="mb-1 text-xs font-medium text-muted-foreground">
-            Prompt
+            Quote
           </p>
           <p className="italic text-foreground/90">
             &ldquo;{intervention.prompt}&rdquo;

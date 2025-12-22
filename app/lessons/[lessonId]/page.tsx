@@ -9,9 +9,12 @@ interface LessonPageProps {
   params: Promise<{ lessonId: string }>
 }
 
-async function getLesson(lessonId: string): Promise<LessonData | null> {
+async function getLesson(lessonIdOrSlug: string): Promise<LessonData | null> {
+  // Check if it's a UUID or a slug
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lessonIdOrSlug)
+
   const lesson = await prisma.lesson.findUnique({
-    where: { id: lessonId },
+    where: isUuid ? { id: lessonIdOrSlug } : { slug: lessonIdOrSlug },
     include: {
       phases: {
         include: {

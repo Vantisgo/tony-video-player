@@ -19,6 +19,7 @@ datasource db {
 
 model Lesson {
   id          String @id @default(uuid())
+  slug        String @unique
   title       String
   description String
   videoUrl    String

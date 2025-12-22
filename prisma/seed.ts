@@ -15,7 +15,7 @@ async function main() {
   // =======================================================================
   const MEDIA = {
     video:
-      "https://xw2q4gahxr6qj14h.public.blob.vercel-storage.com/video/1766432271545-1_Coaching_100MB.mp4",
+      "https://xw2q4gahxr6qj14h.public.blob.vercel-storage.com/video/1_Coaching_Compressed.mp4",
     audio: {
       intro: "/uploads/audio/2025-12-22 at 00.22.27 Intro.mp3",
       phase1: "/uploads/audio/2025-12-22 at 00.50.40 Voiceover Phase 1.mp3",
@@ -42,6 +42,7 @@ async function main() {
   // Create the lesson
   const lesson = await prisma.lesson.create({
     data: {
+      slug: "panic-pattern-coaching-session",
       title: "Tony Robbins: Panic Pattern Coaching Session",
       description:
         "Tony brings the coachee into the framework of the 8 Levels of Consciousness and helps her understand and transform her panic pattern through structured interventions.",

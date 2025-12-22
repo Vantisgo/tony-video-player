@@ -95,7 +95,7 @@ function CommentsSection({ className }: CommentsSectionProps) {
   return (
     <Card data-slot="comments-section" className={cn("", className)}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Comments</CardTitle>
+        <CardTitle className="text-base">Add your observations/insights</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Comment form */}

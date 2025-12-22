@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { CaretRight, Timer } from "@phosphor-icons/react"
 
 import { cn } from "~/lib/utils"
 import {
@@ -9,6 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "~/components/ui/accordion"
+import { Badge } from "~/components/ui/badge"
 import { InterventionAccordion, type Intervention } from "./intervention-accordion"
 import { TimestampBadge } from "./timestamp-badge"
 
@@ -35,6 +37,11 @@ interface PhaseAccordionProps {
   className?: string
 }
 
+// Strip "Phase X:" prefix from title since we show the number separately
+function stripPhasePrefix(title: string): string {
+  return title.replace(/^Phase\s*\d+\s*:\s*/i, "")
+}
+
 function PhaseAccordion({
   phases,
   activePhaseId,
@@ -55,22 +62,17 @@ function PhaseAccordion({
     [onExpandedPhaseChange]
   )
 
-  const truncateDescription = (text: string, maxLength: number = 100) => {
-    if (text.length <= maxLength) return text
-    const truncated = text.slice(0, maxLength).trim()
-    return `${truncated}... more`
-  }
-
   return (
     <Accordion
       type="single"
       collapsible
       value={expandedPhaseId ?? undefined}
       onValueChange={handleValueChange}
-      className={cn("w-full space-y-2", className)}
+      className={cn("w-full space-y-3", className)}
     >
-      {phases.map((phase) => {
+      {phases.map((phase, index) => {
         const isActive = phase.id === activePhaseId
+        const interventionCount = phase.interventions.length
 
         return (
           <AccordionItem
@@ -78,38 +80,85 @@ function PhaseAccordion({
             value={phase.id}
             ref={(el) => onPhaseRef?.(phase.id, el)}
             className={cn(
-              "rounded-lg border px-3 transition-colors",
-              isActive && "border-primary bg-primary/5"
+              "rounded-xl border-2 bg-card overflow-hidden transition-all duration-200",
+              isActive
+                ? "border-primary shadow-sm shadow-primary/10"
+                : "border-border hover:border-border/80"
             )}
           >
-            <AccordionTrigger className="gap-2 py-3 hover:no-underline">
-              <div className="flex flex-1 flex-col items-start gap-1">
-                <div className="flex items-center gap-2 w-full">
-                  <TimestampBadge
-                    timestamp={phase.startTimeSec}
-                    onClick={(timestamp) => onPhaseClick?.(phase.id, timestamp)}
-                  />
-                  <span className="font-medium truncate">{phase.title}</span>
+            <AccordionTrigger className="gap-3 px-4 py-4 hover:no-underline hover:bg-muted/30">
+              <div className="flex flex-1 items-start gap-3 min-w-0">
+                {/* Phase number indicator */}
+                <div
+                  className={cn(
+                    "flex size-10 shrink-0 items-center justify-center rounded-lg font-bold text-lg transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {index + 1}
                 </div>
-                <p className="text-xs text-muted-foreground break-words">
-                  {truncateDescription(phase.description)}
-                </p>
+
+                <div className="flex flex-col items-start gap-2 min-w-0 flex-1">
+                  {/* Title and timestamp row */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3
+                      className={cn(
+                        "text-base font-semibold leading-tight",
+                        isActive && "text-primary"
+                      )}
+                    >
+                      {stripPhasePrefix(phase.title)}
+                    </h3>
+                    <TimestampBadge
+                      timestamp={phase.startTimeSec}
+                      onClick={(timestamp) => onPhaseClick?.(phase.id, timestamp)}
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                    {phase.description}
+                  </p>
+
+                  {/* Meta info */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      <CaretRight weight="bold" className="size-3" />
+                      {interventionCount} intervention{interventionCount !== 1 ? "s" : ""}
+                    </Badge>
+                    {phase.endTimeSec && (
+                      <Badge variant="outline" className="text-xs gap-1 font-mono">
+                        <Timer weight="duotone" className="size-3" />
+                        {Math.round((phase.endTimeSec - phase.startTimeSec) / 60)}m
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="pb-3">
-              <div className="pt-2 space-y-2">
+            <AccordionContent className="px-4 pb-4">
+              <div className="pt-3 border-t border-border/50">
                 {phase.interventions.length > 0 ? (
-                  <InterventionAccordion
-                    interventions={phase.interventions}
-                    activeInterventionId={activeInterventionId}
-                    expandedInterventionId={expandedInterventionId}
-                    onInterventionClick={onInterventionClick}
-                    onExpandedChange={onExpandedInterventionChange}
-                  />
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Interventions
+                    </h4>
+                    <InterventionAccordion
+                      interventions={phase.interventions}
+                      activeInterventionId={activeInterventionId}
+                      expandedInterventionId={expandedInterventionId}
+                      onInterventionClick={onInterventionClick}
+                      onExpandedChange={onExpandedInterventionChange}
+                    />
+                  </div>
                 ) : (
-                  <p className="py-4 text-center text-sm text-muted-foreground">
-                    No interventions in this phase
-                  </p>
+                  <div className="py-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No interventions in this phase
+                    </p>
+                  </div>
                 )}
               </div>
             </AccordionContent>

@@ -3,6 +3,15 @@ import { NextResponse } from "next/server"
 import prisma from "~/prisma/prisma"
 import { LessonJSONSchema } from "~/lib/schemas"
 
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim()
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -19,9 +28,21 @@ export async function POST(request: Request) {
     const jsonData = parseResult.data
     const { title, description, videoUrl, audioUrls } = body
 
+    // Generate slug from title
+    const baseSlug = generateSlug(title)
+    let slug = baseSlug
+    let counter = 1
+
+    // Ensure slug is unique
+    while (await prisma.lesson.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${counter}`
+      counter++
+    }
+
     // Create lesson with nested relations
     const lesson = await prisma.lesson.create({
       data: {
+        slug,
         title,
         description,
         videoUrl,
@@ -89,6 +110,7 @@ export async function GET() {
     const lessons = await prisma.lesson.findMany({
       select: {
         id: true,
+        slug: true,
         title: true,
         description: true,
         duration: true,
