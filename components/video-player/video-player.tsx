@@ -44,6 +44,7 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     pauseOverlayAudio,
     seekOverlayAudio,
     setOverlayAudioPlaying,
+    updateOverlayAudioTime,
   } = useVideoPlayer()
 
   const videoRef = React.useRef<HTMLVideoElement>(null)
@@ -98,13 +99,9 @@ function VideoPlayer({ className }: VideoPlayerProps) {
 
   const handleSeek = React.useCallback(
     (time: number) => {
-      // If intro overlay is active, dismiss it when seeking
-      if (activeOverlay?.id === "audio-intro") {
-        dismissOverlay(activeOverlay.id)
-      }
       seek(time)
     },
-    [seek, activeOverlay, dismissOverlay]
+    [seek]
   )
 
   const handleVolumeChange = React.useCallback(
@@ -318,6 +315,9 @@ function VideoPlayer({ className }: VideoPlayerProps) {
           }
           onPlay={() => setOverlayAudioPlaying(true)}
           onPause={() => setOverlayAudioPlaying(false)}
+          onTimeUpdate={(e) =>
+            updateOverlayAudioTime((e.target as HTMLAudioElement).currentTime)
+          }
           onEnded={handleOverlayDismiss}
         />
       )}

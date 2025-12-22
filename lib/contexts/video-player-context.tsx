@@ -138,6 +138,7 @@ interface VideoPlayerActions {
   pauseOverlayAudio: () => void
   seekOverlayAudio: (time: number) => void
   setOverlayAudioPlaying: (playing: boolean) => void
+  updateOverlayAudioTime: (time: number) => void
 
   // Comments
   addComment: (comment: Comment) => void
@@ -406,6 +407,11 @@ function VideoPlayerProvider({
       },
       seek: (time: number) => {
         if (videoRef.current) {
+          // Dismiss any active audio overlay when seeking
+          if (state.activeOverlay?.type === "audio") {
+            dispatch({ type: "DISMISS_OVERLAY", payload: state.activeOverlay.id })
+            overlayAudioRef.current?.pause()
+          }
           videoRef.current.currentTime = time
           dispatch({ type: "SET_TIME", payload: time })
         }
@@ -466,6 +472,9 @@ function VideoPlayerProvider({
       },
       setOverlayAudioPlaying: (playing: boolean) => {
         dispatch({ type: "SET_OVERLAY_AUDIO_PLAYING", payload: playing })
+      },
+      updateOverlayAudioTime: (time: number) => {
+        dispatch({ type: "SET_OVERLAY_AUDIO_TIME", payload: time })
       },
       addComment: (comment: Comment) => {
         dispatch({ type: "ADD_COMMENT", payload: comment })
