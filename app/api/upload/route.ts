@@ -3,53 +3,52 @@ import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    const file = formData.get("file") as File | null
-    const fileType = formData.get("type") as string | null
+    // Check for blob token
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("BLOB_READ_WRITE_TOKEN is not set")
+      return NextResponse.json(
+        { error: "Storage not configured" },
+        { status: 500 }
+      )
+    }
 
-    if (!file) {
+    // Get filename and type from search params (for streaming upload)
+    const { searchParams } = new URL(request.url)
+    const filename = searchParams.get("filename")
+    const fileType = searchParams.get("type")
+
+    if (!filename) {
+      return NextResponse.json({ error: "No filename provided" }, { status: 400 })
+    }
+
+    if (!request.body) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
-    }
-
-    // Validate file type
-    const allowedTypes: Record<string, string[]> = {
-      video: ["video/mp4", "video/webm"],
-      audio: ["audio/mpeg", "audio/wav", "audio/mp3"],
-      json: ["application/json"],
-    }
-
-    if (fileType && allowedTypes[fileType]) {
-      if (!allowedTypes[fileType].includes(file.type)) {
-        return NextResponse.json(
-          { error: `Invalid file type. Expected ${fileType}` },
-          { status: 400 }
-        )
-      }
     }
 
     // Generate a unique filename with timestamp
     const timestamp = Date.now()
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-    const filename = `${timestamp}-${sanitizedName}`
+    const sanitizedName = filename.replace(/[^a-zA-Z0-9.-]/g, "_")
+    const uniqueFilename = `${timestamp}-${sanitizedName}`
 
     // Determine folder based on file type
     const folder = fileType || "files"
-    const pathname = `${folder}/${filename}`
+    const pathname = `${folder}/${uniqueFilename}`
 
-    // Upload to Vercel Blob
-    const blob = await put(pathname, file, {
+    // Upload to Vercel Blob using streaming
+    const blob = await put(pathname, request.body, {
       access: "public",
     })
 
     return NextResponse.json({
       url: blob.url,
-      name: file.name,
-      size: file.size,
+      name: filename,
+      size: 0, // Size not available in streaming mode
     })
   } catch (error) {
     console.error("Upload error:", error)
+    const message = error instanceof Error ? error.message : "Upload failed"
     return NextResponse.json(
-      { error: "Upload failed" },
+      { error: message },
       { status: 500 }
     )
   }

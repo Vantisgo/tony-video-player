@@ -33,13 +33,16 @@ export function useUpload(fileType: FileType, options: UseUploadOptions = {}) {
 
         for (let i = 0; i < fileArray.length; i++) {
           const file = fileArray[i]
-          const formData = new FormData()
-          formData.append("file", file)
-          formData.append("type", fileType)
 
-          const response = await fetch("/api/upload", {
+          // Use streaming upload with query params
+          const params = new URLSearchParams({
+            filename: file.name,
+            type: fileType,
+          })
+
+          const response = await fetch(`/api/upload?${params.toString()}`, {
             method: "POST",
-            body: formData,
+            body: file,
           })
 
           if (!response.ok) {
@@ -51,7 +54,7 @@ export function useUpload(fileType: FileType, options: UseUploadOptions = {}) {
           uploadedFiles.push({
             name: result.name,
             url: result.url,
-            size: result.size,
+            size: file.size,
           })
 
           const currentProgress = ((i + 1) / fileArray.length) * 100
