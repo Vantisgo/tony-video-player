@@ -36,7 +36,7 @@ function AudioOverlay({
   audioUrl,
   isPlaying = false,
   currentTime = 0,
-  duration = 100,
+  duration = 0,
   onPlayPause,
   onRewind,
   onForward,
@@ -46,11 +46,21 @@ function AudioOverlay({
   autoPlay = true,
 }: AudioOverlayProps) {
   const audioRef = React.useRef<HTMLAudioElement>(null)
-  const [localIsPlaying, setLocalIsPlaying] = React.useState(isPlaying)
-  const [localCurrentTime, setLocalCurrentTime] = React.useState(currentTime)
-  const [localDuration, setLocalDuration] = React.useState(duration)
 
-  const progress = localDuration > 0 ? (localCurrentTime / localDuration) * 100 : 0
+  // Detect if component is externally controlled
+  const isControlled = !!onPlayPause
+
+  // Local state for uncontrolled mode only
+  const [localIsPlaying, setLocalIsPlaying] = React.useState(false)
+  const [localCurrentTime, setLocalCurrentTime] = React.useState(0)
+  const [localDuration, setLocalDuration] = React.useState(0)
+
+  // Use props in controlled mode, local state in uncontrolled mode
+  const displayIsPlaying = isControlled ? isPlaying : localIsPlaying
+  const displayCurrentTime = isControlled ? currentTime : localCurrentTime
+  const displayDuration = isControlled ? duration : localDuration
+
+  const progress = displayDuration > 0 ? (displayCurrentTime / displayDuration) * 100 : 0
 
   // Use local state if no external control provided
   const handlePlayPause = React.useCallback(() => {
@@ -116,9 +126,9 @@ function AudioOverlay({
     }
   }, [onDismiss])
 
-  // Auto-play when overlay appears (only if autoPlay is true)
+  // Auto-play when overlay appears (only in uncontrolled mode and if autoPlay is true)
   React.useEffect(() => {
-    if (audioRef.current && audioUrl && autoPlay) {
+    if (!isControlled && audioRef.current && audioUrl && autoPlay) {
       // Small delay to ensure component is mounted
       const timer = setTimeout(() => {
         audioRef.current?.play().catch(() => {
@@ -128,7 +138,7 @@ function AudioOverlay({
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [audioUrl, autoPlay])
+  }, [isControlled, audioUrl, autoPlay])
 
   return (
     <Card
@@ -138,8 +148,8 @@ function AudioOverlay({
         className
       )}
     >
-      {/* Hidden audio element for self-contained playback */}
-      {audioUrl && (
+      {/* Hidden audio element for self-contained playback (uncontrolled mode only) */}
+      {!isControlled && audioUrl && (
         <audio
           ref={audioRef}
           src={audioUrl}
@@ -179,7 +189,7 @@ function AudioOverlay({
             size="icon-sm"
             onClick={handlePlayPause}
           >
-            {localIsPlaying ? (
+            {displayIsPlaying ? (
               <Pause weight="fill" className="size-4" />
             ) : (
               <Play weight="fill" className="size-4" />
@@ -202,7 +212,7 @@ function AudioOverlay({
             <div className="flex items-center gap-2">
               <Progress value={progress} className="h-1 flex-1" />
               <span className="text-xs tabular-nums text-muted-foreground">
-                {formatTime(localCurrentTime)} / {formatTime(localDuration)}
+                {formatTime(displayCurrentTime)} / {formatTime(displayDuration)}
               </span>
             </div>
           </div>

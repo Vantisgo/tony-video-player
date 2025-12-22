@@ -137,6 +137,7 @@ interface VideoPlayerActions {
   playOverlayAudio: () => void
   pauseOverlayAudio: () => void
   seekOverlayAudio: (time: number) => void
+  setOverlayAudioPlaying: (playing: boolean) => void
 
   // Comments
   addComment: (comment: Comment) => void
@@ -462,6 +463,9 @@ function VideoPlayerProvider({
           overlayAudioRef.current.currentTime = time
           dispatch({ type: "SET_OVERLAY_AUDIO_TIME", payload: time })
         }
+      },
+      setOverlayAudioPlaying: (playing: boolean) => {
+        dispatch({ type: "SET_OVERLAY_AUDIO_PLAYING", payload: playing })
       },
       addComment: (comment: Comment) => {
         dispatch({ type: "ADD_COMMENT", payload: comment })

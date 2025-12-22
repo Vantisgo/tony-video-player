@@ -43,6 +43,7 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     playOverlayAudio,
     pauseOverlayAudio,
     seekOverlayAudio,
+    setOverlayAudioPlaying,
   } = useVideoPlayer()
 
   const videoRef = React.useRef<HTMLVideoElement>(null)
@@ -68,6 +69,13 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     return () => registerOverlayAudioRef(null)
   }, [registerOverlayAudioRef])
 
+  // Reset audio duration when overlay changes
+  React.useEffect(() => {
+    if (activeOverlay?.type === "audio") {
+      setAudioDuration(0)
+    }
+  }, [activeOverlay?.id])
+
 
   // Video event handlers for buffered
   const handleTimeUpdate = React.useCallback(() => {
@@ -79,25 +87,14 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     }
   }, [])
 
-  // Control handlers
+  // Control handlers - always controls video (audio overlay has its own controls)
   const togglePlayPause = React.useCallback(() => {
-    // If intro overlay is active, control its audio playback instead of video
-    if (activeOverlay?.id === "audio-intro") {
-      if (isOverlayAudioPlaying) {
-        pauseOverlayAudio()
-      } else {
-        playOverlayAudio()
-      }
-      return
-    }
-
-    // Normal video play/pause
     if (isPlaying) {
       pause()
     } else {
       play()
     }
-  }, [isPlaying, play, pause, activeOverlay, isOverlayAudioPlaying, playOverlayAudio, pauseOverlayAudio])
+  }, [isPlaying, play, pause])
 
   const handleSeek = React.useCallback(
     (time: number) => {
@@ -274,18 +271,6 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     seekOverlayAudio(Math.min(audioDuration, overlayAudioCurrentTime + 10))
   }, [seekOverlayAudio, overlayAudioCurrentTime, audioDuration])
 
-  // Compute display state for controls
-  // When intro overlay is active, show intro audio state instead of video state
-  const displayIsPlaying = activeOverlay?.id === "audio-intro"
-    ? isOverlayAudioPlaying
-    : isPlaying
-  const displayCurrentTime = activeOverlay?.id === "audio-intro"
-    ? overlayAudioCurrentTime
-    : currentTime
-  const displayDuration = activeOverlay?.id === "audio-intro"
-    ? audioDuration
-    : duration
-
   return (
     <div
       ref={containerRef}
@@ -324,9 +309,16 @@ function VideoPlayer({ className }: VideoPlayerProps) {
         <audio
           ref={audioRef}
           src={activeOverlay.audioUrl}
+          autoPlay={activeOverlay.id !== "audio-intro"}
           onLoadedMetadata={(e) =>
             setAudioDuration((e.target as HTMLAudioElement).duration)
           }
+          onDurationChange={(e) =>
+            setAudioDuration((e.target as HTMLAudioElement).duration)
+          }
+          onPlay={() => setOverlayAudioPlaying(true)}
+          onPause={() => setOverlayAudioPlaying(false)}
+          onEnded={handleOverlayDismiss}
         />
       )}
 
@@ -396,8 +388,8 @@ function VideoPlayer({ className }: VideoPlayerProps) {
 
         {/* Progress Bar */}
         <VideoProgress
-          currentTime={displayCurrentTime}
-          duration={displayDuration}
+          currentTime={currentTime}
+          duration={duration}
           buffered={buffered}
           phases={progressPhases}
           onSeek={handleSeek}
@@ -406,9 +398,9 @@ function VideoPlayer({ className }: VideoPlayerProps) {
 
         {/* Controls */}
         <VideoControls
-          isPlaying={displayIsPlaying}
-          currentTime={displayCurrentTime}
-          duration={displayDuration}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
           volume={volume}
           isMuted={isMuted}
           onPlayPause={togglePlayPause}
