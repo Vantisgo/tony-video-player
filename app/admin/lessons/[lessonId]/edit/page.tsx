@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Input } from "~/components/ui/input"
 import { Textarea } from "~/components/ui/textarea"
 import { Label } from "~/components/ui/label"
-import { UploadDropzone } from "~/lib/uploadthing"
+import { UploadDropzone } from "~/components/ui/upload-dropzone"
 
 interface UploadedFile {
   name: string
@@ -130,11 +130,11 @@ export default function EditLessonPage() {
 
   // Handle video upload complete
   const handleVideoUpload = React.useCallback(
-    (res: { name: string; ufsUrl: string; size: number }[]) => {
+    (res: { name: string; url: string; size: number }[]) => {
       if (res[0]) {
         setFormData((prev) => ({
           ...prev,
-          videoFile: { name: res[0].name, url: res[0].ufsUrl, size: res[0].size },
+          videoFile: { name: res[0].name, url: res[0].url, size: res[0].size },
         }))
       }
     },
@@ -143,14 +143,14 @@ export default function EditLessonPage() {
 
   // Handle audio upload complete
   const handleAudioUpload = React.useCallback(
-    (res: { name: string; ufsUrl: string; size: number }[]) => {
+    (res: { name: string; url: string; size: number }[]) => {
       if (res[0]) {
         const audioRef = res[0].name.replace(/\.[^/.]+$/, "") // Remove extension for ref
         setFormData((prev) => {
           const newAudioFiles = new Map(prev.audioFiles)
           newAudioFiles.set(audioRef, {
             name: res[0].name,
-            url: res[0].ufsUrl,
+            url: res[0].url,
             size: res[0].size,
           })
           return { ...prev, audioFiles: newAudioFiles }
@@ -532,7 +532,7 @@ export default function EditLessonPage() {
                   </div>
                 ) : (
                   <UploadDropzone
-                    endpoint="videoUploader"
+                    endpoint="video"
                     onClientUploadComplete={handleVideoUpload}
                     onUploadError={(error) => {
                       console.error("Video upload error:", error)
@@ -609,7 +609,7 @@ export default function EditLessonPage() {
               </div>
             )}
             <UploadDropzone
-              endpoint="audioUploader"
+              endpoint="audio"
               onClientUploadComplete={handleAudioUpload}
               onUploadError={(error) => {
                 console.error("Audio upload error:", error)
