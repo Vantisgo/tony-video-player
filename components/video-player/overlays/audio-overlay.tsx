@@ -166,7 +166,7 @@ function AudioOverlay({
           </div>
           <div className="flex-1">
             <h3 className="text-base font-bold text-white">{title}</h3>
-            <p className="text-xs text-orange-100/70">Voice-Over</p>
+            <p className="text-xs text-orange-100/70">by Dr. Frederik Hümmeke</p>
             <div className="mt-1 flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
               <span className="text-xs text-orange-100/50">

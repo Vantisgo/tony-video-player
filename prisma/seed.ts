@@ -1710,73 +1710,246 @@ async function main() {
           },
           {
             name: "Placebo as Medicine",
-            description: `The placebo effect is often dismissed as a confounding variable in clinical trials — something to be controlled for, subtracted out, and ultimately ignored. But this framing misses the point. The placebo effect is not noise. It is signal. It reveals something fundamental about how the brain regulates the body.
-
-When a person believes they are receiving an effective treatment, the brain initiates real physiological changes. Pain diminishes. Inflammation decreases. Neurotransmitter levels shift. These are not imaginary improvements — they are measurable, replicable, and in some cases, indistinguishable from the effects of active drugs.
-
-The key mechanism is expectation. The brain is a prediction machine. It constantly generates forecasts about what will happen next and adjusts bodily states accordingly. When a person expects relief, the brain pre-emptively shifts toward that state. This is not deception — it is adaptive regulation.
-
-This has profound implications for coaching and therapeutic work. The way an intervention is framed, the confidence with which it is delivered, and the context in which it occurs all influence outcomes. A technique presented with certainty and authority activates different neural pathways than the same technique offered tentatively.
-
-The placebo effect also explains why belief systems matter. If a person believes they are broken, their brain will regulate toward that state. If they believe change is possible, the brain shifts its predictions accordingly. This is not magical thinking — it is the neuroscience of expectation.
-
-Effective practitioners understand this. They do not manipulate or deceive. They leverage the brain's natural regulatory mechanisms by creating conditions where positive expectation is plausible. The intervention becomes more effective not because of trickery, but because the brain is working with the process rather than against it.
-
-Key References:
-• Benedetti, F. (2014). Placebo Effects: Understanding the Mechanisms in Health and Disease.
-• Kaptchuk, T. J., & Miller, F. G. (2015). Placebo Effects in Medicine. New England Journal of Medicine.
-• Wager, T. D., & Atlas, L. Y. (2015). The neuroscience of placebo effects: connecting context, learning and health. Nature Reviews Neuroscience.
-• Kirsch, I. (2010). The Emperor's New Drugs: Exploding the Antidepressant Myth.`,
+            description:
+              "The Neuroscience of Expectation: Why Placebo Effects Are Real Medicine",
             timestampsSec: [840, 930],
             sortOrder: 1,
+            content: {
+              title: "#2 Placebo as Medicine",
+              subtitle:
+                "The Neuroscience of Expectation: Why Placebo Effects Are Real Medicine",
+              sections: [
+                {
+                  heading: "The Placebo Effect Is Signal, Not Noise",
+                  content:
+                    "The placebo effect is often dismissed as a confounding variable in clinical trials — something to be controlled for, subtracted out, and ultimately ignored. But this framing misses the point. The placebo effect is not noise. It is signal. It reveals something fundamental about how the brain regulates the body.",
+                },
+                {
+                  heading: "Real Physiological Changes",
+                  content:
+                    "When a person believes they are receiving an effective treatment, the brain initiates real physiological changes:",
+                  items: [
+                    { text: "Pain diminishes" },
+                    { text: "Inflammation decreases" },
+                    { text: "Neurotransmitter levels shift" },
+                  ],
+                },
+                {
+                  heading: "The Mechanism: Expectation",
+                  content:
+                    "The key mechanism is expectation. The brain is a prediction machine. It constantly generates forecasts about what will happen next and adjusts bodily states accordingly. When a person expects relief, the brain pre-emptively shifts toward that state. This is not deception — it is adaptive regulation.",
+                },
+                {
+                  heading: "Implications for Coaching & Therapy",
+                  content:
+                    "This has profound implications for coaching and therapeutic work:",
+                  items: [
+                    {
+                      text: "The way an intervention is framed influences outcomes",
+                    },
+                    {
+                      text: "Confidence in delivery activates different neural pathways",
+                    },
+                    {
+                      text: "Context and environment shape treatment effectiveness",
+                    },
+                  ],
+                },
+                {
+                  heading: "Why Belief Systems Matter",
+                  content:
+                    "The placebo effect explains why belief systems matter. If a person believes they are broken, their brain will regulate toward that state. If they believe change is possible, the brain shifts its predictions accordingly. This is not magical thinking — it is the neuroscience of expectation.",
+                },
+                {
+                  heading: "Leveraging Natural Regulatory Mechanisms",
+                  content:
+                    "Effective practitioners do not manipulate or deceive. They leverage the brain's natural regulatory mechanisms by creating conditions where positive expectation is plausible. The intervention becomes more effective because the brain is working with the process rather than against it.",
+                },
+              ],
+              references: [
+                {
+                  text: "Benedetti, F. (2014). Placebo Effects: Understanding the Mechanisms in Health and Disease.",
+                },
+                {
+                  text: "Kaptchuk, T. J., & Miller, F. G. (2015). Placebo Effects in Medicine. New England Journal of Medicine.",
+                },
+                {
+                  text: "Wager, T. D., & Atlas, L. Y. (2015). The neuroscience of placebo effects: connecting context, learning and health. Nature Reviews Neuroscience.",
+                },
+                {
+                  text: "Kirsch, I. (2010). The Emperor's New Drugs: Exploding the Antidepressant Myth.",
+                },
+              ],
+            },
           },
           {
             name: "What Xanax Is – and What It Actually Does",
-            description: `Benzodiazepines like Xanax (alprazolam) are among the most commonly prescribed medications for anxiety and panic. They work by enhancing the effect of GABA (gamma-aminobutyric acid), the brain's primary inhibitory neurotransmitter. Within minutes, the nervous system slows down, muscles relax, and the subjective experience of anxiety diminishes.
-
-But here is the critical distinction: the drug does not solve the problem. It suppresses the signal.
-
-Anxiety is not a chemical imbalance that benzodiazepines correct. It is a regulatory state — a pattern of activation that the brain generates in response to perceived threat. Xanax does not address the threat. It does not change the underlying pattern. It simply dampens the output.
-
-This creates two significant problems. First, the person never learns that they can regulate the state themselves. The drug becomes the source of relief, and the sense of personal agency diminishes. Second, because the underlying pattern remains intact, it reasserts itself as soon as the drug wears off — often with greater intensity (rebound anxiety).
-
-There is also a misattribution effect. When someone takes Xanax and feels better, they attribute the relief to the drug. But in many cases, the relief would have occurred anyway — panic attacks are self-limiting; the nervous system naturally returns to baseline. The drug captures the credit for a process that was already underway.
-
-This is not an argument against medication. For some people, in some contexts, benzodiazepines serve a legitimate function — particularly in acute crisis or as a bridge to longer-term intervention. But they are not a solution. They are a pause button.
-
-Effective intervention works differently. It teaches the person to recognize the pattern, understand its components, and develop the capacity to regulate it directly. The goal is not to suppress the signal but to update the system that generates it.
-
-Key References:
-• Ashton, C. H. (2002). Benzodiazepines: How They Work and How to Withdraw.
-• Lader, M. (2011). Benzodiazepines revisited—will we ever learn? Addiction.
-• Otto, M. W., & Hofmann, S. G. (2010). Avoiding Treatment Failures in the Anxiety Disorders.
-• Barlow, D. H. (2004). Anxiety and Its Disorders: The Nature and Treatment of Anxiety and Panic.`,
+            description:
+              "Understanding Benzodiazepines: Why They're a Pause Button, Not a Solution",
             timestampsSec: [630, 720, 840],
             sortOrder: 2,
+            content: {
+              title: "#3 What Xanax Is – and What It Actually Does",
+              subtitle:
+                "Understanding Benzodiazepines: Why They're a Pause Button, Not a Solution",
+              sections: [
+                {
+                  heading: "How Benzodiazepines Work",
+                  content:
+                    "Benzodiazepines like Xanax (alprazolam) are among the most commonly prescribed medications for anxiety and panic. They work by enhancing the effect of GABA (gamma-aminobutyric acid), the brain's primary inhibitory neurotransmitter. Within minutes, the nervous system slows down, muscles relax, and the subjective experience of anxiety diminishes.",
+                },
+                {
+                  heading: "The Critical Distinction",
+                  content:
+                    "The drug does not solve the problem. It suppresses the signal. Anxiety is not a chemical imbalance that benzodiazepines correct. It is a regulatory state — a pattern of activation that the brain generates in response to perceived threat. Xanax does not address the threat. It does not change the underlying pattern. It simply dampens the output.",
+                },
+                {
+                  heading: "Two Significant Problems",
+                  items: [
+                    {
+                      text: "Loss of personal agency",
+                      subItems: [
+                        "The person never learns they can regulate the state themselves",
+                        "The drug becomes the source of relief",
+                        "Sense of personal agency diminishes",
+                      ],
+                    },
+                    {
+                      text: "Rebound anxiety",
+                      subItems: [
+                        "The underlying pattern remains intact",
+                        "It reasserts itself when the drug wears off",
+                        "Often returns with greater intensity",
+                      ],
+                    },
+                  ],
+                },
+                {
+                  heading: "The Misattribution Effect",
+                  content:
+                    "When someone takes Xanax and feels better, they attribute the relief to the drug. But in many cases, the relief would have occurred anyway — panic attacks are self-limiting; the nervous system naturally returns to baseline. The drug captures the credit for a process that was already underway.",
+                },
+                {
+                  heading: "A Balanced Perspective",
+                  content:
+                    "This is not an argument against medication. For some people, in some contexts, benzodiazepines serve a legitimate function — particularly in acute crisis or as a bridge to longer-term intervention. But they are not a solution. They are a pause button.",
+                },
+                {
+                  heading: "What Effective Intervention Looks Like",
+                  content:
+                    "Effective intervention works differently. It teaches the person to:",
+                  items: [
+                    { text: "Recognize the pattern" },
+                    { text: "Understand its components" },
+                    {
+                      text: "Develop the capacity to regulate it directly",
+                    },
+                  ],
+                },
+              ],
+              references: [
+                {
+                  text: "Ashton, C. H. (2002). Benzodiazepines: How They Work and How to Withdraw.",
+                },
+                {
+                  text: "Lader, M. (2011). Benzodiazepines revisited—will we ever learn? Addiction.",
+                },
+                {
+                  text: "Otto, M. W., & Hofmann, S. G. (2010). Avoiding Treatment Failures in the Anxiety Disorders.",
+                },
+                {
+                  text: "Barlow, D. H. (2004). Anxiety and Its Disorders: The Nature and Treatment of Anxiety and Panic.",
+                },
+              ],
+            },
           },
           {
             name: "Why 'Scrambling' Works",
-            description: `One of the most effective techniques for disrupting unwanted emotional patterns is "scrambling" — a process of deliberately distorting the internal representations that generate the state. The technique originated in NLP (Neuro-Linguistic Programming) but has parallels in cognitive defusion (ACT), imagery rescripting, and memory reconsolidation research.
-
-The basic principle is simple: emotional states are not stored as abstract data. They are encoded as specific sensory representations — images, sounds, body sensations, and internal dialogue. Change the representation, and you change the state.
-
-Here is how it works in practice. A person is asked to recall an anxiety-provoking memory or imagine a feared scenario. As they do so, they are guided to alter the sensory properties of the experience: shrinking the image, moving it further away, draining the color, adding absurd elements (circus music, cartoon voices), or running it backwards. These modifications disrupt the pattern that generates the emotional response.
-
-Why does this work? The brain does not distinguish cleanly between "real" and "imagined" experience. The same neural circuits that fire during an actual event also fire during vivid recall or imagination. When you modify the representation, you are literally changing the neural pattern associated with that experience.
-
-This is supported by research on memory reconsolidation. When a memory is recalled, it enters a labile state — temporarily unstable and open to modification. If new information is introduced during this window, the memory is re-encoded with the modification included. The next time the memory is accessed, it carries the new (scrambled) properties.
-
-The result is not amnesia. The person still remembers the event. But the emotional charge is reduced, the automatic pattern is disrupted, and the response becomes more flexible. The memory loses its power to hijack the nervous system.
-
-Scrambling is particularly effective for patterns that feel automatic and involuntary — like panic, phobias, or intrusive thoughts. By making the process conscious and playful, the person regains agency over experiences that previously felt uncontrollable.
-
-Key References:
-• Bandler, R. (1985). Using Your Brain—For a Change.
-• Kindt, M., Soeter, M., & Vervliet, B. (2009). Beyond extinction: erasing human fear responses and preventing the return of fear. Nature Neuroscience.
-• Holmes, E. A., & Mathews, A. (2010). Mental imagery in emotion and emotional disorders. Clinical Psychology Review.
-• Nader, K., & Hardt, O. (2009). A single standard for memory: the case for reconsolidation. Nature Reviews Neuroscience.`,
+            description:
+              "The Neuroscience of Pattern Disruption: How Modifying Mental Representations Changes Emotional States",
             timestampsSec: [450, 540, 1020, 1260],
             sortOrder: 3,
+            content: {
+              title: "#4 Why 'Scrambling' Works",
+              subtitle:
+                "The Neuroscience of Pattern Disruption: How Modifying Mental Representations Changes Emotional States",
+              sections: [
+                {
+                  heading: "What Is Scrambling?",
+                  content:
+                    'One of the most effective techniques for disrupting unwanted emotional patterns is "scrambling" — a process of deliberately distorting the internal representations that generate the state. The technique originated in NLP (Neuro-Linguistic Programming) but has parallels in cognitive defusion (ACT), imagery rescripting, and memory reconsolidation research.',
+                },
+                {
+                  heading: "The Basic Principle",
+                  content:
+                    "Emotional states are not stored as abstract data. They are encoded as specific sensory representations — images, sounds, body sensations, and internal dialogue. Change the representation, and you change the state.",
+                },
+                {
+                  heading: "How It Works in Practice",
+                  content:
+                    "A person is asked to recall an anxiety-provoking memory or imagine a feared scenario. As they do so, they are guided to alter the sensory properties:",
+                  items: [
+                    { text: "Shrinking the image" },
+                    { text: "Moving it further away" },
+                    { text: "Draining the color" },
+                    {
+                      text: "Adding absurd elements (circus music, cartoon voices)",
+                    },
+                    { text: "Running it backwards" },
+                  ],
+                },
+                {
+                  heading: "Why Does This Work?",
+                  content:
+                    'The brain does not distinguish cleanly between "real" and "imagined" experience. The same neural circuits that fire during an actual event also fire during vivid recall or imagination. When you modify the representation, you are literally changing the neural pattern associated with that experience.',
+                },
+                {
+                  heading: "Memory Reconsolidation",
+                  content:
+                    "This is supported by research on memory reconsolidation:",
+                  items: [
+                    {
+                      text: "When a memory is recalled, it enters a labile state — temporarily unstable and open to modification",
+                    },
+                    {
+                      text: "If new information is introduced during this window, the memory is re-encoded with the modification included",
+                    },
+                    {
+                      text: "The next time the memory is accessed, it carries the new (scrambled) properties",
+                    },
+                  ],
+                },
+                {
+                  heading: "The Result",
+                  content:
+                    "The result is not amnesia. The person still remembers the event. But the emotional charge is reduced, the automatic pattern is disrupted, and the response becomes more flexible. The memory loses its power to hijack the nervous system.",
+                },
+                {
+                  heading: "When Scrambling Is Most Effective",
+                  content:
+                    "Scrambling is particularly effective for patterns that feel automatic and involuntary:",
+                  items: [
+                    { text: "Panic responses" },
+                    { text: "Phobias" },
+                    { text: "Intrusive thoughts" },
+                  ],
+                },
+              ],
+              references: [
+                {
+                  text: "Bandler, R. (1985). Using Your Brain—For a Change.",
+                },
+                {
+                  text: "Kindt, M., Soeter, M., & Vervliet, B. (2009). Beyond extinction: erasing human fear responses and preventing the return of fear. Nature Neuroscience.",
+                },
+                {
+                  text: "Holmes, E. A., & Mathews, A. (2010). Mental imagery in emotion and emotional disorders. Clinical Psychology Review.",
+                },
+                {
+                  text: "Nader, K., & Hardt, O. (2009). A single standard for memory: the case for reconsolidation. Nature Reviews Neuroscience.",
+                },
+              ],
+            },
           },
         ],
       },
