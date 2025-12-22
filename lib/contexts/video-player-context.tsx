@@ -501,6 +501,29 @@ function VideoPlayerProvider({
     }
   }, [])
 
+  // Overlay audio event handlers to sync state
+  React.useEffect(() => {
+    const audio = overlayAudioRef.current
+    if (!audio) return
+
+    const handleAudioPlay = () =>
+      dispatch({ type: "SET_OVERLAY_AUDIO_PLAYING", payload: true })
+    const handleAudioPause = () =>
+      dispatch({ type: "SET_OVERLAY_AUDIO_PLAYING", payload: false })
+    const handleAudioTimeUpdate = () =>
+      dispatch({ type: "SET_OVERLAY_AUDIO_TIME", payload: audio.currentTime })
+
+    audio.addEventListener("play", handleAudioPlay)
+    audio.addEventListener("pause", handleAudioPause)
+    audio.addEventListener("timeupdate", handleAudioTimeUpdate)
+
+    return () => {
+      audio.removeEventListener("play", handleAudioPlay)
+      audio.removeEventListener("pause", handleAudioPause)
+      audio.removeEventListener("timeupdate", handleAudioTimeUpdate)
+    }
+  }, [])
+
   const value = React.useMemo(
     () => ({ ...state, ...actions }),
     [state, actions]

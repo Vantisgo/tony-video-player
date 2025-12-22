@@ -54,7 +54,7 @@ function InterventionAccordion({
       collapsible
       value={expandedInterventionId ?? undefined}
       onValueChange={handleValueChange}
-      className={cn("w-full space-y-2 flex flex-col", className)}
+      className={cn("w-full space-y-2", className)}
     >
       {interventions.map((intervention) => {
         const isActive = intervention.id === activeInterventionId
@@ -64,7 +64,7 @@ function InterventionAccordion({
             key={intervention.id}
             value={intervention.id}
             className={cn(
-              "rounded-lg border bg-card px-3 transition-all duration-200 min-w-0 flex flex-col",
+              "rounded-lg border bg-card px-3 transition-all duration-200",
               isActive && "border-primary ring-1 ring-primary/20"
             )}
           >
@@ -88,7 +88,7 @@ function InterventionAccordion({
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-3">
-              <div className="space-y-3 pt-1 text-sm w-full min-w-0">
+              <div className="space-y-3 pt-1 text-sm">
                 {/* Prompt */}
                 <div>
                   <p className="mb-1 text-xs font-medium text-muted-foreground">

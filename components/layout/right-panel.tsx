@@ -38,16 +38,16 @@ function RightPanel({ className }: RightPanelProps) {
             </TabsTrigger>
           </TabsList>
         </CardHeader>
-        <CardContent className="flex-1 overflow-hidden p-0 flex flex-col min-h-0">
+        <CardContent className="flex-1 p-0 flex flex-col min-h-0">
           <TabsContent
             value="coaching"
-            className="mt-0 flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0"
+            className="mt-0 flex-1 overflow-y-auto p-4"
           >
             <CoachingTab />
           </TabsContent>
           <TabsContent
             value="science"
-            className="mt-0 flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0"
+            className="mt-0 flex-1 overflow-y-auto p-4"
           >
             <ScienceTab />
           </TabsContent>

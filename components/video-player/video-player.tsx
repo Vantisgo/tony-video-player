@@ -29,21 +29,29 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     isMuted,
     activePhaseId,
     activeOverlay,
+    isOverlayAudioPlaying,
+    overlayAudioCurrentTime,
     play,
     pause,
     seek,
     setVolume,
     toggleMute,
     registerVideoRef,
+    registerOverlayAudioRef,
     dismissOverlay,
     triggerScienceItem,
+    playOverlayAudio,
+    pauseOverlayAudio,
+    seekOverlayAudio,
   } = useVideoPlayer()
 
   const videoRef = React.useRef<HTMLVideoElement>(null)
+  const audioRef = React.useRef<HTMLAudioElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
   const [buffered, setBuffered] = React.useState(0)
   const [showControls, setShowControls] = React.useState(true)
+  const [audioDuration, setAudioDuration] = React.useState(0)
   const [ctaRemainingSeconds, setCtaRemainingSeconds] = React.useState(20)
 
   const controlsTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -53,6 +61,12 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     registerVideoRef(videoRef.current)
     return () => registerVideoRef(null)
   }, [registerVideoRef])
+
+  // Register audio ref with context
+  React.useEffect(() => {
+    registerOverlayAudioRef(audioRef.current)
+    return () => registerOverlayAudioRef(null)
+  }, [registerOverlayAudioRef])
 
 
   // Video event handlers for buffered
@@ -67,8 +81,13 @@ function VideoPlayer({ className }: VideoPlayerProps) {
 
   // Control handlers
   const togglePlayPause = React.useCallback(() => {
-    // Prevent video playback when intro overlay is active
+    // If intro overlay is active, control its audio playback instead of video
     if (activeOverlay?.id === "audio-intro") {
+      if (isOverlayAudioPlaying) {
+        pauseOverlayAudio()
+      } else {
+        playOverlayAudio()
+      }
       return
     }
 
@@ -78,7 +97,7 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     } else {
       play()
     }
-  }, [isPlaying, play, pause, activeOverlay])
+  }, [isPlaying, play, pause, activeOverlay, isOverlayAudioPlaying, playOverlayAudio, pauseOverlayAudio])
 
   const handleSeek = React.useCallback(
     (time: number) => {
@@ -241,6 +260,32 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     }
   }, [activeOverlay, triggerScienceItem, dismissOverlay])
 
+  // Audio overlay handlers
+  const handleAudioRestart = React.useCallback(() => {
+    seekOverlayAudio(0)
+    playOverlayAudio()
+  }, [seekOverlayAudio, playOverlayAudio])
+
+  const handleAudioSkipBack = React.useCallback(() => {
+    seekOverlayAudio(Math.max(0, overlayAudioCurrentTime - 10))
+  }, [seekOverlayAudio, overlayAudioCurrentTime])
+
+  const handleAudioSkipForward = React.useCallback(() => {
+    seekOverlayAudio(Math.min(audioDuration, overlayAudioCurrentTime + 10))
+  }, [seekOverlayAudio, overlayAudioCurrentTime, audioDuration])
+
+  // Compute display state for controls
+  // When intro overlay is active, show intro audio state instead of video state
+  const displayIsPlaying = activeOverlay?.id === "audio-intro"
+    ? isOverlayAudioPlaying
+    : isPlaying
+  const displayCurrentTime = activeOverlay?.id === "audio-intro"
+    ? overlayAudioCurrentTime
+    : currentTime
+  const displayDuration = activeOverlay?.id === "audio-intro"
+    ? audioDuration
+    : duration
+
   return (
     <div
       ref={containerRef}
@@ -274,6 +319,17 @@ function VideoPlayer({ className }: VideoPlayerProps) {
         </div>
       )}
 
+      {/* Hidden audio element for overlay audio */}
+      {activeOverlay?.type === "audio" && activeOverlay.audioUrl && (
+        <audio
+          ref={audioRef}
+          src={activeOverlay.audioUrl}
+          onLoadedMetadata={(e) =>
+            setAudioDuration((e.target as HTMLAudioElement).duration)
+          }
+        />
+      )}
+
       {/* Overlay Container */}
       <div className="pointer-events-none absolute inset-0">
         {/* CTA Bubble - top right */}
@@ -294,6 +350,15 @@ function VideoPlayer({ className }: VideoPlayerProps) {
             <AudioOverlay
               title={activeOverlay.title ?? "Audio Commentary"}
               audioUrl={activeOverlay.audioUrl}
+              isPlaying={isOverlayAudioPlaying}
+              currentTime={overlayAudioCurrentTime}
+              duration={audioDuration}
+              onPlayPause={() =>
+                isOverlayAudioPlaying ? pauseOverlayAudio() : playOverlayAudio()
+              }
+              onRestart={handleAudioRestart}
+              onRewind={handleAudioSkipBack}
+              onForward={handleAudioSkipForward}
               onDismiss={handleOverlayDismiss}
               autoPlay={activeOverlay.id !== "audio-intro"}
             />
@@ -331,8 +396,8 @@ function VideoPlayer({ className }: VideoPlayerProps) {
 
         {/* Progress Bar */}
         <VideoProgress
-          currentTime={currentTime}
-          duration={duration}
+          currentTime={displayCurrentTime}
+          duration={displayDuration}
           buffered={buffered}
           phases={progressPhases}
           onSeek={handleSeek}
@@ -341,9 +406,9 @@ function VideoPlayer({ className }: VideoPlayerProps) {
 
         {/* Controls */}
         <VideoControls
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
+          isPlaying={displayIsPlaying}
+          currentTime={displayCurrentTime}
+          duration={displayDuration}
           volume={volume}
           isMuted={isMuted}
           onPlayPause={togglePlayPause}
