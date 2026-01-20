@@ -12,6 +12,7 @@ import {
   AudioOverlay,
   ScienceTrigger,
   SectionIndicator,
+  MetaStepOverlay,
 } from "./overlays"
 
 interface VideoPlayerProps {
@@ -31,6 +32,10 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     activeOverlay,
     isOverlayAudioPlaying,
     overlayAudioCurrentTime,
+    metaSteps,
+    activeMetaStepId,
+    showMetaStepOverlay,
+    overlayMetaStepId,
     play,
     pause,
     seek,
@@ -261,6 +266,12 @@ function VideoPlayer({ className }: VideoPlayerProps) {
     seekOverlayAudio(Math.min(audioDuration, overlayAudioCurrentTime + 10))
   }, [seekOverlayAudio, overlayAudioCurrentTime, audioDuration])
 
+  // Compute meta step for overlay (uses overlayMetaStepId, not activeMetaStepId)
+  const overlayMetaStep = React.useMemo(
+    () => metaSteps.find((step) => step.id === overlayMetaStepId) ?? null,
+    [metaSteps, overlayMetaStepId]
+  )
+
   return (
     <div
       ref={containerRef}
@@ -363,6 +374,13 @@ function VideoPlayer({ className }: VideoPlayerProps) {
               onOpen={handleScienceOpen}
               onDismiss={handleOverlayDismiss}
             />
+          </OverlayContainer>
+        )}
+
+        {/* Meta Step Overlay - bottom right (shows 2s before to 5s after timestamp, no video pause) */}
+        {showMetaStepOverlay && overlayMetaStep && !activeOverlay && (
+          <OverlayContainer position="bottom-right">
+            <MetaStepOverlay step={overlayMetaStep} />
           </OverlayContainer>
         )}
       </div>

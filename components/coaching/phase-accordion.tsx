@@ -70,16 +70,24 @@ function ExpandableDescription({
   return (
     <p className="text-sm text-muted-foreground leading-relaxed">
       <span className="line-clamp-2">{description}</span>
-      <button
-        type="button"
+      <span
+        role="button"
+        tabIndex={0}
         onClick={(e) => {
           e.stopPropagation()
           setIsExpanded(true)
         }}
-        className="text-primary hover:underline font-medium ml-1"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsExpanded(true)
+          }
+        }}
+        className="text-primary hover:underline font-medium ml-1 cursor-pointer"
       >
         more
-      </button>
+      </span>
     </p>
   )
 }
@@ -158,6 +166,7 @@ function PhaseAccordion({
                       {stripPhasePrefix(phase.title)}
                     </h3>
                     <TimestampBadge
+                      as="span"
                       timestamp={phase.startTimeSec}
                       onClick={(timestamp) => onPhaseClick?.(phase.id, timestamp)}
                     />

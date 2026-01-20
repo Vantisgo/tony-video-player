@@ -9,5 +9,8 @@ export type { ScienceTriggerProps } from "./science-trigger"
 
 export { SectionIndicator } from "./section-indicator"
 
+export { MetaStepOverlay } from "./meta-step-overlay"
+export type { MetaStepOverlayProps } from "./meta-step-overlay"
+
 export { OverlayContainer } from "./overlay-container"
 export type { OverlayContainerProps, OverlayPosition } from "./overlay-container"

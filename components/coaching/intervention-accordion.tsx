@@ -93,6 +93,7 @@ function InterventionAccordion({
                     {intervention.title}
                   </span>
                   <TimestampBadge
+                    as="span"
                     timestamp={intervention.timestampSec}
                     onClick={(timestamp) =>
                       onInterventionClick?.(intervention.id, timestamp)

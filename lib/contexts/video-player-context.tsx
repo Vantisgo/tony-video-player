@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { META_STEPS, type MetaStep } from "~/lib/constants/meta-steps"
 
 // Types for lesson content
 interface Intervention {
@@ -103,6 +104,12 @@ interface VideoPlayerState {
   activePhaseId: string | null
   activeInterventionId: string | null
 
+  // Meta Structure state
+  metaSteps: MetaStep[]
+  activeMetaStepId: string | null
+  showMetaStepOverlay: boolean
+  overlayMetaStepId: string | null
+
   // Overlay state
   activeOverlay: OverlayEvent | null
   dismissedOverlayIds: Set<string>
@@ -110,7 +117,7 @@ interface VideoPlayerState {
   overlayAudioCurrentTime: number
 
   // UI state
-  rightPanelTab: "coaching" | "science"
+  rightPanelTab: "coaching" | "science" | "meta"
   highlightedScienceItemId: string | null
 }
 
@@ -144,7 +151,7 @@ interface VideoPlayerActions {
   addComment: (comment: Comment) => void
 
   // UI controls
-  setRightPanelTab: (tab: "coaching" | "science") => void
+  setRightPanelTab: (tab: "coaching" | "science" | "meta") => void
   clearHighlight: () => void
 }
 
@@ -220,6 +227,10 @@ function createInitialState(lesson?: LessonData): VideoPlayerState {
     overlayEvents,
     activePhaseId: null,
     activeInterventionId: null,
+    metaSteps: META_STEPS,
+    activeMetaStepId: null,
+    showMetaStepOverlay: false,
+    overlayMetaStepId: null,
     activeOverlay: introOverlay,
     dismissedOverlayIds: new Set(),
     isOverlayAudioPlaying: false,
@@ -241,8 +252,11 @@ type Action =
   | { type: "SET_ACTIVE_OVERLAY"; payload: OverlayEvent | null }
   | { type: "DISMISS_OVERLAY"; payload: string }
   | { type: "CLEAR_DISMISSED_OVERLAYS"; payload: Set<string> }
-  | { type: "SET_TAB"; payload: "coaching" | "science" }
+  | { type: "SET_TAB"; payload: "coaching" | "science" | "meta" }
   | { type: "HIGHLIGHT_SCIENCE"; payload: string | null }
+  | { type: "SET_ACTIVE_META_STEP"; payload: string | null }
+  | { type: "SET_META_STEP_OVERLAY"; payload: boolean }
+  | { type: "SET_OVERLAY_META_STEP"; payload: string | null }
   | { type: "SET_OVERLAY_AUDIO_PLAYING"; payload: boolean }
   | { type: "SET_OVERLAY_AUDIO_TIME"; payload: number }
   | { type: "ADD_COMMENT"; payload: Comment }
@@ -294,6 +308,12 @@ function reducer(state: VideoPlayerState, action: Action): VideoPlayerState {
           (a, b) => a.timestamp - b.timestamp
         ),
       }
+    case "SET_ACTIVE_META_STEP":
+      return { ...state, activeMetaStepId: action.payload }
+    case "SET_META_STEP_OVERLAY":
+      return { ...state, showMetaStepOverlay: action.payload }
+    case "SET_OVERLAY_META_STEP":
+      return { ...state, overlayMetaStepId: action.payload }
     default:
       return state
   }
@@ -344,6 +364,45 @@ function VideoPlayerProvider({
       dispatch({ type: "SET_ACTIVE_INTERVENTION", payload: null })
     }
   }, [state.currentTime, state.phases, state.duration])
+
+  // Compute active meta step based on current time (for tab highlighting)
+  React.useEffect(() => {
+    const sortedSteps = [...state.metaSteps].sort(
+      (a, b) => b.timestampSec - a.timestampSec
+    )
+    const activeStep = sortedSteps.find(
+      (step) => state.currentTime >= step.timestampSec
+    )
+    const activeStepId = activeStep?.id ?? null
+
+    if (activeStepId !== state.activeMetaStepId) {
+      dispatch({ type: "SET_ACTIVE_META_STEP", payload: activeStepId })
+    }
+  }, [state.currentTime, state.metaSteps, state.activeMetaStepId])
+
+  // Compute meta step overlay visibility (show from 2s before to 5s after timestamp)
+  React.useEffect(() => {
+    // Find if we're in any step's overlay window: [timestampSec - 2, timestampSec + 5]
+    const stepInWindow = state.metaSteps.find((step) => {
+      const windowStart = step.timestampSec - 2
+      const windowEnd = step.timestampSec + 5
+      return state.currentTime >= windowStart && state.currentTime <= windowEnd
+    })
+
+    if (stepInWindow) {
+      // Show overlay for this step
+      if (!state.showMetaStepOverlay || state.overlayMetaStepId !== stepInWindow.id) {
+        dispatch({ type: "SET_OVERLAY_META_STEP", payload: stepInWindow.id })
+        dispatch({ type: "SET_META_STEP_OVERLAY", payload: true })
+      }
+    } else {
+      // Hide overlay when outside all windows
+      if (state.showMetaStepOverlay) {
+        dispatch({ type: "SET_META_STEP_OVERLAY", payload: false })
+        dispatch({ type: "SET_OVERLAY_META_STEP", payload: null })
+      }
+    }
+  }, [state.currentTime, state.metaSteps, state.showMetaStepOverlay, state.overlayMetaStepId])
 
   // Check for overlay triggers (excluding intro which is shown on load)
   React.useEffect(() => {
@@ -479,7 +538,7 @@ function VideoPlayerProvider({
       addComment: (comment: Comment) => {
         dispatch({ type: "ADD_COMMENT", payload: comment })
       },
-      setRightPanelTab: (tab: "coaching" | "science") => {
+      setRightPanelTab: (tab: "coaching" | "science" | "meta") => {
         dispatch({ type: "SET_TAB", payload: tab })
       },
       clearHighlight: () => {
@@ -570,3 +629,4 @@ export type {
   Comment,
   OverlayEvent,
 }
+export type { MetaStep } from "~/lib/constants/meta-steps"
