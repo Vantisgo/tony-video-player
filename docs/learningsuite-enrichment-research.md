@@ -203,6 +203,111 @@ pilot.
 - **Auth** — admin needs proper auth (single-tenant for now, but think about course
   creators). Read endpoint can stay public if it returns no secrets.
 
+## How videos are delivered via GraphQL — addendum
+
+We later traced the full GraphQL surface that delivers the video URL using browser-level
+network capture (page-side `fetch`/`XHR` hooks miss it because Apollo caches its fetch
+reference at module init, and the platform uses **persisted queries** so only SHA hashes
+go over the wire — not the GraphQL text). This matters for the backend that authors
+enrichment content.
+
+### Two queries deliver the playable video
+
+**1. `QueryCourseInstanceStudent`** — the page tree.
+
+Variables come straight from the URL path:
+```jsonc
+{
+  "sid": "mx2QDgyH",                                     // course instance sid
+  "entityIdsOrSidsToLoadStateFor": {
+    "lessonSids": ["jGQYlTK8"], "pageSids": ["Tvg4VhkP"]
+  },
+  "pageIdsOrSidsToLoadContentFor": { "sids": ["Tvg4VhkP"] }
+}
+```
+
+The response page content is a **rich-text block array** (Slate/Lexical-style). Video
+blocks look like:
+```jsonc
+{
+  "type":     "video",
+  "title":    "Schön, dass du da bist.",
+  "fileId":   "U3RlcEZpbGU6Y21jYWhiNzBsOGZ3czFzYW9rbmw3enRuaw==",
+  "duration": 150.6,
+  "meta":     { "fileId": { "uploaded": true, "uploadedBy": "VXNlcjo…" } }
+}
+```
+
+`fileId` is base64-encoded — decodes to `StepFile:cmcahb70l8fws1saoknl7ztnk`.
+
+**2. `StepFileQuery(id: fileId)`** — the actual URL + metadata.
+
+```jsonc
+{
+  "stepFileLink": {
+    "__typename": "StepFile",
+    "id": "U3RlcEZpbGU6Y21jYWhiNzBsOGZ3czFzYW9rbmw3enRuaw==",
+    "downloadable": {
+      "id": "cmcahb70l8fws1saoknl7ztnk",                  // CUID — stable per upload
+      "url": "https://vz-12f1059a-6c7.b-cdn.net/…/fd4f7856-40d2-4d25-bb53-8bf102a34d96/playlist.m3u8?…",
+      "metadata": {
+        "__typename": "VideoMetadata",
+        "duration": 150,
+        "width": 1920, "height": 1080,
+        "spriteUrls": [/* 3 sprite sheets for scrub previews */],
+        "timePerThumbnail": 2,
+        "status": "finished"
+      }
+    }
+  }
+}
+```
+
+Also seen on the same lesson load: `StepFileTranscriptQuery(id)` for subtitles, and
+`MutateSubmitEvents` for progress tracking (`type: "visit_step"`). The progress
+mutation is a **regular GraphQL POST**, not `sendBeacon` as we previously suspected
+— the page-side hooks just missed it because Apollo's cached fetch bypassed them.
+
+### Three stable identifiers (all derivable at runtime)
+
+| ID | Example | Where | Best for |
+|---|---|---|---|
+| `Downloadable.id` (CUID) | `cmcahb70l8fws1saoknl7ztnk` | `StepFileQuery` response | Primary key in our DB |
+| StepFile global ID (base64) | `U3RlcEZpbGU6…enRuaw==` | Page content `fileId` + `StepFileQuery.id` | API key when re-querying LearningSuite |
+| Bunny CDN UUID | `fd4f7856-40d2-4d25-bb53-8bf102a34d96` | URL path of the m3u8 | Cheapest runtime lookup — regex out of `hlsEl.src`, no GraphQL hooking needed |
+
+These three are 1:1: one StepFile = one Downloadable = one Bunny upload.
+
+### Implications for the enrichment backend
+
+- **Recommended primary key**: `Downloadable.id` — short, stable per upload, copy-pastable.
+- **Runtime "is this video enriched?" check**: read `hlsEl.src` after mount, regex the
+  Bunny UUID out of the path, lookup against the content service. No GraphQL hooking
+  needed for the simple case.
+- **Authoring flow A** (operator-driven): admin pastes a LearningSuite lesson URL →
+  server-side `QueryCourseInstanceStudent(sid)` with a service-account JWT → list
+  video blocks with their `fileId` → operator picks one → server fetches
+  `StepFileQuery` to capture `Downloadable.id`.
+- **Authoring flow B** (in-page): runtime injects an "Enrich this video" button into the
+  player; clicking it captures the current Bunny UUID and posts it to our admin to
+  create/open an enrichment record.
+
+### Auth caveat
+
+Every GraphQL request carries `Authorization: Bearer <JWT>`. The JWT decodes to roughly:
+```json
+{
+  "tenantId": "cm5lic5gj51jtatmmhbdrugh1",
+  "sub":      "cmewi5wdu0j4u1zgsvjcbn8q6",   // user id
+  "roleId":   "trainer",
+  "rights":   ["ADMINZONE_ACCESS"],
+  "exp":      1777997767                      // ~5 minute window
+}
+```
+
+If we build a server-side LearningSuite client (authoring flow A), it needs a
+service-account login or a refresh-token flow.
+
 ## Files in this branch
 
 - `docs/learningsuite-enrichment-research.md` — this document
