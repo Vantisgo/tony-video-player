@@ -5,6 +5,15 @@
 //   - Meta Step Fly-in (bottom-right, violet) — when crossing a new master step
 //   - Sidebar with Coaching / Science / Meta Structure tabs
 (() => {
+  // Idempotency: tear down anything left from a prior run before mounting
+  // again. Each setup pushes its disconnect into this registry; a re-inject
+  // drains it first. Without this, repeated injection stacks event listeners
+  // on window.player and pegs the renderer.
+  if (Array.isArray(window.__vpDemoCleanup)) {
+    for (const fn of window.__vpDemoCleanup) { try { fn(); } catch {} }
+  }
+  window.__vpDemoCleanup = [];
+
   // Theme tokens translated from globals.css OKLCH
   const T = {
     card: '#ffffff', fg: '#1f1f25', muted: '#f4f4f5', mutedFg: '#71717a',
@@ -15,7 +24,22 @@
   };
 
   // ─────────── DATA (shape matches the repo) ───────────
-  const phases = [
+  // Defaults are used if no config is found in the page (e.g. authoring stage).
+  //
+  // To enrich a video, place a JSON config in the LearningSuite "Code einbetten"
+  // block on that lesson, set to "In Seite anzeigen", with this exact wrapper:
+  //
+  //   <pre data-vp-config style="display:none">{...your JSON...}</pre>
+  //
+  // Why <pre>? LearningSuite sanitises embed-block HTML on student render and
+  // strips <script>, hidden <div>s, and unknown attributes. Standard tags like
+  // <pre> with `data-*` attributes survive — the textContent stays intact.
+  //
+  // Loader matches three shapes (first hit wins, in this order):
+  //   1) <script type="application/json" data-vp-config>{...}</script>     // works locally / in our own pages
+  //   2) <pre|div|span data-vp-config>{...}</...>                          // works through LearningSuite (preferred)
+  //   3) <!--VP_CONFIG {...} VP_CONFIG-->                                  // HTML-comment fallback
+  const DEFAULT_PHASES = [
     { id:'p1', title:'Model-Based Framing & Agency Priming', description:'Vorbereitende Phase: das mentale Modell der Klientin wird sichtbar gemacht und neu gerahmt.', startTimeSec:0,   endTimeSec:60,
       interventions:[
         { id:'i11', label:'1.1', title:'Model-Based Self-Localization',     t:4,  desc:'Klientin verortet sich im eigenen Modell der Situation.' },
@@ -36,24 +60,20 @@
       ]},
   ];
 
-  // Sciences fire briefly at each timestamp (5s window)
-  const sciences = [
+  const DEFAULT_SCIENCES = [
     { id:'s1', name:'Polyvagal Theory', description:'Autonome Nervensystem-Zustände als Erklärungsrahmen.', timestampsSec:[22, 86] },
     { id:'s2', name:'Six Human Needs',  description:'Modell intrinsischer Motivationen.',                  timestampsSec:[70, 105] },
     { id:'s3', name:'Interoception',    description:'Wahrnehmung innerer Körpersignale.',                  timestampsSec:[40] },
   ];
 
-  // Audio segments — `script` is what the browser speaks via SpeechSynthesis (POC stand-in
-  // for a real audio asset; in production replace with `audioUrl` + <audio> element).
-  const audios = [
+  const DEFAULT_AUDIOS = [
     { id:'a1', t:30, dur:9, title:'Voice-Over: Klarheit als Werkzeug', voice:'Dr. Frederik Hümmeke',
       script:'Klarheit ist nicht nur eine Eigenschaft. Sie ist ein wiederholbares Werkzeug, mit dem du im Alltag wirken kannst.' },
     { id:'a2', t:115, dur:8, title:'Voice-Over: Reflexionsimpuls', voice:'Dr. Frederik Hümmeke',
       script:'Halte einen Moment inne. Frage dich: wo handle ich heute schon klar, und wo zögere ich noch?' },
   ];
 
-  // 7 Master Steps — flies in for ~5s when crossed
-  const metaSteps = [
+  const DEFAULT_META_STEPS = [
     { id:'m1', n:1, title:'Self-Localization',  t:4   },
     { id:'m2', n:2, title:'Pattern Visibility', t:25  },
     { id:'m3', n:3, title:'Agency Reframe',     t:60  },
@@ -62,6 +82,50 @@
     { id:'m6', n:6, title:'Future Pacing',      t:128 },
     { id:'m7', n:7, title:'Mikro-Commitment',   t:142 },
   ];
+
+  function loadVpConfig() {
+    // 1) <script type="application/json" data-vp-config>
+    const script = document.querySelector('script[type="application/json"][data-vp-config]');
+    if (script?.textContent?.trim()) {
+      try { return { source: 'script', data: JSON.parse(script.textContent.trim()) }; }
+      catch (e) { console.warn('[vp] config <script> parse failed', e); }
+    }
+    // 2) any element with data-vp-config attribute carrying JSON in textContent
+    const el = document.querySelector('[data-vp-config]:not(script)');
+    if (el?.textContent?.trim()) {
+      try { return { source: 'element', data: JSON.parse(el.textContent.trim()) }; }
+      catch (e) { console.warn('[vp] config element parse failed', e); }
+    }
+    // 3) HTML comment <!--VP_CONFIG ... VP_CONFIG-->. LearningSuite's embed block
+    //    sometimes wraps content in a way that strips scripts; comments usually survive.
+    const tw = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_COMMENT);
+    let n; while ((n = tw.nextNode())) {
+      const v = n.nodeValue || '';
+      const m = v.match(/VP_CONFIG\s*([\s\S]*?)\s*VP_CONFIG/);
+      if (m) {
+        try { return { source: 'comment', data: JSON.parse(m[1]) }; }
+        catch (e) { console.warn('[vp] config <!--comment--> parse failed', e); }
+      }
+    }
+    return null;
+  }
+
+  const cfgHit = loadVpConfig();
+  if (!cfgHit) {
+    // No <pre data-vp-config> on this page — Advanced Video Modus is OFF.
+    // Leave the native LearningSuite player and layout untouched.
+    console.info('[vp] no config found on page, advanced editor stays off');
+    return 'demo: idle (no config)';
+  }
+  console.info(`[vp] config loaded from ${cfgHit.source}`);
+  const cfg = cfgHit.data;
+  // Per-section defaults still kick in for partially-filled configs.
+  const phases    = Array.isArray(cfg.phases)    ? cfg.phases    : DEFAULT_PHASES;
+  const sciences  = Array.isArray(cfg.sciences)  ? cfg.sciences  : DEFAULT_SCIENCES;
+  const audios    = Array.isArray(cfg.audios)    ? cfg.audios    : DEFAULT_AUDIOS;
+  const metaSteps = Array.isArray(cfg.metaSteps) ? cfg.metaSteps : DEFAULT_META_STEPS;
+  // Expose for diagnostics + future hot-reload
+  window.__vpConfig = { source: cfgHit.source, data: { phases, sciences, audios, metaSteps } };
 
   const fmt = s => { if (!isFinite(s)) return '0:00'; s = Math.max(0, s|0); return `${(s/60)|0}:${String(s%60).padStart(2,'0')}`; };
 
@@ -105,7 +169,7 @@
     playerHost.appendChild(el);
     return el;
   }
-  const slotTL = makeSlot('vp-slot-tl', 'top:14px; left:14px; max-width:60%');
+  const slotTL = makeSlot('vp-slot-tl', 'top:14px; left:14px; right:14px; max-width:none');
   const slotTR = makeSlot('vp-slot-tr', 'top:10px; right:10px;');
   const slotBR = makeSlot('vp-slot-br', 'bottom:70px; right:14px;');
   // Lower-third banner: spans most of the video width above the controls
@@ -113,60 +177,180 @@
 
   // ─────────── SECTION INDICATOR (top-left) ───────────
   // Mirrors components/video-player/overlays/section-indicator.tsx
+  // Hover state is OWNED BY CSS (`:hover`) so it survives DOM updates.
+  // The DOM tree is built ONCE; `time` events only patch text/widths/classes.
+  const sectionStyleId = '__vp-section-style';
+  document.getElementById(sectionStyleId)?.remove();
+  {
+    const s = document.createElement('style');
+    s.id = sectionStyleId;
+    s.textContent = `
+      .vp-section-pill, .vp-section-pill * { white-space:normal; }
+      .vp-section-pill { pointer-events:auto; max-width:min(384px, calc(100% - 28px)); display:block; width:fit-content; }
+      .vp-section-pill .vp-sec-title, .vp-section-pill .vp-sec-cur-title { white-space:nowrap; }
+      .vp-section-pill .vp-sec-card {
+        background:linear-gradient(135deg, rgba(249,115,22,.22), rgba(245,158,11,.22), rgba(234,179,8,.22));
+        border:1px solid rgba(253,186,116,.30);
+        backdrop-filter:blur(10px);
+        box-shadow:0 18px 40px rgba(0,0,0,.35);
+        color:#fff7ed; font:500 13px system-ui;
+        border-radius:12px; padding:8px 14px;
+        transition: padding .3s ease, border-radius .3s ease;
+      }
+      .vp-section-pill .vp-sec-collapsed { display:flex; flex-direction:column; gap:2px; min-width:0; }
+      .vp-section-pill .vp-sec-expanded  { display:none; }
+      .vp-section-pill:hover .vp-sec-card,
+      .vp-section-pill[data-pinned="1"] .vp-sec-card { border-radius:18px; padding:18px 18px 16px; }
+      .vp-section-pill:hover .vp-sec-collapsed,
+      .vp-section-pill[data-pinned="1"] .vp-sec-collapsed { display:none; }
+      .vp-section-pill:hover .vp-sec-expanded,
+      .vp-section-pill[data-pinned="1"] .vp-sec-expanded { display:block; }
+      .vp-section-pill .vp-sec-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .vp-section-pill .vp-sec-cur-row { display:flex; align-items:center; gap:6px; color:rgba(254,243,199,.85); min-width:0; }
+      .vp-section-pill .vp-sec-cur-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .vp-section-pill .vp-sec-cur-row[hidden] { display:none; }
+      .vp-section-pill .vp-sec-eyebrow { font:600 11px system-ui; letter-spacing:.6px; text-transform:uppercase; color:rgba(255,237,213,.65); }
+      .vp-section-pill .vp-sec-h3 { margin:4px 0 12px; font:700 18px system-ui; color:#fff; line-height:1.25; }
+      .vp-section-pill .vp-sec-bar { height:6px; background:rgba(255,255,255,.10); border-radius:999px; overflow:hidden; }
+      .vp-section-pill .vp-sec-bar-fill { height:100%; background:linear-gradient(90deg, #fb923c, #fbbf24, #facc15); transition:width .6s ease; }
+      .vp-section-pill .vp-sec-count { margin:4px 0 12px; font:500 11px system-ui; color:rgba(255,237,213,.6); }
+      .vp-section-pill .vp-sec-rows { display:grid; gap:4px; }
+      .vp-section-pill .vp-sec-row { display:flex; gap:10px; align-items:flex-start; padding:6px 8px; border-radius:8px; cursor:pointer; transition:background .2s; }
+      .vp-section-pill .vp-sec-row[data-current="1"] { background:rgba(255,255,255,.12); }
+      .vp-section-pill .vp-sec-row[data-current="0"]:hover { background:rgba(255,255,255,.06); }
+      .vp-section-pill .vp-sec-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; }
+      .vp-section-pill .vp-sec-dot[data-state="completed"] { background:#fb923c; }
+      .vp-section-pill .vp-sec-dot[data-state="completed"]::after { content:"✓"; color:#fff; font-size:10px; font-weight:700; }
+      .vp-section-pill .vp-sec-dot[data-state="current"] { border:2px solid #fb923c; }
+      .vp-section-pill .vp-sec-dot[data-state="current"]::after { content:""; width:6px; height:6px; border-radius:50%; background:#fb923c; }
+      .vp-section-pill .vp-sec-dot[data-state="upcoming"] { border:1px solid rgba(253,186,116,.4); }
+      .vp-section-pill .vp-sec-row-title { flex:1; line-height:1.35; }
+      .vp-section-pill .vp-sec-row[data-state="current"]   .vp-sec-row-title { color:#fff; font-weight:500; }
+      .vp-section-pill .vp-sec-row[data-state="completed"] .vp-sec-row-title { color:rgba(255,237,213,.6); font-weight:400; }
+      .vp-section-pill .vp-sec-row[data-state="upcoming"]  .vp-sec-row-title { color:rgba(255,237,213,.4); font-weight:400; }
+    `;
+    document.head.appendChild(s);
+  }
+
   const sectionPill = document.createElement('div');
-  sectionPill.style.cssText = `pointer-events:auto; transition:all .35s ease;`;
+  sectionPill.className = 'vp-section-pill';
+  sectionPill.innerHTML = `
+    <div class="vp-sec-card">
+      <div class="vp-sec-collapsed">
+        <span class="vp-sec-title" data-section></span>
+        <div class="vp-sec-cur-row" data-cur-row hidden>
+          <span style="opacity:.6">›</span>
+          <span class="vp-sec-cur-title" data-cur-title></span>
+        </div>
+      </div>
+      <div class="vp-sec-expanded">
+        <div class="vp-sec-eyebrow">Course Section</div>
+        <h3 class="vp-sec-h3" data-section-h3></h3>
+        <div data-progress-block>
+          <div class="vp-sec-bar"><div class="vp-sec-bar-fill" data-bar-fill style="width:0%"></div></div>
+          <div class="vp-sec-count" data-count></div>
+          <div class="vp-sec-rows" data-rows></div>
+        </div>
+        <div data-empty hidden style="color:rgba(255,237,213,.65); font-size:13px">Starting soon...</div>
+      </div>
+    </div>`;
   slotTL.appendChild(sectionPill);
 
-  let sectionExpanded = false;
-  sectionPill.addEventListener('mouseenter', () => { sectionExpanded = true; renderSection(); });
-  sectionPill.addEventListener('mouseleave', () => { sectionExpanded = false; renderSection(); });
+  // Cache references — built once
+  const $ = (sel) => sectionPill.querySelector(sel);
+  const sectionRefs = {
+    title:    $('[data-section]'),
+    h3:       $('[data-section-h3]'),
+    curRow:   $('[data-cur-row]'),
+    curTitle: $('[data-cur-title]'),
+    progress: $('[data-progress-block]'),
+    barFill:  $('[data-bar-fill]'),
+    count:    $('[data-count]'),
+    rowsHost: $('[data-rows]'),
+    empty:    $('[data-empty]'),
+  };
+  // Track row elements to avoid teardown on every tick
+  let renderedRows = []; // [{ el, dot, titleEl, id }]
+  let renderedPhaseId = null;
+
+  // Click delegation for seek (works on rebuilt rows + on the cur row)
+  sectionPill.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-seek]');
+    if (!row) return;
+    e.stopPropagation();
+    window.player.seek(+row.dataset.seek + 0.1);
+  });
 
   function renderSection() {
     const t = window.player.current ?? 0;
     const phase = phases.find(p => t >= p.startTimeSec && t < p.endTimeSec);
     const section = phase?.title ?? 'Intro';
-    const subs = phase ? phase.interventions.map(iv => ({ ...iv, completed: t > iv.t, current: phase.interventions.findLast?.(x => t >= x.t)?.id === iv.id })) : [];
+    const subs = phase ? phase.interventions.map(iv => ({
+      ...iv,
+      completed: t > iv.t,
+      current: phase.interventions.findLast?.(x => t >= x.t)?.id === iv.id,
+    })) : [];
     const cur = subs.find(s => s.current);
     const completedCount = subs.filter(s => s.completed).length;
 
-    // Gradient + glass styling from the real component
-    const wrapStyle = `background:linear-gradient(135deg, rgba(249,115,22,.22), rgba(245,158,11,.22), rgba(234,179,8,.22)); border:1px solid rgba(253,186,116,.30); backdrop-filter:blur(10px); box-shadow:0 18px 40px rgba(0,0,0,.35);`;
-    if (!sectionExpanded) {
-      sectionPill.innerHTML = `
-        <div style="${wrapStyle} border-radius:12px; padding:8px 14px; display:flex; flex-direction:column; gap:2px; color:#fff7ed; font:500 13px system-ui;">
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-weight:600; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${section}</span>
-          </div>
-          ${cur ? `<div style="display:flex;align-items:center;gap:6px;color:rgba(254,243,199,.85)">
-            <span style="opacity:.6">›</span>
-            <span style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cur.title}</span>
-          </div>` : ''}
-        </div>`;
+    // Collapsed view
+    if (sectionRefs.title.textContent !== section) sectionRefs.title.textContent = section;
+    sectionRefs.title.title = section;
+    if (cur) {
+      sectionRefs.curRow.hidden = false;
+      if (sectionRefs.curTitle.textContent !== cur.title) sectionRefs.curTitle.textContent = cur.title;
+      sectionRefs.curTitle.title = cur.title;
     } else {
-      sectionPill.innerHTML = `
-        <div style="${wrapStyle} border-radius:18px; padding:18px 18px 16px; width:340px; color:#fff7ed; font:14px system-ui;">
-          <div style="font:600 11px system-ui; letter-spacing:.6px; text-transform:uppercase; color:rgba(255,237,213,.65)">Course Section</div>
-          <h3 style="margin:4px 0 12px; font:700 18px system-ui; color:#fff; line-height:1.25">${section}</h3>
-          ${subs.length ? `
-            <div style="height:6px; background:rgba(255,255,255,.10); border-radius:999px; overflow:hidden">
-              <div style="width:${(completedCount/subs.length)*100}%; height:100%; background:linear-gradient(90deg, #fb923c, #fbbf24, #facc15); transition:width .6s ease;"></div>
-            </div>
-            <div style="margin:4px 0 12px; font:500 11px system-ui; color:rgba(255,237,213,.6)">${completedCount} of ${subs.length} completed</div>
-            <div style="display:grid;gap:4px">
-              ${subs.map((s, i) => `
-                <div data-seek="${s.timestampSec ?? s.t}" style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;border-radius:8px;cursor:pointer;background:${s.current ? 'rgba(255,255,255,.12)' : 'transparent'};transition:background .2s">
-                  ${s.completed
-                    ? `<div style="width:16px;height:16px;border-radius:50%;background:#fb923c;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:10px;font-weight:700">✓</span></div>`
-                    : s.current
-                      ? `<div style="width:16px;height:16px;border-radius:50%;border:2px solid #fb923c;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><div style="width:6px;height:6px;border-radius:50%;background:#fb923c" class="vp-pulse"></div></div>`
-                      : `<div style="width:16px;height:16px;border-radius:50%;border:1px solid rgba(253,186,116,.4);flex-shrink:0;margin-top:2px"></div>`}
-                  <span style="flex:1;line-height:1.35;color:${s.current ? '#fff' : s.completed ? 'rgba(255,237,213,.6)' : 'rgba(255,237,213,.4)'};font-weight:${s.current ? '500' : '400'}">${s.title}</span>
-                </div>
-              `).join('')}
-            </div>
-          ` : `<div style="color:rgba(255,237,213,.65); font-size:13px">Starting soon...</div>`}
-        </div>`;
-      sectionPill.querySelectorAll('[data-seek]').forEach(el => { el.onclick = () => window.player.seek(+el.dataset.seek + 0.1); });
+      sectionRefs.curRow.hidden = true;
+    }
+
+    // Expanded view: section title
+    if (sectionRefs.h3.textContent !== section) sectionRefs.h3.textContent = section;
+
+    // Expanded view: progress + rows
+    if (subs.length) {
+      sectionRefs.progress.hidden = false;
+      sectionRefs.empty.hidden = true;
+      const pct = (completedCount / subs.length) * 100;
+      sectionRefs.barFill.style.width = pct + '%';
+      const countTxt = `${completedCount} of ${subs.length} completed`;
+      if (sectionRefs.count.textContent !== countTxt) sectionRefs.count.textContent = countTxt;
+
+      // Rebuild rows ONLY when phase changes (not on every time tick).
+      if (renderedPhaseId !== phase.id) {
+        renderedPhaseId = phase.id;
+        sectionRefs.rowsHost.innerHTML = '';
+        renderedRows = subs.map((s) => {
+          const el = document.createElement('div');
+          el.className = 'vp-sec-row';
+          el.dataset.seek = s.timestampSec ?? s.t;
+          const dot = document.createElement('div');
+          dot.className = 'vp-sec-dot';
+          const titleEl = document.createElement('span');
+          titleEl.className = 'vp-sec-row-title';
+          titleEl.textContent = s.title;
+          el.appendChild(dot);
+          el.appendChild(titleEl);
+          sectionRefs.rowsHost.appendChild(el);
+          return { el, dot, titleEl, id: s.id };
+        });
+      }
+      // Patch only state attrs on the existing rows
+      subs.forEach((s, i) => {
+        const r = renderedRows[i];
+        if (!r) return;
+        const state = s.completed ? 'completed' : s.current ? 'current' : 'upcoming';
+        if (r.el.dataset.state !== state) r.el.dataset.state = state;
+        if (r.dot.dataset.state !== state) r.dot.dataset.state = state;
+        const cur01 = s.current ? '1' : '0';
+        if (r.el.dataset.current !== cur01) r.el.dataset.current = cur01;
+      });
+    } else {
+      sectionRefs.progress.hidden = true;
+      sectionRefs.empty.hidden = false;
+      renderedPhaseId = null;
+      renderedRows = [];
+      sectionRefs.rowsHost.innerHTML = '';
     }
   }
 
@@ -400,23 +584,74 @@
       <div data-panel="meta"     style="display:none"></div>
     </div>
   `;
-  // Insert sidebar inline as a flex sibling of <main>, hiding LearningSuite's
-  // existing right-column "Sektion / X LEKTIONEN" overview panel.
-  (function installInline() {
+  // Mount the sidebar.
+  //
+  // Two strategies, picked at runtime:
+  //
+  //   (A) Flex-sibling of <main> — used on the regular Student page where
+  //       LearningSuite renders <main> alongside a 300px "Sektion / X LEKTIONEN"
+  //       right column. We hide that column and slot ourselves in.
+  //
+  //   (B) Fixed right rail — used in the Editor "Vorschau" preview and any
+  //       other page where (A) wouldn't actually land us on the right edge
+  //       (no <main>, parent isn't a row-flex with horizontal siblings, or
+  //       post-install verification shows the sidebar didn't end up to the
+  //       right of <main>). Pinned to the viewport right edge so the sidebar
+  //       is always visible regardless of host layout.
+  function applyFixedRightRail() {
+    sidebar.style.position = 'fixed';
+    sidebar.style.top = '24px';
+    sidebar.style.right = '24px';
+    sidebar.style.bottom = '24px';
+    sidebar.style.maxHeight = 'calc(100vh - 48px)';
+    sidebar.style.zIndex = '50';
+    sidebar.style.width = '380px';
+    sidebar.style.alignSelf = '';
+    if (sidebar.parentElement !== document.body) document.body.appendChild(sidebar);
+  }
+
+  function tryFlexSibling() {
     const main = document.querySelector('main');
-    if (!main) { document.body.appendChild(sidebar); return; }
+    if (!main) return false;
     const flexParent = main.parentElement;
-    // Hide LearningSuite's own right column (the 300px "Sektion overview").
+    if (!flexParent) return false;
+    // Snapshot current sibling display values so we can revert if the layout
+    // doesn't actually leave us on the right.
+    const prevDisplays = new Map();
     [...flexParent.children].forEach(child => {
-      if (child !== main && child.id !== 'vp-demo-sidebar') child.style.display = 'none';
+      if (child !== main && child.id !== 'vp-demo-sidebar') {
+        prevDisplays.set(child, child.style.display);
+        child.style.display = 'none';
+      }
     });
-    // Make our sidebar flex with main: keep main from getting too wide, give us right column.
+    const prevParentDisplay = flexParent.style.display;
+    const prevParentGap = flexParent.style.gap;
+    const prevMainFlex = main.style.flex;
+    const prevMainMinWidth = main.style.minWidth;
     if (getComputedStyle(flexParent).display !== 'flex') flexParent.style.display = 'flex';
     flexParent.style.gap = '24px';
     main.style.flex = '1 1 0';
     main.style.minWidth = '0';
     flexParent.appendChild(sidebar);
-  })();
+
+    // Verify: did sidebar actually land to the right of <main>, in the viewport?
+    const mainRect = main.getBoundingClientRect();
+    const sbRect = sidebar.getBoundingClientRect();
+    const fitsToRightOfMain = sbRect.left + 5 >= mainRect.right;
+    const visibleInViewport = sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
+
+    if (fitsToRightOfMain && visibleInViewport) return true;
+
+    // Roll back layout edits — host page may rely on these.
+    prevDisplays.forEach((v, child) => { child.style.display = v; });
+    flexParent.style.display = prevParentDisplay;
+    flexParent.style.gap = prevParentGap;
+    main.style.flex = prevMainFlex;
+    main.style.minWidth = prevMainMinWidth;
+    return false;
+  }
+
+  if (!tryFlexSibling()) applyFixedRightRail();
 
   function setTab(name) {
     sidebar.querySelectorAll('.vp-tab').forEach(b => {
@@ -573,11 +808,12 @@
 
   // Replace any existing player.setOverlays usage — we drive overlays directly now
   window.player.setOverlays([]);
-  window.player.on('any', (e) => {
+  const offBus = window.player.on('any', (e) => {
     if (e.type === 'time' || e.type === 'overlay-show' || e.type === 'overlay-hide' || e.type === 'play' || e.type === 'pause') {
       recomputeActive(e.time ?? window.player.current ?? 0);
     }
   });
+  if (typeof offBus === 'function') window.__vpDemoCleanup.push(offBus);
   recomputeActive(window.player.current ?? 0);
 
   return 'demo (full overlays) configured';

@@ -1,4 +1,12 @@
 (() => {
+  // Idempotency: tear down anything from a previous run before setting up.
+  // Without this, re-injecting accumulates MutationObservers and history
+  // wrappers, which pegs the renderer at 100% CPU.
+  if (Array.isArray(window.__vpReskinCleanup)) {
+    for (const fn of window.__vpReskinCleanup) { try { fn(); } catch {} }
+  }
+  window.__vpReskinCleanup = [];
+
   const styleId = '__custom-player-style';
   if (!document.getElementById(styleId)) {
     const s = document.createElement('style');
@@ -69,6 +77,10 @@
 
   function attach(hlsEl) {
     if (hlsEl.__vpAttached) return;
+    // Gate: only re-skin when this lesson has Advanced Video Modus turned on,
+    // i.e. a <pre data-vp-config> (or equivalent) is present on the page.
+    // No config → leave the native LS player completely alone.
+    if (!document.querySelector('[data-vp-config]')) return;
     // The <hls-video> custom element itself forwards the HTMLMediaElement API
     // (.play, .pause, .currentTime, .duration, events). Works whether the
     // <video> is in light DOM (slotted) or default shadow DOM.
@@ -151,11 +163,23 @@
 
   const scan = () => document.querySelectorAll('hls-video').forEach(attach);
   scan();
-  new MutationObserver(scan).observe(document.body, { subtree: true, childList: true });
-  for (const m of ['pushState', 'replaceState']) {
-    const o = history[m]; history[m] = function () { const r = o.apply(this, arguments); setTimeout(scan, 50); return r; };
+  // Debounced scan so React's chatty re-renders don't trigger a full
+  // querySelectorAll on every mutation.
+  let scanPending = 0;
+  function scheduleScan() {
+    if (scanPending) return;
+    scanPending = setTimeout(() => { scanPending = 0; scan(); }, 250);
   }
-  window.addEventListener('popstate', () => setTimeout(scan, 50));
+  const mo = new MutationObserver(scheduleScan);
+  mo.observe(document.body, { subtree: true, childList: true });
+  window.__vpReskinCleanup.push(() => { mo.disconnect(); if (scanPending) clearTimeout(scanPending); });
+
+  // We deliberately do NOT patch history.pushState / replaceState here.
+  // Re-injecting the script would otherwise nest the wrapper repeatedly.
+  // The MutationObserver above already catches DOM changes from SPA nav.
+  const popHandler = () => setTimeout(scheduleScan, 50);
+  window.addEventListener('popstate', popHandler);
+  window.__vpReskinCleanup.push(() => window.removeEventListener('popstate', popHandler));
 
   return 'reskin attached';
 })();

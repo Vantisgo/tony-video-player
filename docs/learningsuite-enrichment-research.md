@@ -268,6 +268,57 @@ Also seen on the same lesson load: `StepFileTranscriptQuery(id)` for subtitles, 
 mutation is a **regular GraphQL POST**, not `sendBeacon` as we previously suspected
 — the page-side hooks just missed it because Apollo's cached fetch bypassed them.
 
+### Embedding enrichment config inside LearningSuite
+
+While the production architecture stores enrichment in our own service (see
+"Proposed integration model" above), an interim path uses LearningSuite's
+"Code einbetten" block on the lesson page itself. This is useful for early
+piloting without standing up a backend.
+
+What works and what doesn't, found by saving payloads in the block and
+reading the rendered output via the Editor's "Vorschau" tab (the preview
+that mirrors student rendering exactly):
+
+| Payload                                                                   | Survives? |
+|---------------------------------------------------------------------------|-----------|
+| `<script type="application/json" data-vp-config>{...}</script>`           | ❌ stripped — entire embed block disappears |
+| `<div data-vp-config style="display:none">{...}</div>`                    | ❌ stripped |
+| `<!--VP_CONFIG {...} VP_CONFIG-->`                                        | ❌ stripped |
+| `<pre data-vp-config style="display:none">{...}</pre>`                    | ✅ rendered, textContent intact |
+| `<p>Hello</p>`                                                            | ✅ rendered (visible) |
+
+Diagnosis: LearningSuite's embed-block sanitiser allows standard HTML tags
+with their `data-*` attributes, but strips `<script>`, hidden-div containers
+with unrecognised attribute combinations, and HTML comments. Crucially, when
+sanitising leaves the block empty the renderer hides it entirely — so a
+broken payload looks identical to "no embed block at all", which made
+debugging slow.
+
+**Working pattern** (used by `scripts/demo-overlays.js → loadVpConfig`):
+
+```html
+<pre data-vp-config style="display:none">
+{
+  "phases":   [...],
+  "sciences": [...],
+  "audios":   [...],
+  "metaSteps":[...]
+}
+</pre>
+```
+
+The runtime selector is `[data-vp-config]:not(script)` so the same loader
+also picks up `<div>` / `<span>` variants when they're embedded outside
+LearningSuite (e.g. our own preview pages).
+
+Caveats:
+- "Vorschau" tab in the Editor reflects student render; trust it over the
+  Editor's own block-preview (which shows the raw saved string).
+- The "In Seite anzeigen" toggle on the block must stay selected. The
+  "In Pop-Up anzeigen" alternative renders behind a button — content survives
+  there too but is only mounted when the popup opens, so the runtime won't
+  see it on first paint.
+
 ### Three stable identifiers (all derivable at runtime)
 
 | ID | Example | Where | Best for |
@@ -308,13 +359,147 @@ Every GraphQL request carries `Authorization: Bearer <JWT>`. The JWT decodes to 
 If we build a server-side LearningSuite client (authoring flow A), it needs a
 service-account login or a refresh-token flow.
 
+## Authoring workflow — admin toggle + LLM prompt
+
+The runtime now ships with a third script, `scripts/admin-toggle.js`, that
+lights up only inside the LearningSuite editor in **edit** view (not
+preview). It watches every `<hls-video>` and inserts an orange banner
+directly above its container with a status pill ("✓ Konfig vorhanden" /
+"noch nicht aktiviert") and an "Aktivieren / Bearbeiten" button. Clicking
+the button opens a modal dialog with two steps:
+
+1. **Add a "Code einbetten" block** below the video.
+2. **Copy the prompt** out of the dialog's read-only textarea, paste it
+   into any LLM (ChatGPT / Claude / …) together with the lesson
+   transcript or script. The LLM returns a finished
+   `<pre data-vp-config>{…}</pre>` block which the admin pastes into the
+   embed block. Save → click *Vorschau* → overlays appear.
+
+The prompt is the single source of truth for the JSON schema. It lives
+inline in `admin-toggle.js` as the `PROMPT_TEXT` constant — edit it
+there to update the wording shown in the dialog.
+
+## Three-script architecture and activation gates
+
+Three small scripts, each self-gated to only run where it makes sense:
+
+| Script | Active when | Job |
+|---|---|---|
+| `scripts/reskin-player.js`   | A `[data-vp-config]` element exists on the page | Hides native Vidstack/Mux UI, mounts custom controls, exposes `window.player` API |
+| `scripts/demo-overlays.js`   | A `[data-vp-config]` element exists on the page | Reads the JSON, mounts overlays + sidebar, drives time-sync |
+| `scripts/admin-toggle.js`    | URL contains `/admin/editor/` AND no `?view=preview` | Mounts the authoring banner + dialog above each `<hls-video>` |
+
+A page that has none of these triggers stays untouched — `reskin-player.js`
+short-circuits inside `attach()` and `demo-overlays.js` returns early with
+`'demo: idle (no config)'`. So all three scripts can be loaded globally
+(via the LearningSuite global `<script>` slot or a hosted bundle) without
+risk of polluting unrelated lessons.
+
+Important: a `<pre data-vp-config>` alone does **not** activate the editor
+— the runtime scripts have to be loaded too. During development they were
+injected by hand via `agent-browser eval -b`. For production this means
+hosting the three files somewhere reachable (Vercel/static-CDN) and adding
+three `<script src=…>` tags to a global script slot. Without that, an
+admin who pastes the JSON into the embed block sees a perfectly valid
+`<pre>` in the rendered DOM but no overlays — the symptom that triggered
+the diagnosis here.
+
+## Self-cleanup pattern for re-injectable runtime scripts
+
+While iterating, repeated injection via `agent-browser eval -b` pinned the
+Chrome renderer at 100 % CPU within a few cycles. Two root causes,
+mirrored across all three scripts now:
+
+1. **MutationObservers stack.** Each IIFE run added a fresh
+   `new MutationObserver(scan).observe(document.body, { subtree: true, childList: true })`,
+   so after N injects the same scan ran N times for every DOM mutation.
+   On a React app like LearningSuite that's hundreds of mutations per
+   second.
+2. **`history.pushState` / `replaceState` patches nest.** Each IIFE
+   wrapped the existing function. After N injects, every SPA
+   navigation invoked the original N times and scheduled N timeouts.
+
+The fix in all three scripts:
+
+```js
+// First thing inside the IIFE:
+if (Array.isArray(window.__vpXxxCleanup)) {
+  for (const fn of window.__vpXxxCleanup) { try { fn(); } catch {} }
+}
+window.__vpXxxCleanup = [];
+
+// Each setup pushes its own teardown:
+const mo = new MutationObserver(scheduleScan);  // scheduleScan is debounced (250ms)
+mo.observe(document.body, { subtree: true, childList: true });
+window.__vpXxxCleanup.push(() => mo.disconnect());
+```
+
+`history.pushState`/`replaceState` patches were removed entirely — the
+debounced MutationObserver plus a `popstate` listener (also tracked in
+the cleanup registry) catches everything we care about without the
+stacking risk.
+
+A separate trap was the status-refresh observer in `admin-toggle.js`,
+originally `attributeFilter: ['value']` on `document.body+subtree`.
+LearningSuite's React inputs constantly mutate their own `value`
+attributes, so the observer fired roughly continuously and triggered DOM
+writes that triggered itself. Replaced with a passive `setInterval`
+poll (2 s, no-op if state unchanged).
+
+## Sidebar mount: two strategies, picked at runtime
+
+The original sidebar mount assumed the LearningSuite student page layout:
+a flex container with `<main>` plus a 300 px right column we hide and
+slot ourselves into. The editor "Vorschau" preview has a different DOM
+shape — no `<main>`, the player is nested ten levels deep inside MUI
+components, no row-flex parent ready to host a right column.
+
+`scripts/demo-overlays.js` now picks the strategy at runtime:
+
+- **Strategy A — flex sibling of `<main>`.** Try the original approach.
+  After insertion, *verify* that `sidebar.left ≥ main.right` AND
+  `sidebar.right ≤ window.innerWidth`. If not, **roll back** the layout
+  edits (sibling `display` values, parent `display:flex`, `gap`,
+  `flex` on `<main>`) and try B.
+- **Strategy B — fixed right rail.** `position: fixed; top:24; right:24;
+  bottom:24; width:380; z-index:50` mounted on `<body>`. Always reaches
+  the viewport edge regardless of host layout.
+
+The post-install verification + rollback is the key — without it, A
+silently mangled the editor layout (hid every sibling of `<main>`,
+turned its parent into flex, but the sidebar ended up below or in the
+wrong axis).
+
+## The section indicator's hidden whitespace bug
+
+Worth noting because it cost real time and the lesson generalises:
+LearningSuite's stylesheet inherits `white-space: pre-wrap` onto custom
+DOM, which makes the newlines in template-literal `innerHTML` visible
+as blank lines. The section pill ballooned to ~156 px tall when only
+~33 px of content was visible. Fix in `demo-overlays.js`:
+
+```css
+.vp-section-pill, .vp-section-pill * { white-space: normal; }
+.vp-section-pill .vp-sec-title { white-space: nowrap; }
+```
+
+A second related bug: the original section pill rebuilt its full
+`innerHTML` on every `time` event (~4×/s). Hover state lives on the
+parent element via `:hover`, so DOM thrash mid-hover swallowed the
+hover and the expanded card snapped shut. Fix: build collapsed +
+expanded views once, toggle visibility via CSS, and only update text
+content / class attributes per tick.
+
 ## Files in this branch
 
 - `docs/learningsuite-enrichment-research.md` — this document
-- `scripts/reskin-player.js` — generic re-skin runtime
-- `scripts/demo-overlays.js` — demo content + UI matching the repo's design
+- `scripts/reskin-player.js` — re-skin runtime (gated by `[data-vp-config]`)
+- `scripts/demo-overlays.js` — overlays + sidebar runtime (gated, dual mount strategy)
+- `scripts/admin-toggle.js` — admin-only banner + dialog with the LLM prompt
 - `scripts/poc-*.png` — screenshots of each verified state
 
-The two `.js` files are not yet wired into the Next.js app — they exist as
-self-contained POC scripts that can be pasted into the LearningSuite global
-`<script>` slot, or adapted into the production runtime.
+The three `.js` files are not yet wired into the Next.js app — they
+exist as self-contained scripts that can be pasted into the
+LearningSuite global `<script>` slot, hosted as static assets, or
+adapted into the production runtime. Each one is self-gating and safely
+re-injectable.
