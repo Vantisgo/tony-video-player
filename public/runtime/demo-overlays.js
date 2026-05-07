@@ -130,9 +130,12 @@
     });
     watcher.observe(document.body || document.documentElement, { subtree: true, childList: true });
     window.__vpDemoCleanup.push(() => watcher.disconnect());
-    // Set a timeout so we stop waiting after 30 s (lessons without config).
-    const giveUpId = setTimeout(() => { if (!done) { done = true; watcher.disconnect(); console.info('[vp] gave up watching for config'); } }, 30000);
-    window.__vpDemoCleanup.push(() => clearTimeout(giveUpId));
+    // No timeout — admins jump between Editor (where <pre> isn't in the rendered
+    // DOM, only stored as a string in a disabled input) and Vorschau (where the
+    // <pre> mounts) freely, sometimes minutes apart. The watcher stays armed
+    // until either applySetup runs or re-injection drains the cleanup. The cost
+    // is a `loadVpConfig` call per body mutation — cheap, and bounded by the
+    // host's natural mutation rate.
     return 'demo: waiting for config';
   }
   return applySetup(initialHit);
