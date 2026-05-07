@@ -404,6 +404,62 @@ admin who pastes the JSON into the embed block sees a perfectly valid
 `<pre>` in the rendered DOM but no overlays — the symptom that triggered
 the diagnosis here.
 
+## Hosting the runtime scripts on Vercel
+
+The scripts live under `public/runtime/` so Next.js serves them as static
+assets. After any push to the spike branch, the Vercel preview makes them
+available at:
+
+```
+https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/reskin-player.js
+…/runtime/demo-overlays.js
+…/runtime/admin-toggle.js
+```
+
+The branch alias hostname above always points at the latest preview build
+of the branch — handy while iterating. Production preview URLs point at
+the same files under `https://tony-video-player.vercel.app/runtime/<name>.js`
+once main is updated.
+
+### Vercel deployment protection bypass
+
+Our Vercel team has SAML / deployment protection on by default, so a raw
+`<script src="https://….vercel.app/runtime/reskin-player.js">` from the
+LearningSuite tenant returns 401. Two ways out:
+
+1. **Protection Bypass for Automation** (recommended for the spike).
+   Project Settings → *Deployment Protection* → enable *Protection
+   Bypass for Automation* → copy the generated secret. Append it as a
+   query string to every script URL:
+
+   ```html
+   <script src="https://….vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET&x-vercel-set-bypass-cookie=true" defer></script>
+   ```
+
+   `x-vercel-set-bypass-cookie=true` makes the first request set a cookie
+   so subsequent loads on the same `.vercel.app` host can drop the
+   query string. The secret is a static, project-scoped token; rotate it
+   from the same settings page when needed.
+
+2. **Public preview** — disable protection on the project entirely or
+   add a public alias. Simpler, but anyone with the URL can read the
+   files. Acceptable here since the runtime carries no secrets.
+
+### LearningSuite global-script-slot
+
+Once the bypass is in place, paste these three lines into the global
+`<script>` slot of the LearningSuite tenant (or, if the tenant has no
+such slot, into a "Code einbetten" block on every lesson):
+
+```html
+<script src="https://….vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET" defer></script>
+<script src="https://….vercel.app/runtime/demo-overlays.js?x-vercel-protection-bypass=SECRET" defer></script>
+<script src="https://….vercel.app/runtime/admin-toggle.js?x-vercel-protection-bypass=SECRET" defer></script>
+```
+
+All three are self-gating — they only do anything on pages where they
+should — so loading them globally is safe.
+
 ## Self-cleanup pattern for re-injectable runtime scripts
 
 While iterating, repeated injection via `agent-browser eval -b` pinned the
