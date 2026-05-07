@@ -20,7 +20,7 @@ We used three complementary tools:
 2. **Claude in Chrome MCP** — paired but the extension didn't route tab access to our
    external session, so it was abandoned in favour of console snippets.
 3. **Headless `agent-browser`** — for automated runs once we had login credentials and
-   could verify behaviour end-to-end (screenshots in `scripts/poc-*.png`).
+   could verify behaviour end-to-end (screenshots in `public/runtime/poc-*.png`).
 
 ## What the LearningSuite player actually is
 
@@ -78,7 +78,7 @@ The runtime script must be tolerant of:
 
 Two scripts, designed to be loaded via the LearningSuite global `<script>` slot:
 
-### `scripts/reskin-player.js`
+### `public/runtime/reskin-player.js`
 
 Generic, content-free re-skin:
 
@@ -91,7 +91,7 @@ Generic, content-free re-skin:
   - `setOverlays([...])` — registry-style timestamp-driven overlay slots
 - Sets up cross-frame `postMessage` so iframe sidebars can subscribe/dispatch
 
-### `scripts/demo-overlays.js`
+### `public/runtime/demo-overlays.js`
 
 Demo content + UI styled to match the tony-video-player repo (Coaching/Science/Meta
 Structure tabs, orange primary, MUI light card). Demonstrates the four overlay types
@@ -151,7 +151,7 @@ Captured during agent-browser runs against the live test account
 | Audio activation pauses video, resumes on skip | ✅ |
 | SpeechSynthesis speaking on activation | ✅ `speaking: true` |
 
-Screenshots in `scripts/poc-*.png` document each state.
+Screenshots in `public/runtime/poc-*.png` document each state.
 
 ## Proposed integration model
 
@@ -294,7 +294,7 @@ sanitising leaves the block empty the renderer hides it entirely — so a
 broken payload looks identical to "no embed block at all", which made
 debugging slow.
 
-**Working pattern** (used by `scripts/demo-overlays.js → loadVpConfig`):
+**Working pattern** (used by `public/runtime/demo-overlays.js → loadVpConfig`):
 
 ```html
 <pre data-vp-config style="display:none">
@@ -361,7 +361,7 @@ service-account login or a refresh-token flow.
 
 ## Authoring workflow — admin toggle + LLM prompt
 
-The runtime now ships with a third script, `scripts/admin-toggle.js`, that
+The runtime now ships with a third script, `public/runtime/admin-toggle.js`, that
 lights up only inside the LearningSuite editor in **edit** view (not
 preview). It watches every `<hls-video>` and inserts an orange banner
 directly above its container with a status pill ("✓ Konfig vorhanden" /
@@ -385,9 +385,9 @@ Three small scripts, each self-gated to only run where it makes sense:
 
 | Script | Active when | Job |
 |---|---|---|
-| `scripts/reskin-player.js`   | A `[data-vp-config]` element exists on the page | Hides native Vidstack/Mux UI, mounts custom controls, exposes `window.player` API |
-| `scripts/demo-overlays.js`   | A `[data-vp-config]` element exists on the page | Reads the JSON, mounts overlays + sidebar, drives time-sync |
-| `scripts/admin-toggle.js`    | URL contains `/admin/editor/` AND no `?view=preview` | Mounts the authoring banner + dialog above each `<hls-video>` |
+| `public/runtime/reskin-player.js`   | A `[data-vp-config]` element exists on the page | Hides native Vidstack/Mux UI, mounts custom controls, exposes `window.player` API |
+| `public/runtime/demo-overlays.js`   | A `[data-vp-config]` element exists on the page | Reads the JSON, mounts overlays + sidebar, drives time-sync |
+| `public/runtime/admin-toggle.js`    | URL contains `/admin/editor/` AND no `?view=preview` | Mounts the authoring banner + dialog above each `<hls-video>` |
 
 A page that has none of these triggers stays untouched — `reskin-player.js`
 short-circuits inside `attach()` and `demo-overlays.js` returns early with
@@ -454,7 +454,7 @@ slot ourselves into. The editor "Vorschau" preview has a different DOM
 shape — no `<main>`, the player is nested ten levels deep inside MUI
 components, no row-flex parent ready to host a right column.
 
-`scripts/demo-overlays.js` now picks the strategy at runtime:
+`public/runtime/demo-overlays.js` now picks the strategy at runtime:
 
 - **Strategy A — flex sibling of `<main>`.** Try the original approach.
   After insertion, *verify* that `sidebar.left ≥ main.right` AND
@@ -493,10 +493,10 @@ content / class attributes per tick.
 ## Files in this branch
 
 - `docs/learningsuite-enrichment-research.md` — this document
-- `scripts/reskin-player.js` — re-skin runtime (gated by `[data-vp-config]`)
-- `scripts/demo-overlays.js` — overlays + sidebar runtime (gated, dual mount strategy)
-- `scripts/admin-toggle.js` — admin-only banner + dialog with the LLM prompt
-- `scripts/poc-*.png` — screenshots of each verified state
+- `public/runtime/reskin-player.js` — re-skin runtime (gated by `[data-vp-config]`)
+- `public/runtime/demo-overlays.js` — overlays + sidebar runtime (gated, dual mount strategy)
+- `public/runtime/admin-toggle.js` — admin-only banner + dialog with the LLM prompt
+- `public/runtime/poc-*.png` — screenshots of each verified state
 
 The three `.js` files are not yet wired into the Next.js app — they
 exist as self-contained scripts that can be pasted into the

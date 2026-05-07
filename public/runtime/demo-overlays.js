@@ -598,16 +598,65 @@
   //       post-install verification shows the sidebar didn't end up to the
   //       right of <main>). Pinned to the viewport right edge so the sidebar
   //       is always visible regardless of host layout.
+  function detectTopNavHeight() {
+    // Find the bottom edge of the highest-z-index fixed/sticky bar pinned to
+    // the top of the viewport, so our sidebar can dodge under it.
+    let bottom = 0;
+    const candidates = document.querySelectorAll(
+      'header, nav, [role="banner"], [class*="AppBar"], [class*="Toolbar"], [class*="topbar"], [class*="TopBar"], [class*="navbar"]'
+    );
+    for (const el of candidates) {
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+      const r = el.getBoundingClientRect();
+      // Top-anchored, not full-height, plausibly a top nav.
+      if (r.top > 6 || r.height > 200 || r.height < 24) continue;
+      if (r.bottom > bottom) bottom = r.bottom;
+    }
+    return bottom;
+  }
+
+  const SIDEBAR_W = 340;
+  const SIDEBAR_GAP = 16;
+  const SIDEBAR_MIN_TOP = 24;
+
   function applyFixedRightRail() {
+    const topClear = Math.max(SIDEBAR_MIN_TOP, Math.ceil(detectTopNavHeight() + 8));
     sidebar.style.position = 'fixed';
-    sidebar.style.top = '24px';
-    sidebar.style.right = '24px';
-    sidebar.style.bottom = '24px';
-    sidebar.style.maxHeight = 'calc(100vh - 48px)';
+    sidebar.style.top = topClear + 'px';
+    sidebar.style.right = SIDEBAR_GAP + 'px';
+    sidebar.style.bottom = SIDEBAR_GAP + 'px';
+    sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
     sidebar.style.zIndex = '50';
-    sidebar.style.width = '380px';
+    sidebar.style.width = SIDEBAR_W + 'px';
     sidebar.style.alignSelf = '';
     if (sidebar.parentElement !== document.body) document.body.appendChild(sidebar);
+
+    // Reserve horizontal space so the sidebar never overlaps the centered
+    // lesson content. Try a few common LS scroll containers; whichever sticks,
+    // we cleanup on re-inject.
+    const reservePx = SIDEBAR_W + SIDEBAR_GAP * 2;
+    const targets = [
+      document.querySelector('main'),
+      document.querySelector('[class*="MainScroll"]'),
+      document.querySelector('[class*="content-scroll"]'),
+      document.body,
+    ].filter(Boolean);
+    for (const t of targets) {
+      const prev = t.style.paddingRight;
+      t.style.paddingRight = reservePx + 'px';
+      window.__vpDemoCleanup.push(() => { t.style.paddingRight = prev; });
+    }
+
+    // If the topnav grows/shrinks (resize, expand-collapse), keep our top
+    // edge in sync.
+    const onResize = () => {
+      const next = Math.max(SIDEBAR_MIN_TOP, Math.ceil(detectTopNavHeight() + 8));
+      sidebar.style.top = next + 'px';
+      sidebar.style.maxHeight = `calc(100vh - ${next + SIDEBAR_GAP}px)`;
+    };
+    window.addEventListener('resize', onResize);
+    window.__vpDemoCleanup.push(() => window.removeEventListener('resize', onResize));
   }
 
   function tryFlexSibling() {
