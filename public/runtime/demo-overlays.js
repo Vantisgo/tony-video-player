@@ -118,22 +118,31 @@
   // exactly once.
   // When we set up right when the <pre> appears, React (the LearningSuite
   // host) is often still mid-reconciliation, so DOM elements we add to the
-  // player host get stripped by React's next pass. We saw this concretely:
-  // slotTL would land but slotTR/BR/LT (created milliseconds later in the
-  // same setup) were gone by the time React finished. Defer setup until
-  // after two animation frames — that's the standard "wait for React" idiom
-  // and gives the host a chance to settle before we mount.
+  // player host get stripped by React's next pass. Defer setup until after
+  // two animation frames — that's the standard "wait for React" idiom.
   function deferAndApply(hit) {
     requestAnimationFrame(() => requestAnimationFrame(() => applySetup(hit)));
   }
 
-  const initialHit = loadVpConfig();
-  if (!initialHit) {
-    console.info('[vp] no <pre data-vp-config> yet — watching DOM');
+  // applySetup needs BOTH the <pre data-vp-config> (to read the config) and
+  // an <hls-video> in the DOM (to mount the player overlays into). LS
+  // mounts these on different React render passes, so a setup that runs
+  // when only the <pre> is present bails with "no player host". The watcher
+  // waits for both before firing.
+  function readyContext() {
+    const hit = loadVpConfig();
+    if (!hit) return null;
+    if (!document.querySelector('hls-video')) return null;
+    return hit;
+  }
+
+  const initialContext = readyContext();
+  if (!initialContext) {
+    console.info('[vp] waiting for both <pre data-vp-config> and <hls-video>');
     let done = false;
     const watcher = new MutationObserver(() => {
       if (done) return;
-      const hit = loadVpConfig();
+      const hit = readyContext();
       if (!hit) return;
       done = true;
       watcher.disconnect();
@@ -145,11 +154,10 @@
     // DOM, only stored as a string in a disabled input) and Vorschau (where the
     // <pre> mounts) freely, sometimes minutes apart. The watcher stays armed
     // until either applySetup runs or re-injection drains the cleanup. The cost
-    // is a `loadVpConfig` call per body mutation — cheap, and bounded by the
-    // host's natural mutation rate.
-    return 'demo: waiting for config';
+    // is a couple of querySelectors per body mutation — cheap.
+    return 'demo: waiting for config + video';
   }
-  deferAndApply(initialHit);
+  deferAndApply(initialContext);
   return 'demo: setup queued';
 
   function applySetup(cfgHit) {
