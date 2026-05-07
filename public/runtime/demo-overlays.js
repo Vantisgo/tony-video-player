@@ -116,6 +116,17 @@
   // about to land in the DOM milliseconds later. We treat that as "wait":
   // install a MutationObserver, retry when something changes, then run setup
   // exactly once.
+  // When we set up right when the <pre> appears, React (the LearningSuite
+  // host) is often still mid-reconciliation, so DOM elements we add to the
+  // player host get stripped by React's next pass. We saw this concretely:
+  // slotTL would land but slotTR/BR/LT (created milliseconds later in the
+  // same setup) were gone by the time React finished. Defer setup until
+  // after two animation frames — that's the standard "wait for React" idiom
+  // and gives the host a chance to settle before we mount.
+  function deferAndApply(hit) {
+    requestAnimationFrame(() => requestAnimationFrame(() => applySetup(hit)));
+  }
+
   const initialHit = loadVpConfig();
   if (!initialHit) {
     console.info('[vp] no <pre data-vp-config> yet — watching DOM');
@@ -126,7 +137,7 @@
       if (!hit) return;
       done = true;
       watcher.disconnect();
-      applySetup(hit);
+      deferAndApply(hit);
     });
     watcher.observe(document.body || document.documentElement, { subtree: true, childList: true });
     window.__vpDemoCleanup.push(() => watcher.disconnect());
@@ -138,7 +149,8 @@
     // host's natural mutation rate.
     return 'demo: waiting for config';
   }
-  return applySetup(initialHit);
+  deferAndApply(initialHit);
+  return 'demo: setup queued';
 
   function applySetup(cfgHit) {
   console.info(`[vp] config loaded from ${cfgHit.source}`);
