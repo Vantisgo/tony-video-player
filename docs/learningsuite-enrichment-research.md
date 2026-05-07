@@ -433,13 +433,18 @@ LearningSuite tenant returns 401. Two ways out:
    query string to every script URL:
 
    ```html
-   <script src="https://….vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET&x-vercel-set-bypass-cookie=true" defer></script>
+   <script src="https://….vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET" defer></script>
    ```
 
-   `x-vercel-set-bypass-cookie=true` makes the first request set a cookie
-   so subsequent loads on the same `.vercel.app` host can drop the
-   query string. The secret is a static, project-scoped token; rotate it
-   from the same settings page when needed.
+   The secret is a static, project-scoped token; rotate it from the same
+   settings page when needed.
+
+   **Don't add `&x-vercel-set-bypass-cookie=true`.** It triggers a
+   Set-Cookie redirect — Vercel sets the bypass as a `SameSite=Lax`
+   cookie on the `.vercel.app` host, but cross-origin subresource
+   requests don't carry that cookie back, so the redirect target 401s
+   and the script tag fires `onerror`. Stick with the query parameter
+   on every request — it's evaluated independently of cookies.
 
 2. **Public preview** — disable protection on the project entirely or
    add a public alias. Simpler, but anyone with the URL can read the
@@ -452,9 +457,9 @@ Once the bypass is in place, paste these three lines into the global
 such slot, into a "Code einbetten" block on every lesson):
 
 ```html
-<script src="https://….vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET" defer></script>
-<script src="https://….vercel.app/runtime/demo-overlays.js?x-vercel-protection-bypass=SECRET" defer></script>
-<script src="https://….vercel.app/runtime/admin-toggle.js?x-vercel-protection-bypass=SECRET" defer></script>
+<script src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET" defer></script>
+<script src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/demo-overlays.js?x-vercel-protection-bypass=SECRET" defer></script>
+<script src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/admin-toggle.js?x-vercel-protection-bypass=SECRET" defer></script>
 ```
 
 All three are self-gating — they only do anything on pages where they
