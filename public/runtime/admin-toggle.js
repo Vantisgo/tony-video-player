@@ -1,32 +1,29 @@
 // admin-toggle.js — Admin-only banner + dialog for activating Advanced Video Modus.
 //
 // Behaviour:
-//   - Runs ONLY in the LearningSuite admin editor edit-view
+//   - Banner only mounts inside the LearningSuite admin editor's EDIT view
 //     (URL contains `/admin/editor/` AND no `?view=preview`).
+//   - In Vorschau / preview / student-facing pages, the banner is removed
+//     so the video gets only the overlay + sidebar (rendered by the other
+//     two scripts).
 //   - Watches every <hls-video> on the page and inserts a small banner
 //     directly above its container with a "Aktivieren / Bearbeiten" button.
 //   - The button opens a modal dialog explaining the two-step setup:
 //       1. add a "Code einbetten" block under the video
 //       2. copy a ready-made LLM prompt (with the JSON schema baked in)
 //          and paste the LLM's output into that block.
-//   - The matching frontend script (`demo-overlays.js`) auto-activates only
-//     when a `<pre data-vp-config>` is present, so videos without that block
-//     stay on the default LearningSuite player.
+//
+// Note: in LearningSuite, "Editor" ↔ "Vorschau" toggling is SPA-only —
+// the URL flips between …/27ZqYKF1 and …/27ZqYKF1?view=preview without
+// reloading the page. So this script can't decide once at load and bail;
+// it has to re-evaluate on URL changes (popstate + a short URL poll for
+// pushState which doesn't fire popstate). The banners get torn down when
+// we leave edit view and re-mounted when we return.
 //
 // Idempotent: re-running the script removes any previous banner / dialog
 // host before recreating them.
 
 (() => {
-  if (!location.pathname.includes('/admin/editor/')) {
-    console.info('[vp-admin] not on admin editor — staying idle');
-    return 'admin-toggle: idle (not edit URL)';
-  }
-  const view = new URLSearchParams(location.search).get('view');
-  if (view === 'preview') {
-    console.info('[vp-admin] preview view — staying idle (frontend script handles this)');
-    return 'admin-toggle: idle (preview)';
-  }
-
   // Idempotency: tear down everything from a previous run BEFORE we set up
   // anew. Without this, re-injecting the script would stack MutationObservers
   // and pin the renderer at 100% CPU. Each setup call pushes its disconnect
@@ -318,22 +315,52 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
     window.__vpAdminCleanup.push(() => clearInterval(pollId));
   }
 
+  function isEditMode() {
+    if (!location.pathname.includes('/admin/editor/')) return false;
+    if (new URLSearchParams(location.search).get('view') === 'preview') return false;
+    return true;
+  }
+
+  function teardownBanners() {
+    document.querySelectorAll('.vp-admin-banner').forEach(el => el.remove());
+    document.getElementById('vp-admin-dialog-host')?.remove();
+    // Re-arm attach() for any future return to edit mode.
+    document.querySelectorAll('hls-video').forEach(v => { delete v.__vpAdminAttached; });
+  }
+
   function scan() { document.querySelectorAll('hls-video').forEach(attach); }
-  scan();
+
+  function applyMode() {
+    if (isEditMode()) scan();
+    else teardownBanners();
+  }
+
+  applyMode();
+
   // Debounce scan so React's chatty re-renders don't burn CPU.
   let scanPending = 0;
-  function scheduleScan() {
+  function scheduleApply() {
     if (scanPending) return;
-    scanPending = setTimeout(() => { scanPending = 0; scan(); }, 250);
+    scanPending = setTimeout(() => { scanPending = 0; applyMode(); }, 250);
   }
-  const mo = new MutationObserver(scheduleScan);
+  const mo = new MutationObserver(scheduleApply);
   mo.observe(document.body, { subtree: true, childList: true });
   window.__vpAdminCleanup.push(() => { mo.disconnect(); if (scanPending) clearTimeout(scanPending); });
 
-  // SPA navigation: re-scan after history changes.
-  const popHandler = () => setTimeout(scheduleScan, 100);
-  window.addEventListener('popstate', popHandler);
-  window.__vpAdminCleanup.push(() => window.removeEventListener('popstate', popHandler));
+  // SPA navigation. popstate fires for back/forward but NOT for pushState
+  // (which is what LS uses when you click Editor / Vorschau), so we also
+  // poll the URL on a short interval. 600 ms is a fair balance between
+  // responsiveness and idle cost.
+  let lastHref = location.href;
+  const checkUrl = () => {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    applyMode();
+  };
+  window.addEventListener('popstate', checkUrl);
+  window.__vpAdminCleanup.push(() => window.removeEventListener('popstate', checkUrl));
+  const urlPollId = setInterval(checkUrl, 600);
+  window.__vpAdminCleanup.push(() => clearInterval(urlPollId));
 
   return 'admin-toggle armed';
 })();
