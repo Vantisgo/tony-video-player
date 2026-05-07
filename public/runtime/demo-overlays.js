@@ -110,13 +110,34 @@
     return null;
   }
 
-  const cfgHit = loadVpConfig();
-  if (!cfgHit) {
-    // No <pre data-vp-config> on this page — Advanced Video Modus is OFF.
-    // Leave the native LearningSuite player and layout untouched.
-    console.info('[vp] no config found on page, advanced editor stays off');
-    return 'demo: idle (no config)';
+  // LearningSuite renders embed-block content (incl. our <pre data-vp-config>)
+  // asynchronously via React, AFTER the <head> scripts have parsed and run.
+  // So loadVpConfig() may return null on first call even though the JSON is
+  // about to land in the DOM milliseconds later. We treat that as "wait":
+  // install a MutationObserver, retry when something changes, then run setup
+  // exactly once.
+  const initialHit = loadVpConfig();
+  if (!initialHit) {
+    console.info('[vp] no <pre data-vp-config> yet — watching DOM');
+    let done = false;
+    const watcher = new MutationObserver(() => {
+      if (done) return;
+      const hit = loadVpConfig();
+      if (!hit) return;
+      done = true;
+      watcher.disconnect();
+      applySetup(hit);
+    });
+    watcher.observe(document.body || document.documentElement, { subtree: true, childList: true });
+    window.__vpDemoCleanup.push(() => watcher.disconnect());
+    // Set a timeout so we stop waiting after 30 s (lessons without config).
+    const giveUpId = setTimeout(() => { if (!done) { done = true; watcher.disconnect(); console.info('[vp] gave up watching for config'); } }, 30000);
+    window.__vpDemoCleanup.push(() => clearTimeout(giveUpId));
+    return 'demo: waiting for config';
   }
+  return applySetup(initialHit);
+
+  function applySetup(cfgHit) {
   console.info(`[vp] config loaded from ${cfgHit.source}`);
   const cfg = cfgHit.data;
   // Per-section defaults still kick in for partially-filled configs.
@@ -866,4 +887,5 @@
   recomputeActive(window.player.current ?? 0);
 
   return 'demo (full overlays) configured';
+  } // end applySetup
 })();
