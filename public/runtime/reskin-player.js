@@ -27,6 +27,8 @@
       .vp-subtitle-layer { position: absolute; left: 8%; right: 8%; bottom: 58px; display: flex; justify-content: center; pointer-events: none; z-index: 6; }
       .vp-subtitle-layer[hidden] { display: none !important; }
       .vp-subtitle-cue { max-width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.72); color: #fff; font: 600 16px/1.35 system-ui, sans-serif; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,.75); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+      .vp-sync-badge { position: absolute; right: 12px; bottom: 56px; z-index: 7; padding: 4px 7px; border-radius: 6px; background: rgba(180, 83, 9, .92); color: #fff; font: 600 12px/1.2 system-ui, sans-serif; letter-spacing: 0; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,.28); }
+      .vp-sync-badge[hidden] { display: none !important; }
       .vp-controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px; background: linear-gradient(transparent, rgba(0,0,0,.7)); display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto; gap: 10px; align-items: center; }
       .vp-controls button { background: none; border: 0; color: #fff; cursor: pointer; padding: 6px 8px; border-radius: 4px; font-size: 14px; }
       .vp-controls button:hover { background: rgba(255,255,255,.15); }
@@ -69,6 +71,8 @@
 
   const overlays = [];
   let activeOverlays = new Set();
+  const externalAudioWarningThresholdSec = 1;
+  const externalAudioSyncIntervalMs = 1000;
 
   let videoEl = null;
   const api = {
@@ -380,6 +384,7 @@
     shell.innerHTML = `
       <div class="vp-overlay-layer" data-vp-overlays></div>
       <div class="vp-subtitle-layer" data-vp-subtitles hidden></div>
+      <div class="vp-sync-badge" data-vp-sync-drift hidden></div>
       <div class="vp-controls">
         <button data-vp="playpause" aria-label="Play/Pause">Play</button>
         <input  data-vp="seek" class="vp-seek" type="range" min="0" max="0" step="0.1" value="0" />
@@ -401,6 +406,7 @@
     const $ = (sel) => shell.querySelector(`[data-vp="${sel}"]`);
     const overlayLayer = shell.querySelector('[data-vp-overlays]');
     const subtitleLayer = shell.querySelector('[data-vp-subtitles]');
+    const syncDriftBadge = shell.querySelector('[data-vp-sync-drift]');
     const audioMenu = shell.querySelector('[data-vp-menu="audio"]');
     const captionsMenu = shell.querySelector('[data-vp-menu="captions"]');
     const setActive = () => { videoEl = mediaEl; };
@@ -553,7 +559,21 @@
 
     function ensureExternalAudioSyncTimer() {
       if (externalAudioSyncTimer || externalAudioIndex < 0) return;
-      externalAudioSyncTimer = setInterval(() => syncExternalAudio(), 500);
+      externalAudioSyncTimer = setInterval(() => syncExternalAudio(), externalAudioSyncIntervalMs);
+    }
+
+    function updateExternalAudioDriftBadge(driftSeconds = 0) {
+      if (!syncDriftBadge || externalAudioIndex < 0 || Math.abs(driftSeconds) <= externalAudioWarningThresholdSec) {
+        if (syncDriftBadge) syncDriftBadge.hidden = true;
+        return;
+      }
+
+      const sign = driftSeconds > 0 ? '+' : '-';
+      syncDriftBadge.textContent = `Audio ${sign}${Math.abs(driftSeconds).toFixed(1)}s`;
+      syncDriftBadge.title = driftSeconds > 0
+        ? 'External audio is ahead of the video timeline'
+        : 'External audio is behind the video timeline';
+      syncDriftBadge.hidden = false;
     }
 
     function stopExternalAudio() {
@@ -566,16 +586,23 @@
       $('mute').textContent = audibleMuted ? 'Muted' : 'Sound';
       shell.dataset.vpAudioSource = 'native';
       shell.dataset.vpAudioTrack = 'native';
+      updateExternalAudioDriftBadge(0);
     }
 
     function syncExternalAudio(force = false) {
       const track = getExternalAudioTrack();
-      if (!track) return;
+      if (!track) {
+        updateExternalAudioDriftBadge(0);
+        return;
+      }
 
       const expected = expectedExternalAudioTime();
-      if (force || Math.abs((externalAudio.currentTime || 0) - expected) > 0.08) {
+      const drift = (externalAudio.currentTime || 0) - expected;
+
+      if (force) {
         try { externalAudio.currentTime = expected; } catch {}
       }
+      updateExternalAudioDriftBadge(force ? 0 : drift);
 
       externalAudio.playbackRate = mediaEl.playbackRate || 1;
       externalAudio.muted = audibleMuted;
@@ -589,8 +616,10 @@
       }
 
       ensureExternalAudioSyncTimer();
-      const playPromise = externalAudio.play();
-      if (playPromise?.catch) playPromise.catch(err => console.warn('[vp] external audio play failed', err));
+      if (externalAudio.paused) {
+        const playPromise = externalAudio.play();
+        if (playPromise?.catch) playPromise.catch(err => console.warn('[vp] external audio play failed', err));
+      }
     }
 
     function setExternalAudioTrack(value) {
@@ -944,14 +973,14 @@
       }
       bus.emit('any', { type: 'time', time: t, duration: mediaEl.duration });
     };
-    const onPlay  = () => { setActive(); $('playpause').textContent = 'Pause'; syncExternalAudio(true); bus.emit('any', { type: 'play',  time: mediaEl.currentTime }); };
+    const onPlay  = () => { setActive(); $('playpause').textContent = 'Pause'; syncExternalAudio(); bus.emit('any', { type: 'play',  time: mediaEl.currentTime }); };
     const onPause = () => { $('playpause').textContent = 'Play'; externalAudio.pause(); clearExternalAudioSyncTimer(); bus.emit('any', { type: 'pause', time: mediaEl.currentTime }); };
     const onEnded = () => { externalAudio.pause(); clearExternalAudioSyncTimer(); bus.emit('any', { type: 'ended', time: mediaEl.currentTime }); };
     const onSeeking = () => { if (externalAudioIndex >= 0) externalAudio.pause(); };
     const onSeeked = () => syncExternalAudio(true);
-    const onRateChange = () => syncExternalAudio(true);
+    const onRateChange = () => syncExternalAudio();
     const onWaiting = () => { if (externalAudioIndex >= 0) { externalAudio.pause(); clearExternalAudioSyncTimer(); } };
-    const onPlaying = () => syncExternalAudio(true);
+    const onPlaying = () => syncExternalAudio();
     const onVolumeChange = () => {
       if (externalAudioIndex >= 0) {
         externalAudio.muted = audibleMuted;
