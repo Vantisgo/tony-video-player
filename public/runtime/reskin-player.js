@@ -71,6 +71,7 @@
 
   const overlays = [];
   let activeOverlays = new Set();
+  const runtimeBuild = 'audio-drift-badge-no-autosync';
   const externalAudioWarningThresholdSec = 1;
   const externalAudioSyncIntervalMs = 1000;
 
@@ -84,6 +85,11 @@
     on: bus.on,
     setOverlays: (next) => { overlays.length = 0; overlays.push(...next); },
     _diag: () => ({
+      runtime: {
+        build: runtimeBuild,
+        externalAudioAutoSync: false,
+        externalAudioWarningThresholdSec,
+      },
       hasVideo: !!videoEl,
       currentTime: videoEl?.currentTime,
       duration: videoEl?.duration,
@@ -94,6 +100,11 @@
     }),
   };
   window.player = api;
+  window.__vpRuntimeInfo = {
+    build: runtimeBuild,
+    externalAudioAutoSync: false,
+    externalAudioWarningThresholdSec,
+  };
 
   function listToArray(list) {
     if (!list) return [];
