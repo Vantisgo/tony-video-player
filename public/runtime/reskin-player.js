@@ -71,7 +71,7 @@
 
   const overlays = [];
   let activeOverlays = new Set();
-  const runtimeBuild = 'audio-drift-badge-no-autosync';
+  const runtimeBuild = 'audio-drift-badge-passive';
   const externalAudioWarningThresholdSec = 1;
   const externalAudioSyncIntervalMs = 1000;
 
@@ -570,7 +570,7 @@
 
     function ensureExternalAudioSyncTimer() {
       if (externalAudioSyncTimer || externalAudioIndex < 0) return;
-      externalAudioSyncTimer = setInterval(() => syncExternalAudio(), externalAudioSyncIntervalMs);
+      externalAudioSyncTimer = setInterval(() => updateExternalAudioDrift(), externalAudioSyncIntervalMs);
     }
 
     function updateExternalAudioDriftBadge(driftSeconds = 0) {
@@ -585,6 +585,16 @@
         ? 'External audio is ahead of the video timeline'
         : 'External audio is behind the video timeline';
       syncDriftBadge.hidden = false;
+    }
+
+    function updateExternalAudioDrift() {
+      const track = getExternalAudioTrack();
+      if (!track) {
+        updateExternalAudioDriftBadge(0);
+        return;
+      }
+
+      updateExternalAudioDriftBadge((externalAudio.currentTime || 0) - expectedExternalAudioTime());
     }
 
     function stopExternalAudio() {
@@ -939,7 +949,11 @@
       if (mediaEl.paused) mediaEl.play();
       else mediaEl.pause();
     };
-    $('seek').oninput = (e) => { setActive(); mediaEl.currentTime = +e.target.value; };
+    $('seek').oninput = (e) => {
+      setActive();
+      mediaEl.currentTime = +e.target.value;
+      syncExternalAudio(true);
+    };
     $('audio').onclick = (e) => { e.stopPropagation(); setActive(); toggleTrackMenu('audio'); };
     $('captions').onclick = (e) => { e.stopPropagation(); setActive(); toggleTrackMenu('captions'); };
     $('mute').onclick = () => {
@@ -964,7 +978,6 @@
       $('seek').value = mediaEl.currentTime;
       $('time').textContent = `${fmt(mediaEl.currentTime)} / ${fmt(mediaEl.duration)}`;
       const t = mediaEl.currentTime;
-      syncExternalAudio();
       renderActiveSubtitle(t);
       for (const o of overlays) {
         const should = t >= o.from && t < o.to;
@@ -990,7 +1003,7 @@
     const onSeeking = () => { if (externalAudioIndex >= 0) externalAudio.pause(); };
     const onSeeked = () => syncExternalAudio(true);
     const onRateChange = () => syncExternalAudio();
-    const onWaiting = () => { if (externalAudioIndex >= 0) { externalAudio.pause(); clearExternalAudioSyncTimer(); } };
+    const onWaiting = () => updateExternalAudioDrift();
     const onPlaying = () => syncExternalAudio();
     const onVolumeChange = () => {
       if (externalAudioIndex >= 0) {
