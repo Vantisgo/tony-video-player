@@ -725,14 +725,14 @@
     }
 
     function getSubtitleMenuState() {
+      const externalOptions = getExternalSubtitleOptions();
+      if (externalOptions) return { source: 'external', options: externalOptions };
+
       const hlsOptions = getHlsSubtitleOptions();
       if (hlsOptions) return { source: 'hls', options: hlsOptions };
 
       const nativeOptions = getNativeSubtitleOptions();
       if (nativeOptions) return { source: 'native', options: nativeOptions };
-
-      const externalOptions = getExternalSubtitleOptions();
-      if (externalOptions) return { source: 'external', options: externalOptions };
 
       const learningSuiteOptions = getLearningSuiteSubtitleOptions();
       if (learningSuiteOptions) return { source: 'learningSuite', options: learningSuiteOptions };
