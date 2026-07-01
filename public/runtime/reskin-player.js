@@ -132,24 +132,46 @@
     return m?.[1] || '';
   }
 
-  function getRuntimeBaseUrl() {
+  function getRuntimeScriptUrl() {
     if (window.__vpRuntimeBaseUrl) return window.__vpRuntimeBaseUrl;
 
     const script = document.currentScript?.src
       ? document.currentScript
       : [...document.scripts].reverse().find(s => s.src && /\/runtime\/reskin-player\.js/i.test(s.src));
 
-    if (script?.src) {
-      try { return new URL('.', script.src).href; } catch {}
-    }
+    return script?.src || '';
+  }
 
-    return window.__vpRuntimeBaseUrl || '';
+  function getRuntimeBaseUrl() {
+    const scriptUrl = getRuntimeScriptUrl();
+    if (!scriptUrl) return '';
+    try { return new URL('.', scriptUrl).href; } catch {}
+    return scriptUrl;
   }
 
   function resolveUrl(url, baseUrl) {
     if (!url) return '';
     try { return new URL(url, baseUrl || location.href).href; }
     catch { return String(url); }
+  }
+
+  function withRuntimeAssetQuery(url, sourceUrl = getRuntimeScriptUrl()) {
+    if (!url || !sourceUrl) return url;
+
+    try {
+      const source = new URL(sourceUrl, location.href);
+      if (!source.search) return url;
+
+      const target = new URL(url, location.href);
+      if (target.origin !== source.origin) return url;
+
+      source.searchParams.forEach((value, key) => {
+        if (!target.searchParams.has(key)) target.searchParams.set(key, value);
+      });
+      return target.href;
+    } catch {
+      return url;
+    }
   }
 
   function parseVttTimestamp(value) {
@@ -202,7 +224,7 @@
           id: track.id || track.language || `audio-${index + 1}`,
           label: track.label || trackLabel(track, index, 'Audio'),
           language: track.language || track.lang || '',
-          url: resolveUrl(track.url, baseUrl),
+          url: withRuntimeAssetQuery(resolveUrl(track.url, baseUrl), baseUrl),
           offsetMs: Number(track.offsetMs || 0),
           useNative: !!track.useNative,
         })).filter(track => track.url || track.useNative)
@@ -210,7 +232,7 @@
 
     const subtitleTracks = Array.isArray(raw.subtitleTracks)
       ? await Promise.all(raw.subtitleTracks.map(async (track, index) => {
-          const url = resolveUrl(track.url, baseUrl);
+          const url = withRuntimeAssetQuery(resolveUrl(track.url, baseUrl), baseUrl);
           let cues = Array.isArray(track.cues) ? track.cues.map(normalizeTranscriptCue).filter(Boolean) : [];
 
           if (!cues.length && url) {
@@ -252,7 +274,7 @@
       return pack;
     }
 
-    const manifestUrl = resolveUrl(`language-packs/${videoId}/manifest.json`, getRuntimeBaseUrl());
+    const manifestUrl = withRuntimeAssetQuery(resolveUrl(`language-packs/${videoId}/manifest.json`, getRuntimeBaseUrl()));
     const promise = fetch(manifestUrl)
       .then(r => r.ok ? r.json() : null)
       .then(data => data ? normalizeLanguagePack(data, manifestUrl) : null)
