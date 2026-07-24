@@ -101,6 +101,183 @@
     };
   }
 
+  // runtime-src/common/player.ts
+  var KNOWN_TAG_NAMES = /* @__PURE__ */ new Set(["hls-video", "mux-player", "video"]);
+  function isMediaEl(el) {
+    return !!el && typeof el.play === "function" && "currentTime" in el && "duration" in el;
+  }
+  function isPlayerCandidate(el) {
+    return isMediaEl(el) || KNOWN_TAG_NAMES.has(el.tagName.toLowerCase());
+  }
+  function dedup(elements) {
+    return [...new Set(elements)];
+  }
+  function collectDeep(root, out = []) {
+    root.querySelectorAll("*").forEach((el) => {
+      out.push(el);
+      const sr = el.shadowRoot;
+      if (sr) collectDeep(sr, out);
+    });
+    return out;
+  }
+  function queryShadow(root, selector) {
+    const out = [];
+    collectDeep(root).forEach((el) => {
+      const sr = el.shadowRoot;
+      if (sr) out.push(...sr.querySelectorAll(selector));
+    });
+    return out;
+  }
+  function mediaElementsWithin(el) {
+    if (isPlayerCandidate(el)) return [el];
+    return collectDeep(el).filter(isPlayerCandidate);
+  }
+  var BY_TAG = [
+    ["hls-video", "tag:hls-video"],
+    ["mux-player", "tag:mux-player"],
+    ["media-controller video", "tag:media-controller"]
+  ];
+  function scanWith(root, query) {
+    const marked = query("[data-vp-player]");
+    if (marked.length) {
+      const players = dedup(marked.flatMap(mediaElementsWithin));
+      if (players.length) return { players, strategy: "contract" };
+    }
+    for (const [selector, strategy] of BY_TAG) {
+      const hits = dedup(query(selector));
+      if (hits.length) return { players: hits, strategy };
+    }
+    return { players: [], strategy: "none" };
+  }
+  function scanPlayers(root = document) {
+    const light = scanWith(root, (sel) => [...root.querySelectorAll(sel)]);
+    if (light.strategy !== "none") return light;
+    const shadow = scanWith(root, (sel) => queryShadow(root, sel));
+    if (shadow.strategy !== "none") return shadow;
+    const sweep = dedup(collectDeep(root).filter(isMediaEl));
+    if (sweep.length) return { players: sweep, strategy: "capability" };
+    return { players: [], strategy: "none" };
+  }
+  function findPlayers(root) {
+    return scanPlayers(root).players;
+  }
+  function resolveHost(mediaEl) {
+    const first = mediaEl.parentElement;
+    let el = first;
+    while (el) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) return el;
+      el = el.parentElement;
+    }
+    return first;
+  }
+
+  // runtime-src/common/tracks.ts
+  function getBunnyVideoId(url) {
+    if (!url) return "";
+    const m = String(url).match(
+      /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/playlist\.m3u8/i
+    );
+    return (m == null ? void 0 : m[1]) || "";
+  }
+
+  // runtime-src/common/runtime-url.ts
+  function getRuntimeScriptUrl() {
+    const override = window.__vpRuntimeBaseUrl;
+    if (override) return override;
+    const current = document.currentScript;
+    if (current == null ? void 0 : current.src) return current.src;
+    const hit = [...document.scripts].reverse().find((s) => s.src && /\/runtime\/[\w-]+\.js/i.test(s.src));
+    return (hit == null ? void 0 : hit.src) || "";
+  }
+  function getRuntimeBaseUrl() {
+    const scriptUrl = getRuntimeScriptUrl();
+    if (!scriptUrl) return "";
+    try {
+      return new URL(".", scriptUrl).href;
+    } catch {
+      return scriptUrl;
+    }
+  }
+  function runtimeApiUrl(baseUrl, path) {
+    if (!baseUrl) return "";
+    try {
+      return new URL(path, baseUrl).href;
+    } catch {
+      return "";
+    }
+  }
+
+  // runtime-src/common/killswitch.ts
+  var FLAG_PATH = "/api/runtime-config";
+  var TIMEOUT_MS = 3e3;
+  async function shouldRun(baseUrl) {
+    const url = runtimeApiUrl(baseUrl, FLAG_PATH);
+    if (!url) return true;
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), TIMEOUT_MS) : null;
+    try {
+      const res = await fetch(url, {
+        credentials: "omit",
+        signal: controller == null ? void 0 : controller.signal
+      });
+      if (!res.ok) return true;
+      const data = await res.json();
+      return !isDisabled(data);
+    } catch {
+      return true;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  function isDisabled(data) {
+    return !!data && typeof data === "object" && data.enabled === false;
+  }
+
+  // runtime-src/common/beacon.ts
+  var TELEMETRY_PATH = "/api/runtime-telemetry";
+  var MAX_CONFIG_BYTES = 32 * 1024;
+  function capConfig(config) {
+    let serialized;
+    try {
+      serialized = JSON.stringify(config != null ? config : null);
+    } catch {
+      return { __unserializable: true };
+    }
+    if (serialized.length > MAX_CONFIG_BYTES)
+      return { __truncated: true, bytes: serialized.length };
+    return config != null ? config : null;
+  }
+  var reported = /* @__PURE__ */ new Set();
+  function report(baseUrl, payload) {
+    try {
+      const key = `${payload.errorType}|${payload.videoId}`;
+      if (reported.has(key)) return;
+      const url = runtimeApiUrl(baseUrl, TELEMETRY_PATH);
+      if (!url) return;
+      reported.add(key);
+      const body = JSON.stringify({
+        errorType: payload.errorType,
+        videoId: payload.videoId,
+        config: capConfig(payload.config)
+      });
+      if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+        const blob = new Blob([body], { type: "text/plain" });
+        if (navigator.sendBeacon(url, blob)) return;
+      }
+      if (typeof fetch !== "undefined")
+        void fetch(url, {
+          method: "POST",
+          keepalive: true,
+          headers: { "content-type": "text/plain" },
+          body,
+          credentials: "omit"
+        }).catch(() => {
+        });
+    } catch {
+    }
+  }
+
   // runtime-src/demo-overlays/data.ts
   var DEFAULT_PHASES = [
     {
@@ -313,6 +490,16 @@
 
   // runtime-src/demo-overlays/index.ts
   var CLEANUP_KEY = "__vpDemoCleanup";
+  var runtimeBaseUrl = getRuntimeBaseUrl();
+  function reportFailure(errorType) {
+    var _a, _b, _c;
+    const player = findPlayers()[0];
+    report(runtimeBaseUrl, {
+      errorType,
+      videoId: player ? getBunnyVideoId(player.src || ((_a = player.getAttribute) == null ? void 0 : _a.call(player, "src"))) : "",
+      config: (_c = (_b = loadVpConfig()) == null ? void 0 : _b.data) != null ? _c : null
+    });
+  }
   var w = window;
   function main() {
     resetCleanup(CLEANUP_KEY);
@@ -322,12 +509,12 @@
     function readyContext() {
       const hit = loadVpConfig();
       if (!hit) return null;
-      if (!document.querySelector("hls-video")) return null;
+      if (!findPlayers()[0]) return null;
       return hit;
     }
     const initialContext = readyContext();
     if (!initialContext) {
-      console.info("[vp] waiting for both <pre data-vp-config> and <hls-video>");
+      console.info("[vp] waiting for both <pre data-vp-config> and a player");
       let done = false;
       const watcher = new MutationObserver(() => {
         if (done) return;
@@ -342,11 +529,38 @@
         childList: true
       });
       pushCleanup(CLEANUP_KEY, () => watcher.disconnect());
+      if (loadVpConfig()) {
+        const deadline = setTimeout(() => {
+          if (!done) reportFailure("demo-context-timeout");
+        }, 1e4);
+        pushCleanup(CLEANUP_KEY, () => clearTimeout(deadline));
+      }
       return "demo: waiting for config + video";
     }
     deferAndApply(initialContext);
     return "demo: setup queued";
     function applySetup(cfgHit) {
+      try {
+        applySetupInner(cfgHit);
+      } catch (err) {
+        console.error("[vp demo] setup failed; restoring host", err);
+        resetCleanup(CLEANUP_KEY);
+        [
+          "vp-slot-tl",
+          "vp-slot-tr",
+          "vp-slot-br",
+          "vp-slot-lt",
+          "vp-demo-sidebar",
+          "vp-anim-style",
+          "__vp-section-style"
+        ].forEach((id) => {
+          var _a;
+          return (_a = document.getElementById(id)) == null ? void 0 : _a.remove();
+        });
+        reportFailure("demo-setup-error");
+      }
+    }
+    function applySetupInner(cfgHit) {
       var _a, _b, _c, _d, _e, _f, _g;
       console.info(`[vp] config loaded from ${cfgHit.source}`);
       const parsed = parseVpConfig(cfgHit.data);
@@ -364,7 +578,8 @@
         s.textContent = ANIM_CSS;
         document.head.appendChild(s);
       }
-      const playerHost = (_e = document.querySelector("hls-video")) == null ? void 0 : _e.parentElement;
+      const player = findPlayers()[0];
+      const playerHost = player ? resolveHost(player) : null;
       if (!playerHost) {
         console.warn("[demo] no player host");
         return;
@@ -412,7 +627,7 @@
         "left:14px; right:14px; bottom:70px;"
       );
       const sectionStyleId = "__vp-section-style";
-      (_f = document.getElementById(sectionStyleId)) == null ? void 0 : _f.remove();
+      (_e = document.getElementById(sectionStyleId)) == null ? void 0 : _e.remove();
       {
         const s = document.createElement("style");
         s.id = sectionStyleId;
@@ -571,9 +786,7 @@
         slotTR.querySelector('[data-overlay-action="science"]').onclick = openSci;
         slotTR.querySelector("button").onclick = openSci;
       }
-      const videoEl = document.querySelector(
-        "hls-video"
-      );
+      const videoEl = (_f = findPlayers()[0]) != null ? _f : null;
       const audioCtrl = {
         state: "idle",
         active: null,
@@ -917,6 +1130,8 @@
         if (!mainEl) return false;
         const flexParent = mainEl.parentElement;
         if (!flexParent) return false;
+        const mainBox = mainEl.getBoundingClientRect();
+        if (mainBox.width <= 0 || mainBox.height <= 0) return false;
         const prevDisplays = /* @__PURE__ */ new Map();
         [...flexParent.children].forEach((child) => {
           const c = child;
@@ -1146,5 +1361,8 @@
       recomputeActive((_g = window.player.current) != null ? _g : 0);
     }
   }
-  window.__vpDemoStatus = main();
+  void (async () => {
+    const status = await shouldRun(runtimeBaseUrl) ? main() : "demo: disabled by kill-switch";
+    window.__vpDemoStatus = status;
+  })();
 })();

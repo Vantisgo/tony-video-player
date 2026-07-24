@@ -1,12 +1,12 @@
 // CSS injected to hide the native Vidstack/Mux chrome and style the custom
 // controls shell, overlays, subtitles and track menus.
 export const RESKIN_CSS = `
-      hls-video > *:not([slot="media"]) { display: none !important; }
-      hls-video [slot="ui"], hls-video [slot="layer"] { display: none !important; }
-      hls-video media-controls, hls-video media-poster, hls-video media-play-button,
-      hls-video media-gesture, hls-video media-time-display, hls-video media-volume-slider,
-      hls-video media-time-slider, hls-video media-fullscreen-button,
-      hls-video media-captions-button, hls-video media-menu { display: none !important; }
+      [data-vp-reskinned="true"] hls-video > *:not([slot="media"]) { display: none !important; }
+      [data-vp-reskinned="true"] hls-video [slot="ui"], [data-vp-reskinned="true"] hls-video [slot="layer"] { display: none !important; }
+      [data-vp-reskinned="true"] hls-video media-controls, [data-vp-reskinned="true"] hls-video media-poster, [data-vp-reskinned="true"] hls-video media-play-button,
+      [data-vp-reskinned="true"] hls-video media-gesture, [data-vp-reskinned="true"] hls-video media-time-display, [data-vp-reskinned="true"] hls-video media-volume-slider,
+      [data-vp-reskinned="true"] hls-video media-time-slider, [data-vp-reskinned="true"] hls-video media-fullscreen-button,
+      [data-vp-reskinned="true"] hls-video media-captions-button, [data-vp-reskinned="true"] hls-video media-menu { display: none !important; }
       [data-vp-reskinned="true"] > [class*="PlayerControlsAbsoluteContainer"] { display: none !important; pointer-events: none !important; }
       .vp-shell { position: absolute; inset: 0; pointer-events: none; font: 14px system-ui, sans-serif; color: #fff; z-index: 5; }
       .vp-shell > * { pointer-events: auto; }

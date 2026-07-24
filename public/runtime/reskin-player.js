@@ -122,14 +122,222 @@
     return (m == null ? void 0 : m[1]) || "";
   }
 
+  // runtime-src/common/player.ts
+  var KNOWN_TAG_NAMES = /* @__PURE__ */ new Set(["hls-video", "mux-player", "video"]);
+  function isMediaEl(el) {
+    return !!el && typeof el.play === "function" && "currentTime" in el && "duration" in el;
+  }
+  function isPlayerCandidate(el) {
+    return isMediaEl(el) || KNOWN_TAG_NAMES.has(el.tagName.toLowerCase());
+  }
+  function dedup(elements) {
+    return [...new Set(elements)];
+  }
+  function collectDeep(root, out = []) {
+    root.querySelectorAll("*").forEach((el) => {
+      out.push(el);
+      const sr = el.shadowRoot;
+      if (sr) collectDeep(sr, out);
+    });
+    return out;
+  }
+  function queryShadow(root, selector) {
+    const out = [];
+    collectDeep(root).forEach((el) => {
+      const sr = el.shadowRoot;
+      if (sr) out.push(...sr.querySelectorAll(selector));
+    });
+    return out;
+  }
+  function mediaElementsWithin(el) {
+    if (isPlayerCandidate(el)) return [el];
+    return collectDeep(el).filter(isPlayerCandidate);
+  }
+  var BY_TAG = [
+    ["hls-video", "tag:hls-video"],
+    ["mux-player", "tag:mux-player"],
+    ["media-controller video", "tag:media-controller"]
+  ];
+  function scanWith(root, query) {
+    const marked = query("[data-vp-player]");
+    if (marked.length) {
+      const players = dedup(marked.flatMap(mediaElementsWithin));
+      if (players.length) return { players, strategy: "contract" };
+    }
+    for (const [selector, strategy] of BY_TAG) {
+      const hits = dedup(query(selector));
+      if (hits.length) return { players: hits, strategy };
+    }
+    return { players: [], strategy: "none" };
+  }
+  function scanPlayers(root = document) {
+    const light = scanWith(root, (sel) => [...root.querySelectorAll(sel)]);
+    if (light.strategy !== "none") return light;
+    const shadow = scanWith(root, (sel) => queryShadow(root, sel));
+    if (shadow.strategy !== "none") return shadow;
+    const sweep = dedup(collectDeep(root).filter(isMediaEl));
+    if (sweep.length) return { players: sweep, strategy: "capability" };
+    return { players: [], strategy: "none" };
+  }
+  function findPlayers(root) {
+    return scanPlayers(root).players;
+  }
+  function resolveHost(mediaEl) {
+    const first = mediaEl.parentElement;
+    let el = first;
+    while (el) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) return el;
+      el = el.parentElement;
+    }
+    return first;
+  }
+
+  // runtime-src/common/runtime-url.ts
+  function getRuntimeScriptUrl() {
+    const override = window.__vpRuntimeBaseUrl;
+    if (override) return override;
+    const current = document.currentScript;
+    if (current == null ? void 0 : current.src) return current.src;
+    const hit = [...document.scripts].reverse().find((s) => s.src && /\/runtime\/[\w-]+\.js/i.test(s.src));
+    return (hit == null ? void 0 : hit.src) || "";
+  }
+  function getRuntimeBaseUrl() {
+    const scriptUrl = getRuntimeScriptUrl();
+    if (!scriptUrl) return "";
+    try {
+      return new URL(".", scriptUrl).href;
+    } catch {
+      return scriptUrl;
+    }
+  }
+  function runtimeApiUrl(baseUrl, path) {
+    if (!baseUrl) return "";
+    try {
+      return new URL(path, baseUrl).href;
+    } catch {
+      return "";
+    }
+  }
+
+  // runtime-src/common/killswitch.ts
+  var FLAG_PATH = "/api/runtime-config";
+  var TIMEOUT_MS = 3e3;
+  async function shouldRun(baseUrl) {
+    const url = runtimeApiUrl(baseUrl, FLAG_PATH);
+    if (!url) return true;
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), TIMEOUT_MS) : null;
+    try {
+      const res = await fetch(url, {
+        credentials: "omit",
+        signal: controller == null ? void 0 : controller.signal
+      });
+      if (!res.ok) return true;
+      const data = await res.json();
+      return !isDisabled(data);
+    } catch {
+      return true;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  function isDisabled(data) {
+    return !!data && typeof data === "object" && data.enabled === false;
+  }
+
+  // runtime-src/common/beacon.ts
+  var TELEMETRY_PATH = "/api/runtime-telemetry";
+  var MAX_CONFIG_BYTES = 32 * 1024;
+  function capConfig(config) {
+    let serialized;
+    try {
+      serialized = JSON.stringify(config != null ? config : null);
+    } catch {
+      return { __unserializable: true };
+    }
+    if (serialized.length > MAX_CONFIG_BYTES)
+      return { __truncated: true, bytes: serialized.length };
+    return config != null ? config : null;
+  }
+  var reported = /* @__PURE__ */ new Set();
+  function report(baseUrl, payload) {
+    try {
+      const key = `${payload.errorType}|${payload.videoId}`;
+      if (reported.has(key)) return;
+      const url = runtimeApiUrl(baseUrl, TELEMETRY_PATH);
+      if (!url) return;
+      reported.add(key);
+      const body = JSON.stringify({
+        errorType: payload.errorType,
+        videoId: payload.videoId,
+        config: capConfig(payload.config)
+      });
+      if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+        const blob = new Blob([body], { type: "text/plain" });
+        if (navigator.sendBeacon(url, blob)) return;
+      }
+      if (typeof fetch !== "undefined")
+        void fetch(url, {
+          method: "POST",
+          keepalive: true,
+          headers: { "content-type": "text/plain" },
+          body,
+          credentials: "omit"
+        }).catch(() => {
+        });
+    } catch {
+    }
+  }
+
+  // runtime-src/common/config.ts
+  function loadVpConfig() {
+    var _a, _b;
+    const script = document.querySelector(
+      'script[type="application/json"][data-vp-config]'
+    );
+    if ((_a = script == null ? void 0 : script.textContent) == null ? void 0 : _a.trim()) {
+      try {
+        return { source: "script", data: JSON.parse(script.textContent.trim()) };
+      } catch (e) {
+        console.warn("[vp] config <script> parse failed", e);
+      }
+    }
+    const el = document.querySelector("[data-vp-config]:not(script)");
+    if ((_b = el == null ? void 0 : el.textContent) == null ? void 0 : _b.trim()) {
+      try {
+        return { source: "element", data: JSON.parse(el.textContent.trim()) };
+      } catch (e) {
+        console.warn("[vp] config element parse failed", e);
+      }
+    }
+    const tw = document.createTreeWalker(
+      document.body || document.documentElement,
+      NodeFilter.SHOW_COMMENT
+    );
+    let n;
+    while (n = tw.nextNode()) {
+      const v = n.nodeValue || "";
+      const m = v.match(/VP_CONFIG\s*([\s\S]*?)\s*VP_CONFIG/);
+      if (m) {
+        try {
+          return { source: "comment", data: JSON.parse(m[1]) };
+        } catch (e) {
+          console.warn("[vp] config <!--comment--> parse failed", e);
+        }
+      }
+    }
+    return null;
+  }
+
   // runtime-src/reskin-player/styles.ts
   var RESKIN_CSS = `
-      hls-video > *:not([slot="media"]) { display: none !important; }
-      hls-video [slot="ui"], hls-video [slot="layer"] { display: none !important; }
-      hls-video media-controls, hls-video media-poster, hls-video media-play-button,
-      hls-video media-gesture, hls-video media-time-display, hls-video media-volume-slider,
-      hls-video media-time-slider, hls-video media-fullscreen-button,
-      hls-video media-captions-button, hls-video media-menu { display: none !important; }
+      [data-vp-reskinned="true"] hls-video > *:not([slot="media"]) { display: none !important; }
+      [data-vp-reskinned="true"] hls-video [slot="ui"], [data-vp-reskinned="true"] hls-video [slot="layer"] { display: none !important; }
+      [data-vp-reskinned="true"] hls-video media-controls, [data-vp-reskinned="true"] hls-video media-poster, [data-vp-reskinned="true"] hls-video media-play-button,
+      [data-vp-reskinned="true"] hls-video media-gesture, [data-vp-reskinned="true"] hls-video media-time-display, [data-vp-reskinned="true"] hls-video media-volume-slider,
+      [data-vp-reskinned="true"] hls-video media-time-slider, [data-vp-reskinned="true"] hls-video media-fullscreen-button,
+      [data-vp-reskinned="true"] hls-video media-captions-button, [data-vp-reskinned="true"] hls-video media-menu { display: none !important; }
       [data-vp-reskinned="true"] > [class*="PlayerControlsAbsoluteContainer"] { display: none !important; pointer-events: none !important; }
       .vp-shell { position: absolute; inset: 0; pointer-events: none; font: 14px system-ui, sans-serif; color: #fff; z-index: 5; }
       .vp-shell > * { pointer-events: auto; }
@@ -160,15 +368,15 @@
 
   // runtime-src/reskin-player/language-pack.ts
   var FORWARDED_QUERY_PARAMS = /* @__PURE__ */ new Set(["x-vercel-protection-bypass"]);
-  function getRuntimeScriptUrl() {
+  function getRuntimeScriptUrl2() {
     const override = window.__vpRuntimeBaseUrl;
     if (override) return override;
     const current = document.currentScript;
     const script = (current == null ? void 0 : current.src) ? current : [...document.scripts].reverse().find((s) => s.src && /\/runtime\/reskin-player\.js/i.test(s.src));
     return (script == null ? void 0 : script.src) || "";
   }
-  function getRuntimeBaseUrl() {
-    const scriptUrl = getRuntimeScriptUrl();
+  function getRuntimeBaseUrl2() {
+    const scriptUrl = getRuntimeScriptUrl2();
     if (!scriptUrl) return "";
     try {
       return new URL(".", scriptUrl).href;
@@ -184,7 +392,7 @@
       return String(url);
     }
   }
-  function withRuntimeAssetQuery(url, sourceUrl = getRuntimeScriptUrl()) {
+  function withRuntimeAssetQuery(url, sourceUrl = getRuntimeScriptUrl2()) {
     if (!url || !sourceUrl) return url;
     try {
       const source = new URL(sourceUrl, location.href);
@@ -244,7 +452,7 @@
     var _a, _b;
     if (!raw || typeof raw !== "object") return null;
     const pack = raw;
-    const baseUrl = manifestUrl || getRuntimeBaseUrl();
+    const baseUrl = manifestUrl || getRuntimeBaseUrl2();
     const isAllowedAsset = makeAssetOriginChecker(baseUrl, getTrustedOrigins());
     const audioTracks = Array.isArray(pack.audioTracks) ? pack.audioTracks.map((track, index) => ({
       id: track.id || track.language || `audio-${index + 1}`,
@@ -304,13 +512,13 @@
     if (override) {
       const pack2 = await normalizeLanguagePack(
         override,
-        override.baseUrl || getRuntimeBaseUrl()
+        override.baseUrl || getRuntimeBaseUrl2()
       );
       languagePackCache.set(videoId, pack2);
       return pack2;
     }
     const manifestUrl = withRuntimeAssetQuery(
-      resolveUrl(`language-packs/${videoId}/manifest.json`, getRuntimeBaseUrl())
+      resolveUrl(`language-packs/${videoId}/manifest.json`, getRuntimeBaseUrl2())
     );
     const promise = fetch(manifestUrl).then((r) => r.ok ? r.json() : null).then((data) => data ? normalizeLanguagePack(data, manifestUrl) : null).catch(() => null);
     languagePackCache.set(videoId, promise);
@@ -373,17 +581,28 @@
 
   // runtime-src/reskin-player/index.ts
   var CLEANUP_KEY = "__vpReskinCleanup";
-  function main() {
-    resetCleanup(CLEANUP_KEY);
-    document.querySelectorAll(".vp-shell").forEach((el) => el.remove());
-    document.querySelectorAll("hls-video").forEach((el) => {
-      delete el.__vpAttached;
+  var runtimeBaseUrl = getRuntimeBaseUrl();
+  function reportFailure(errorType, videoId) {
+    var _a, _b;
+    report(runtimeBaseUrl, {
+      errorType,
+      videoId,
+      config: (_b = (_a = loadVpConfig()) == null ? void 0 : _a.data) != null ? _b : null
     });
+  }
+  function ensureReskinStyle() {
     const styleId = "__custom-player-style";
     const styleEl = document.getElementById(styleId) || document.createElement("style");
     styleEl.id = styleId;
     styleEl.textContent = RESKIN_CSS;
     if (!styleEl.parentNode) document.head.appendChild(styleEl);
+  }
+  function main() {
+    resetCleanup(CLEANUP_KEY);
+    document.querySelectorAll(".vp-shell").forEach((el) => el.remove());
+    findPlayers().forEach((el) => {
+      delete el.__vpAttached;
+    });
     const vpTrustedOrigins = getTrustedOrigins();
     const bus = createBus();
     window.addEventListener("message", (ev) => {
@@ -422,6 +641,15 @@
     });
     const overlays = [];
     const activeOverlays = /* @__PURE__ */ new Set();
+    let lastDiscovery = "none";
+    let reportedDiscovery = null;
+    function noteDiscovery(strategy) {
+      lastDiscovery = strategy;
+      if (strategy !== reportedDiscovery) {
+        reportedDiscovery = strategy;
+        console.info(`[vp] player discovery: ${strategy}`);
+      }
+    }
     const runtimeBuild = "audio-drift-badge-passive";
     const externalAudioWarningThresholdSec = 1;
     const externalAudioSyncIntervalMs = 1e3;
@@ -456,6 +684,7 @@
           externalAudioWarningThresholdSec
         },
         hasVideo: !!videoEl,
+        discovery: lastDiscovery,
         currentTime: videoEl == null ? void 0 : videoEl.currentTime,
         duration: videoEl == null ? void 0 : videoEl.duration,
         paused: videoEl == null ? void 0 : videoEl.paused,
@@ -470,17 +699,56 @@
       externalAudioAutoSync: false,
       externalAudioWarningThresholdSec
     };
+    let attachedAny = false;
     function attach(hlsEl) {
+      var _a;
       if (hlsEl.__vpAttached) return;
       if (!document.querySelector("[data-vp-config]")) return;
       if (typeof hlsEl.play !== "function" || !("currentTime" in hlsEl)) return;
+      const undo = [];
+      const rollback = () => {
+        while (undo.length) {
+          const fn = undo.pop();
+          try {
+            fn == null ? void 0 : fn();
+          } catch {
+          }
+        }
+      };
+      try {
+        attachInner(hlsEl, undo);
+      } catch (err) {
+        console.error("[vp] reskin attach failed; rolling back", err);
+        rollback();
+        reportFailure(
+          "reskin-attach-error",
+          getBunnyVideoId(hlsEl.src || ((_a = hlsEl.getAttribute) == null ? void 0 : _a.call(hlsEl, "src")))
+        );
+      }
+    }
+    function attachInner(hlsEl, undo) {
       hlsEl.__vpAttached = true;
+      undo.push(() => {
+        delete hlsEl.__vpAttached;
+      });
+      attachedAny = true;
+      ensureReskinStyle();
       const mediaEl = hlsEl;
       if (!videoEl || videoEl.getBoundingClientRect().width === 0)
         videoEl = mediaEl;
-      const host = hlsEl.parentElement;
-      if (!host) return;
+      if (hlsEl.tagName !== "HLS-VIDEO" && "controls" in mediaEl) {
+        const prevControls = mediaEl.controls;
+        mediaEl.controls = false;
+        undo.push(() => {
+          mediaEl.controls = prevControls;
+        });
+      }
+      const host = resolveHost(hlsEl);
+      if (!host) throw new Error("[vp] no positioning host for player");
       host.dataset.vpReskinned = "true";
+      undo.push(() => {
+        delete host.dataset.vpReskinned;
+      });
       if (getComputedStyle(host).position === "static")
         host.style.position = "relative";
       const shell = document.createElement("div");
@@ -506,6 +774,7 @@
       </div>
     `;
       host.appendChild(shell);
+      undo.push(() => shell.remove());
       const q = (sel) => shell.querySelector(`[data-vp="${sel}"]`);
       const playPauseBtn = q("playpause");
       const seekInput = q("seek");
@@ -529,6 +798,8 @@
       const captionsMenu = shell.querySelector(
         '[data-vp-menu="captions"]'
       );
+      if (!playPauseBtn || !seekInput || !timeLabel || !overlayLayer)
+        throw new Error("[vp] reskin shell is missing required nodes");
       const setActive = () => {
         videoEl = mediaEl;
       };
@@ -1191,7 +1462,7 @@
       mediaEl.addEventListener("volumechange", onVolumeChange);
       document.addEventListener("click", onDocumentClick);
       document.addEventListener("keydown", onDocumentKeydown);
-      pushCleanup(CLEANUP_KEY, () => {
+      const teardown = () => {
         disposed = true;
         if (unbindHlsTrackEvents) unbindHlsTrackEvents();
         clearExternalAudioSyncTimer();
@@ -1224,12 +1495,42 @@
         shell.remove();
         delete host.dataset.vpReskinned;
         delete hlsEl.__vpAttached;
-      });
+      };
+      pushCleanup(CLEANUP_KEY, teardown);
+      if (typeof ResizeObserver !== "undefined") {
+        const ro = new ResizeObserver(() => {
+          if (disposed) return;
+          if (getComputedStyle(host).position === "static")
+            host.style.position = "relative";
+        });
+        ro.observe(mediaEl);
+        pushCleanup(CLEANUP_KEY, () => ro.disconnect());
+      }
       updateTrackMenus();
       if (!Number.isNaN(mediaEl.duration)) onMeta();
+      if (typeof requestAnimationFrame !== "undefined") {
+        requestAnimationFrame(() => {
+          var _a;
+          if (disposed) return;
+          const mediaBox = mediaEl.getBoundingClientRect();
+          if (mediaBox.width <= 0 || mediaBox.height <= 0) return;
+          const layerBox = overlayLayer.getBoundingClientRect();
+          if (layerBox.width > 0 && layerBox.height > 0) return;
+          console.error(
+            "[vp] reskin overlay layer has a zero box over a visible player; rolling back"
+          );
+          teardown();
+          reportFailure(
+            "reskin-overlay-verification-failed",
+            getBunnyVideoId(mediaEl.src || ((_a = mediaEl.getAttribute) == null ? void 0 : _a.call(mediaEl, "src")))
+          );
+        });
+      }
     }
     const scan = () => {
-      document.querySelectorAll("hls-video").forEach((el) => attach(el));
+      const { players, strategy } = scanPlayers();
+      noteDiscovery(strategy);
+      players.forEach((el) => attach(el));
       refreshIframeTargets();
     };
     scan();
@@ -1258,7 +1559,17 @@
       CLEANUP_KEY,
       () => window.removeEventListener("popstate", popHandler)
     );
+    if (document.querySelector("[data-vp-config]")) {
+      const deadline = setTimeout(() => {
+        if (!attachedAny && lastDiscovery === "none")
+          reportFailure("reskin-no-player-after-deadline", "");
+      }, 1e4);
+      pushCleanup(CLEANUP_KEY, () => clearTimeout(deadline));
+    }
     return "reskin attached";
   }
-  window.__vpReskinStatus = main();
+  void (async () => {
+    const status = await shouldRun(runtimeBaseUrl) ? main() : "reskin disabled by kill-switch";
+    window.__vpReskinStatus = status;
+  })();
 })();

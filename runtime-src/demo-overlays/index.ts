@@ -2,6 +2,11 @@ import { resetCleanup, pushCleanup } from "../common/cleanup";
 import { esc } from "../common/escape";
 import { formatTime as fmt } from "../common/format";
 import { type ConfigHit, loadVpConfig, parseVpConfig } from "../common/config";
+import { findPlayers, resolveHost } from "../common/player";
+import { getBunnyVideoId } from "../common/tracks";
+import { getRuntimeBaseUrl } from "../common/runtime-url";
+import { shouldRun } from "../common/killswitch";
+import { report } from "../common/beacon";
 import type { Audio, Intervention, Phase, VpConfig } from "../common/types";
 import {
   DEFAULT_AUDIOS,
@@ -12,6 +17,21 @@ import {
 import { ANIM_CSS, SECTION_CSS, T } from "./styles";
 
 const CLEANUP_KEY = "__vpDemoCleanup";
+
+// Our own origin (the injected <script>'s), resolved synchronously — used for
+// the kill-switch + telemetry API calls.
+const runtimeBaseUrl = getRuntimeBaseUrl();
+
+function reportFailure(errorType: string): void {
+  const player = findPlayers()[0];
+  report(runtimeBaseUrl, {
+    errorType,
+    videoId: player
+      ? getBunnyVideoId(player.src || player.getAttribute?.("src"))
+      : "",
+    config: loadVpConfig()?.data ?? null,
+  });
+}
 
 interface AudioController {
   state: "idle" | "playing" | "paused";
@@ -58,13 +78,13 @@ function main(): string {
   function readyContext(): ConfigHit | null {
     const hit = loadVpConfig();
     if (!hit) return null;
-    if (!document.querySelector("hls-video")) return null;
+    if (!findPlayers()[0]) return null;
     return hit;
   }
 
   const initialContext = readyContext();
   if (!initialContext) {
-    console.info("[vp] waiting for both <pre data-vp-config> and <hls-video>");
+    console.info("[vp] waiting for both <pre data-vp-config> and a player");
     let done = false;
     const watcher = new MutationObserver(() => {
       if (done) return;
@@ -79,12 +99,42 @@ function main(): string {
       childList: true,
     });
     pushCleanup(CLEANUP_KEY, () => watcher.disconnect());
+    // No-context deadline: if the config is present but the context never becomes
+    // ready (player never appears), report once after a grace period (F6).
+    if (loadVpConfig()) {
+      const deadline = setTimeout(() => {
+        if (!done) reportFailure("demo-context-timeout");
+      }, 10000);
+      pushCleanup(CLEANUP_KEY, () => clearTimeout(deadline));
+    }
     return "demo: waiting for config + video";
   }
   deferAndApply(initialContext);
   return "demo: setup queued";
 
   function applySetup(cfgHit: ConfigHit): void {
+    // Safety net: if mounting throws part-way, tear down registered cleanups and
+    // remove any nodes we created, restoring the host DOM (never a half-mounted
+    // overlay set + leaked observers).
+    try {
+      applySetupInner(cfgHit);
+    } catch (err) {
+      console.error("[vp demo] setup failed; restoring host", err);
+      resetCleanup(CLEANUP_KEY);
+      [
+        "vp-slot-tl",
+        "vp-slot-tr",
+        "vp-slot-br",
+        "vp-slot-lt",
+        "vp-demo-sidebar",
+        "vp-anim-style",
+        "__vp-section-style",
+      ].forEach((id) => document.getElementById(id)?.remove());
+      reportFailure("demo-setup-error");
+    }
+  }
+
+  function applySetupInner(cfgHit: ConfigHit): void {
     console.info(`[vp] config loaded from ${cfgHit.source}`);
     const parsed = parseVpConfig(cfgHit.data);
     const phases: Phase[] = parsed.phases ?? DEFAULT_PHASES;
@@ -105,8 +155,8 @@ function main(): string {
     }
 
     // ─── Player overlay slots ───
-    const playerHost = document.querySelector("hls-video")
-      ?.parentElement as HTMLElement | null;
+    const player = findPlayers()[0];
+    const playerHost = player ? resolveHost(player) : null;
     if (!playerHost) {
       console.warn("[demo] no player host");
       return;
@@ -342,9 +392,7 @@ function main(): string {
     }
 
     // ─── Audio state machine ───
-    const videoEl = document.querySelector(
-      "hls-video",
-    ) as HTMLMediaElement | null;
+    const videoEl: HTMLMediaElement | null = findPlayers()[0] ?? null;
     const audioCtrl: AudioController = {
       state: "idle",
       active: null,
@@ -720,6 +768,11 @@ function main(): string {
       if (!mainEl) return false;
       const flexParent = mainEl.parentElement;
       if (!flexParent) return false;
+      // Precondition: only run the invasive sibling reshuffle on a real, laid-out
+      // layout. An unsized <main> means the layout isn't ready/valid — fall back
+      // to the non-invasive fixed rail instead of mutating a collapsed layout.
+      const mainBox = mainEl.getBoundingClientRect();
+      if (mainBox.width <= 0 || mainBox.height <= 0) return false;
       const prevDisplays = new Map<HTMLElement, string>();
       [...flexParent.children].forEach((child) => {
         const c = child as HTMLElement;
@@ -996,4 +1049,11 @@ function main(): string {
   }
 }
 
-(window as unknown as { __vpDemoStatus?: string }).__vpDemoStatus = main();
+// Kill-switch gate: ask our own API whether to run before touching the page.
+// Fails open (see common/killswitch) so a fetch failure never disables it.
+void (async () => {
+  const status = (await shouldRun(runtimeBaseUrl))
+    ? main()
+    : "demo: disabled by kill-switch";
+  (window as unknown as { __vpDemoStatus?: string }).__vpDemoStatus = status;
+})();

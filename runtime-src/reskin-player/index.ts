@@ -3,6 +3,16 @@ import { pushCleanup, resetCleanup } from "../common/cleanup";
 import { listToArray } from "../common/dom";
 import { getTrustedOrigins } from "../common/origins";
 import { getBunnyVideoId, getHlsApi, trackLabel } from "../common/tracks";
+import {
+  type DiscoveryStrategy,
+  findPlayers,
+  resolveHost,
+  scanPlayers,
+} from "../common/player";
+import { getRuntimeBaseUrl } from "../common/runtime-url";
+import { shouldRun } from "../common/killswitch";
+import { report } from "../common/beacon";
+import { loadVpConfig } from "../common/config";
 import type {
   ExternalAudioTrack,
   LanguagePack,
@@ -21,6 +31,27 @@ import {
 
 const CLEANUP_KEY = "__vpReskinCleanup";
 
+// Our own origin (the injected <script>'s), resolved synchronously while the
+// script executes — used for the kill-switch + telemetry API calls.
+const runtimeBaseUrl = getRuntimeBaseUrl();
+
+function reportFailure(errorType: string, videoId: string): void {
+  report(runtimeBaseUrl, {
+    errorType,
+    videoId,
+    config: loadVpConfig()?.data ?? null,
+  });
+}
+
+function ensureReskinStyle(): void {
+  const styleId = "__custom-player-style";
+  const styleEl =
+    document.getElementById(styleId) || document.createElement("style");
+  styleEl.id = styleId;
+  styleEl.textContent = RESKIN_CSS;
+  if (!styleEl.parentNode) document.head.appendChild(styleEl);
+}
+
 type AudioSource = "native" | "hls" | "rendition" | "external" | "none";
 type SubtitleSource = "external" | "hls" | "native" | "learningSuite" | "none";
 interface AudioMenuState {
@@ -36,16 +67,12 @@ function main(): string {
   // Idempotency: tear down anything from a previous run before setting up.
   resetCleanup(CLEANUP_KEY);
   document.querySelectorAll(".vp-shell").forEach((el) => el.remove());
-  document.querySelectorAll("hls-video").forEach((el) => {
-    delete (el as MediaEl).__vpAttached;
+  findPlayers().forEach((el) => {
+    delete el.__vpAttached;
   });
 
-  const styleId = "__custom-player-style";
-  const styleEl =
-    document.getElementById(styleId) || document.createElement("style");
-  styleEl.id = styleId;
-  styleEl.textContent = RESKIN_CSS;
-  if (!styleEl.parentNode) document.head.appendChild(styleEl);
+  // Reskin CSS (which hides native chrome under [data-vp-reskinned]) is injected
+  // lazily on first attach, so a page with no player is never touched.
 
   // Origins we trust for cross-frame postMessage. Default = same-origin only.
   const vpTrustedOrigins = getTrustedOrigins();
@@ -96,6 +123,15 @@ function main(): string {
 
   const overlays: OverlaySlot[] = [];
   const activeOverlays = new Set<string>();
+  let lastDiscovery: DiscoveryStrategy = "none";
+  let reportedDiscovery: DiscoveryStrategy | null = null;
+  function noteDiscovery(strategy: DiscoveryStrategy): void {
+    lastDiscovery = strategy;
+    if (strategy !== reportedDiscovery) {
+      reportedDiscovery = strategy;
+      console.info(`[vp] player discovery: ${strategy}`);
+    }
+  }
   const runtimeBuild = "audio-drift-badge-passive";
   const externalAudioWarningThresholdSec = 1;
   const externalAudioSyncIntervalMs = 1000;
@@ -129,6 +165,7 @@ function main(): string {
         externalAudioWarningThresholdSec,
       },
       hasVideo: !!videoEl,
+      discovery: lastDiscovery,
       currentTime: videoEl?.currentTime,
       duration: videoEl?.duration,
       paused: videoEl?.paused,
@@ -144,19 +181,68 @@ function main(): string {
     externalAudioWarningThresholdSec,
   };
 
+  let attachedAny = false;
   function attach(hlsEl: MediaEl): void {
     if (hlsEl.__vpAttached) return;
     // Gate: only re-skin when this lesson has Advanced Video Modus turned on.
     if (!document.querySelector("[data-vp-config]")) return;
     if (typeof hlsEl.play !== "function" || !("currentTime" in hlsEl)) return;
+    // Safety net: if augmentation throws part-way, undo every host mutation so
+    // the native player is left exactly as we found it (never hidden-chrome +
+    // no-controls). The success path is owned by the pushCleanup below.
+    const undo: (() => void)[] = [];
+    const rollback = (): void => {
+      while (undo.length) {
+        const fn = undo.pop();
+        try {
+          fn?.();
+        } catch {
+          /* ignore rollback errors */
+        }
+      }
+    };
+    try {
+      attachInner(hlsEl, undo);
+    } catch (err) {
+      console.error("[vp] reskin attach failed; rolling back", err);
+      rollback();
+      reportFailure(
+        "reskin-attach-error",
+        getBunnyVideoId(hlsEl.src || hlsEl.getAttribute?.("src")),
+      );
+    }
+  }
+
+  function attachInner(hlsEl: MediaEl, undo: (() => void)[]): void {
     hlsEl.__vpAttached = true;
+    undo.push(() => {
+      delete hlsEl.__vpAttached;
+    });
+    // A player was found and we're attaching — suppresses the no-player deadline.
+    attachedAny = true;
+    // Inject the reskin CSS now (not at script load) so a page with no player is
+    // never touched (F5). Chrome-hiding stays gated on [data-vp-reskinned] (F1).
+    ensureReskinStyle();
 
     const mediaEl = hlsEl;
     if (!videoEl || videoEl.getBoundingClientRect().width === 0)
       videoEl = mediaEl;
-    const host = hlsEl.parentElement;
-    if (!host) return;
+    // Non-<hls-video> players (a plain <video> reached via capability discovery)
+    // don't match the tag-scoped chrome-hiding CSS; drop their native controls
+    // directly. Custom-element internals stay out of reach (documented).
+    if (hlsEl.tagName !== "HLS-VIDEO" && "controls" in mediaEl) {
+      const prevControls = mediaEl.controls;
+      mediaEl.controls = false;
+      undo.push(() => {
+        mediaEl.controls = prevControls;
+      });
+    }
+    const host = resolveHost(hlsEl);
+    if (!host) throw new Error("[vp] no positioning host for player");
     (host as HTMLElement).dataset.vpReskinned = "true";
+    undo.push(() => {
+      delete (host as HTMLElement).dataset.vpReskinned;
+    });
     if (getComputedStyle(host).position === "static")
       (host as HTMLElement).style.position = "relative";
 
@@ -183,6 +269,7 @@ function main(): string {
       </div>
     `;
     host.appendChild(shell);
+    undo.push(() => shell.remove());
 
     const q = <T extends HTMLElement>(sel: string): T =>
       shell.querySelector(`[data-vp="${sel}"]`) as T;
@@ -209,6 +296,10 @@ function main(): string {
     const captionsMenu = shell.querySelector(
       '[data-vp-menu="captions"]',
     ) as HTMLElement;
+    // Precondition: bail (→ rollback) before wiring handlers if the shell
+    // template didn't produce its required nodes (a future host/template break).
+    if (!playPauseBtn || !seekInput || !timeLabel || !overlayLayer)
+      throw new Error("[vp] reskin shell is missing required nodes");
     const setActive = () => {
       videoEl = mediaEl;
     };
@@ -990,7 +1081,7 @@ function main(): string {
     mediaEl.addEventListener("volumechange", onVolumeChange);
     document.addEventListener("click", onDocumentClick);
     document.addEventListener("keydown", onDocumentKeydown);
-    pushCleanup(CLEANUP_KEY, () => {
+    const teardown = () => {
       disposed = true;
       if (unbindHlsTrackEvents) unbindHlsTrackEvents();
       clearExternalAudioSyncTimer();
@@ -1024,15 +1115,50 @@ function main(): string {
       shell.remove();
       delete (host as HTMLElement).dataset.vpReskinned;
       delete hlsEl.__vpAttached;
-    });
+    };
+    pushCleanup(CLEANUP_KEY, teardown);
+    // The shell is CSS-anchored to the host (position:absolute; inset:0), so it
+    // tracks host resizes without JS. The observer only re-asserts the host's
+    // positioning context, which a host re-render can reset to `static`.
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => {
+        if (disposed) return;
+        if (getComputedStyle(host).position === "static")
+          (host as HTMLElement).style.position = "relative";
+      });
+      ro.observe(mediaEl);
+      pushCleanup(CLEANUP_KEY, () => ro.disconnect());
+    }
     updateTrackMenus();
     if (!Number.isNaN(mediaEl.duration)) onMeta();
+
+    // Post-attach self-verification: if the overlay layer collapsed to a zero
+    // box over a *visible* player (a host change removed the positioning
+    // context), the reskin mounted but is broken — tear down so native controls
+    // return. An off-screen player (both boxes zero) is left for a later scan.
+    if (typeof requestAnimationFrame !== "undefined") {
+      requestAnimationFrame(() => {
+        if (disposed) return;
+        const mediaBox = mediaEl.getBoundingClientRect();
+        if (mediaBox.width <= 0 || mediaBox.height <= 0) return;
+        const layerBox = overlayLayer.getBoundingClientRect();
+        if (layerBox.width > 0 && layerBox.height > 0) return;
+        console.error(
+          "[vp] reskin overlay layer has a zero box over a visible player; rolling back",
+        );
+        teardown();
+        reportFailure(
+          "reskin-overlay-verification-failed",
+          getBunnyVideoId(mediaEl.src || mediaEl.getAttribute?.("src")),
+        );
+      });
+    }
   }
 
   const scan = () => {
-    document
-      .querySelectorAll("hls-video")
-      .forEach((el) => attach(el as MediaEl));
+    const { players, strategy } = scanPlayers();
+    noteDiscovery(strategy);
+    players.forEach((el) => attach(el));
     refreshIframeTargets();
   };
   scan();
@@ -1066,7 +1192,27 @@ function main(): string {
     window.removeEventListener("popstate", popHandler),
   );
 
+  // No-player deadline: advanced mode is on ([data-vp-config]) but if no player
+  // ever attaches and none was even discovered, LearningSuite likely renamed or
+  // removed the element — report once after a grace period (F6).
+  if (document.querySelector("[data-vp-config]")) {
+    const deadline = setTimeout(() => {
+      if (!attachedAny && lastDiscovery === "none")
+        reportFailure("reskin-no-player-after-deadline", "");
+    }, 10000);
+    pushCleanup(CLEANUP_KEY, () => clearTimeout(deadline));
+  }
+
   return "reskin attached";
 }
 
-(window as unknown as { __vpReskinStatus?: string }).__vpReskinStatus = main();
+// Kill-switch gate: ask our own API whether to run before touching the page.
+// Fails open (see common/killswitch) so a fetch failure never disables a working
+// runtime.
+void (async () => {
+  const status = (await shouldRun(runtimeBaseUrl))
+    ? main()
+    : "reskin disabled by kill-switch";
+  (window as unknown as { __vpReskinStatus?: string }).__vpReskinStatus =
+    status;
+})();

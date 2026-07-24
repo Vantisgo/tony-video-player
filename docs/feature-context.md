@@ -24,6 +24,34 @@
   `innerHTML` must go through `esc()`; ids used in selectors must go through `CSS.escape`.
 - **`window.__vpTrustedOrigins`** is the single opt-in list for cross-origin trust
   (postMessage peers + language-pack asset origins). Default is same-origin only.
+- **Never hardcode the player tag.** Find the player via `scanPlayers()` /
+  `findPlayers()` and anchor overlays via `resolveHost()` (both in
+  `runtime-src/common/player.ts`). Discovery order: `[data-vp-player]` contract →
+  known tags (`hls-video`/`mux-player`/`media-controller video`) → capability
+  sweep (incl. open shadow DOM) → none. `[data-vp-player]` on/wrapping the player
+  is the durable, structure-independent hook when tags shift. (`admin-toggle`
+  still queries `hls-video` directly — an editor-only banner, intentionally not
+  migrated.)
+- **Native-chrome hiding must be gated on the `[data-vp-reskinned="true"]`
+  success marker.** The `RESKIN_CSS` rules that `display:none` the native
+  Vidstack/Mux controls are all scoped under that marker (set on the host only
+  after `attach()` mounts, removed on teardown). Never add an _unconditional_
+  chrome-hiding rule — a failed/aborted attach must leave the native player fully
+  operable, never hidden-chrome-with-no-controls. `attach()`/`applySetup()` wrap
+  their bodies in try/catch with rollback to preserve this invariant.
+- **Runtime→our-API calls go through our own relays and must fail open.** The
+  injected runtime runs on the LearningSuite origin, so it resolves _our_ origin
+  via `common/runtime-url.ts` (`getRuntimeBaseUrl`, from the injected script URL /
+  `window.__vpRuntimeBaseUrl`). The kill-switch (`common/killswitch.ts` →
+  `app/api/runtime-config`, Edge Config) and telemetry (`common/beacon.ts` →
+  `app/api/runtime-telemetry` → `RUNTIME_ALERT_WEBHOOK_URL`) must **fail open** —
+  a network/CSP/timeout error never disables a working runtime. Telemetry beacons
+  send **`text/plain`** (CORS-safelisted) so `sendBeacon` works cross-origin with
+  no preflight; the relay parses JSON from the body. Never post the sink URL from
+  the client — always via the server relay. Ops env vars are optional (features
+  degrade when unset). Keep testable route logic in framework/env-free modules
+  (`relay.ts`, `config-flag.ts`); route.ts is thin wiring. App-route tests live at
+  `app/**/*.test.ts` (in the vitest `include`).
 
 ---
 
@@ -78,3 +106,61 @@
   `main()` and assigns the status string to `window.__vp*Status`.
 - **Next**: Preact/JSX for the `demo-overlays` UI is the intended follow-up (structurally
   removes the innerHTML XSS class).
+
+## 2026-07-24 · (no ticket) · Runtime resilience — adaptability (player discovery)
+
+- **Decision**: Centralised player discovery in `runtime-src/common/player.ts`
+  (`scanPlayers`/`findPlayers`/`resolveHost`), replacing hardcoded `hls-video` on the
+  overlay path — see the new Standing Constraint. Discovery is light-DOM-first; the
+  shadow-DOM traversal + capability sweep run only when the light DOM holds no player
+  (`scan()` fires on every mutation, so the deep `*` walk must stay off the hot path).
+- **Decision**: `resolveHost` walks up to the nearest **non-zero-box** ancestor (extra
+  wrapper divs can have a zero box) and is side-effect-free; callers keep their existing
+  `position:relative` assertion.
+- **Deviation (H2 ResizeObserver)**: the control shell is CSS-anchored (`position:absolute;
+inset:0`), so overlays already track host resizes via CSS. The observer only re-asserts the
+  host positioning context (a host re-render can reset it to `static`); it does **not**
+  reparent the shell — the MutationObserver already handles structural reparenting.
+- **Deviation (non-`hls-video` chrome)**: hide native controls via `mediaEl.controls = false`
+  (concrete plain-`<video>` case), not speculative CSS; custom-element internals stay out of reach.
+- **Gotcha**: `_diag().discovery` reports which strategy matched — use it to spot silent
+  capability-fallback (i.e. LearningSuite renamed the player) in the field.
+
+## 2026-07-24 · (no ticket) · Runtime resilience — safety net (never break the player)
+
+- **Decision**: Native-chrome-hiding CSS is now marker-gated (`[data-vp-reskinned="true"]`)
+  — see the new Standing Constraint. This closes the CSS/JS asymmetry where a failed attach
+  left the native controls hidden with no reskin controls.
+- **Decision**: `attach()`/`applySetup()` split into a thin wrapper + `…Inner()` sibling so
+  the body could be wrapped in try/catch **without re-indenting ~900 lines**. reskin rolls back
+  via an incremental `undo` list; demo rolls back via `resetCleanup` + removing its created node
+  ids. Prefer this pattern for future try/catch wraps of large runtime functions.
+- **Decision**: reskin bails by **throwing** (missing host / missing required shell node) so the
+  single catch path handles rollback uniformly; `resolveHost` returning null is a throw, not a
+  silent return.
+- **Deviation**: dropped the planned "≥2 children" precondition on demo `tryFlexSibling()` — the
+  normal layout has `<main>` as the sole child (sidebar becomes the 2nd), so it would have wrongly
+  forced the fixed-rail path. Kept only the non-zero-box guard.
+- **Gotcha (F4)**: a persistently broken-but-visible host re-attaches→verifies→tears down each
+  scan tick (~250ms). Harmless (native works); the dedup/deadline to quiet it belongs to the
+  ops-telemetry plan (F6). F4 uses a single `requestAnimationFrame` deferral before measuring.
+- **Gotcha (tests)**: happy-dom computes the descendant CSS cascade, so F1 is verified via
+  `getComputedStyle` (`''` vs `none`); faults are injected with `vi.spyOn` on
+  `Element.prototype.{querySelector,getBoundingClientRect}` + a throwing `audioTracks` getter.
+
+## 2026-07-24 · (no ticket) · Runtime resilience — ops & telemetry (kill-switch + webhook)
+
+- **Decision**: Kill-switch + telemetry architecture is now a Standing Constraint (see above):
+  runtime → our relay routes, fail-open, text/plain beacon, optional env, pure route logic.
+- **Decision**: Kill-switch gates `main()` via an async IIFE (`await shouldRun()`), with a 3s
+  fetch timeout. Control-hiding CSS injection moved from `main()` into `attachInner()` so a page
+  with no player is never touched (also satisfies "no unconditional chrome hiding").
+- **Deviation**: Beacon content-type is `text/plain`, not the planned `application/json` — the
+  latter forces a CORS preflight `sendBeacon` can't satisfy, silently dropping the beacon.
+- **Deviation**: env vars are `.optional()` (plan said required `.url()`) so the app builds/tests
+  without ops infra; kill-switch defaults enabled, relay skips forwarding when the sink is unset.
+- **Gotcha**: telemetry payload is minimal `{ errorType, videoId, config }` (config size-capped at
+  32KB) — carries author config + Bunny UUID, never href/query/cookies/tokens.
+- **Follow-up (operational, not code)**: provision Edge Config (`EDGE_CONFIG` + `runtimeConfig`
+  key), set `RUNTIME_ALERT_WEBHOOK_URL` + `RUNTIME_TELEMETRY_ALLOWED_ORIGINS`, confirm LS CSP
+  `connect-src` allows our origin (fail-open covers it if not).

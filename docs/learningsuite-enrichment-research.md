@@ -24,17 +24,17 @@ We used three complementary tools:
 
 ## What the LearningSuite player actually is
 
-| Aspect | Finding |
-|---|---|
-| Custom element | `<hls-video>` from `@mux/media-elements` (web component) |
-| API surface | The element forwards the full `HTMLMediaElement` API: `play()`, `pause()`, `currentTime`, `duration`, `paused`, `readyState` all work directly on `hlsEl` |
-| DOM layout | Two shapes seen across lessons: (a) light-DOM slotted `<video>` inside `<slot name="media">`; (b) default shadow-DOM `<video>` with `src` on the host. The forwarded API works for both. |
-| HLS engine | hls.js (`window.Hls` is defined globally). Blob URL on `<video>.src` because hls.js feeds MSE. |
-| Manifest | `.m3u8` from Bunny CDN (`vz-*.b-cdn.net` or via `api.learningsuite.io/api/bunny/playlist/master/...`) |
-| Auth | Manifest URLs are signed: `bcdn_token=…&expires=…` (path-scoped) |
-| DRM | None. Plain HLS, plain segments. |
-| Subtitles | German VTT tracks delivered as `<track kind="subtitles">` with blob URLs |
-| Hosting page | Next.js / React + MUI on the LearningSuite side; Apollo for GraphQL |
+| Aspect         | Finding                                                                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Custom element | `<hls-video>` from `@mux/media-elements` (web component)                                                                                                                                 |
+| API surface    | The element forwards the full `HTMLMediaElement` API: `play()`, `pause()`, `currentTime`, `duration`, `paused`, `readyState` all work directly on `hlsEl`                                |
+| DOM layout     | Two shapes seen across lessons: (a) light-DOM slotted `<video>` inside `<slot name="media">`; (b) default shadow-DOM `<video>` with `src` on the host. The forwarded API works for both. |
+| HLS engine     | hls.js (`window.Hls` is defined globally). Blob URL on `<video>.src` because hls.js feeds MSE.                                                                                           |
+| Manifest       | `.m3u8` from Bunny CDN (`vz-*.b-cdn.net` or via `api.learningsuite.io/api/bunny/playlist/master/...`)                                                                                    |
+| Auth           | Manifest URLs are signed: `bcdn_token=…&expires=…` (path-scoped)                                                                                                                         |
+| DRM            | None. Plain HLS, plain segments.                                                                                                                                                         |
+| Subtitles      | German VTT tracks delivered as `<track kind="subtitles">` with blob URLs                                                                                                                 |
+| Hosting page   | Next.js / React + MUI on the LearningSuite side; Apollo for GraphQL                                                                                                                      |
 
 ## How LearningSuite tracks progress
 
@@ -65,12 +65,14 @@ overlays inside the same player container. Drive playback by calling the standar
 `HTMLMediaElement` methods on `<hls-video>`.
 
 This avoids:
+
 - replacing the player engine (no DRM/auth concerns)
 - reproducing GraphQL progress mutations (no token scraping, no schema work)
 - maintaining a parallel player lifecycle that could break with LearningSuite's React
   re-renders
 
 The runtime script must be tolerant of:
+
 - React re-mounting the player (MutationObserver + idempotent `attach()`)
 - SPA navigation (patch `history.pushState`/`replaceState` and listen to `popstate`)
 
@@ -97,12 +99,12 @@ Demo content + UI styled to match the tony-video-player repo (Coaching/Science/M
 Structure tabs, orange primary, MUI light card). Demonstrates the four overlay types
 referenced in the codebase under `components/video-player/overlays/`:
 
-| Overlay | Position | Source component | Trigger |
-|---|---|---|---|
-| Section Indicator | top-left | `section-indicator.tsx` | always visible during a phase; collapsed pill, hover to expand |
-| Science Corner | top-right | `science-trigger.tsx` | fires for 5s when video crosses any `timestampsSec` of a science item |
-| Audio (Voice-Over) | lower-third banner | `audio-overlay.tsx` | one-shot when video crosses an audio's `t`; pauses video, plays audio, resumes video on end |
-| 7 Master Steps fly-in | bottom-right | `meta-step-overlay.tsx` | violet pill for 5s when crossing each step's `t` |
+| Overlay               | Position           | Source component        | Trigger                                                                                     |
+| --------------------- | ------------------ | ----------------------- | ------------------------------------------------------------------------------------------- |
+| Section Indicator     | top-left           | `section-indicator.tsx` | always visible during a phase; collapsed pill, hover to expand                              |
+| Science Corner        | top-right          | `science-trigger.tsx`   | fires for 5s when video crosses any `timestampsSec` of a science item                       |
+| Audio (Voice-Over)    | lower-third banner | `audio-overlay.tsx`     | one-shot when video crosses an audio's `t`; pauses video, plays audio, resumes video on end |
+| 7 Master Steps fly-in | bottom-right       | `meta-step-overlay.tsx` | violet pill for 5s when crossing each step's `t`                                            |
 
 Behaviours wired in the demo:
 
@@ -132,24 +134,24 @@ Captured during agent-browser runs against the live test account
 (`test@cgoebel.net` on `vantisgo.learningsuite.io`, course
 `/the-vantisgo-way-interne-akademie/mx2QDgyH/jGQYlTK8/Tvg4VhkP`):
 
-| Check | Result |
-|---|---|
-| Custom controls shell mounts | ✅ |
-| Duration read from `<hls-video>` | ✅ 150.6s |
-| Seek + timeline updates | ✅ |
-| External listeners on `<hls-video>` still fire on seek (proxy for progress) | ✅ |
-| Native Vidstack/Mux UI hidden | ✅ |
-| Section Indicator (top-left) | ✅ |
-| Science Corner (top-right, compact) | ✅ |
-| Audio lower-third banner (wide) | ✅ |
-| Meta-step fly-in (auto-width pill) | ✅ |
-| Click on audio button does NOT bubble to video wrapper | ✅ 0 leaks |
-| Click on Science pill switches to Science tab | ✅ |
-| Click on meta pill switches to Meta Structure tab | ✅ |
-| Science overlay re-fires on second visit (regression fix) | ✅ |
-| Science tab card highlight matches active overlay | ✅ |
-| Audio activation pauses video, resumes on skip | ✅ |
-| SpeechSynthesis speaking on activation | ✅ `speaking: true` |
+| Check                                                                       | Result              |
+| --------------------------------------------------------------------------- | ------------------- |
+| Custom controls shell mounts                                                | ✅                  |
+| Duration read from `<hls-video>`                                            | ✅ 150.6s           |
+| Seek + timeline updates                                                     | ✅                  |
+| External listeners on `<hls-video>` still fire on seek (proxy for progress) | ✅                  |
+| Native Vidstack/Mux UI hidden                                               | ✅                  |
+| Section Indicator (top-left)                                                | ✅                  |
+| Science Corner (top-right, compact)                                         | ✅                  |
+| Audio lower-third banner (wide)                                             | ✅                  |
+| Meta-step fly-in (auto-width pill)                                          | ✅                  |
+| Click on audio button does NOT bubble to video wrapper                      | ✅ 0 leaks          |
+| Click on Science pill switches to Science tab                               | ✅                  |
+| Click on meta pill switches to Meta Structure tab                           | ✅                  |
+| Science overlay re-fires on second visit (regression fix)                   | ✅                  |
+| Science tab card highlight matches active overlay                           | ✅                  |
+| Audio activation pauses video, resumes on skip                              | ✅                  |
+| SpeechSynthesis speaking on activation                                      | ✅ `speaking: true` |
 
 Screenshots in `public/runtime/poc-*.png` document each state.
 
@@ -171,18 +173,19 @@ or build a separate Next.js admin)
 ```
 
 ### Stable video ID candidates
+
 - Lesson URL pattern: `/student/course/<slug>/<module>/<lesson>/<topic>` — stable until re-uploaded
 - m3u8 path UUID: `course/<uuid>/playlist.m3u8` — stable per source asset
 - Or assign a manual slug at authoring time (most robust)
 
 ### Build phases (rough)
 
-| Phase | Effort | Deliverable |
-|---|---|---|
-| 0. Hardening | ~3 days | Production-grade runtime script; gracefully no-ops if not enriched |
-| 1. Content service v1 | ~1 week | DB schema + read endpoint + minimal admin (JSON forms) so a pilot can be authored by hand |
-| 2. Authoring UX | ~2–3 weeks | Real editor: embedded video preview, timeline strip with draggable markers, sidebar block editor, publish toggle |
-| 3. Polish | ~1–2 weeks | Quality switcher, captions picker, keyboard shortcuts, mobile, analytics |
+| Phase                 | Effort     | Deliverable                                                                                                      |
+| --------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| 0. Hardening          | ~3 days    | Production-grade runtime script; gracefully no-ops if not enriched                                               |
+| 1. Content service v1 | ~1 week    | DB schema + read endpoint + minimal admin (JSON forms) so a pilot can be authored by hand                        |
+| 2. Authoring UX       | ~2–3 weeks | Real editor: embedded video preview, timeline strip with draggable markers, sidebar block editor, publish toggle |
+| 3. Polish             | ~1–2 weeks | Quality switcher, captions picker, keyboard shortcuts, mobile, analytics                                         |
 
 Total: ~5–7 weeks to a polished production rollout for one team. Phase 1 unlocks a
 pilot.
@@ -216,25 +219,28 @@ enrichment content.
 **1. `QueryCourseInstanceStudent`** — the page tree.
 
 Variables come straight from the URL path:
+
 ```jsonc
 {
-  "sid": "mx2QDgyH",                                     // course instance sid
+  "sid": "mx2QDgyH", // course instance sid
   "entityIdsOrSidsToLoadStateFor": {
-    "lessonSids": ["jGQYlTK8"], "pageSids": ["Tvg4VhkP"]
+    "lessonSids": ["jGQYlTK8"],
+    "pageSids": ["Tvg4VhkP"],
   },
-  "pageIdsOrSidsToLoadContentFor": { "sids": ["Tvg4VhkP"] }
+  "pageIdsOrSidsToLoadContentFor": { "sids": ["Tvg4VhkP"] },
 }
 ```
 
 The response page content is a **rich-text block array** (Slate/Lexical-style). Video
 blocks look like:
+
 ```jsonc
 {
-  "type":     "video",
-  "title":    "Schön, dass du da bist.",
-  "fileId":   "U3RlcEZpbGU6Y21jYWhiNzBsOGZ3czFzYW9rbmw3enRuaw==",
+  "type": "video",
+  "title": "Schön, dass du da bist.",
+  "fileId": "U3RlcEZpbGU6Y21jYWhiNzBsOGZ3czFzYW9rbmw3enRuaw==",
   "duration": 150.6,
-  "meta":     { "fileId": { "uploaded": true, "uploadedBy": "VXNlcjo…" } }
+  "meta": { "fileId": { "uploaded": true, "uploadedBy": "VXNlcjo…" } },
 }
 ```
 
@@ -248,18 +254,21 @@ blocks look like:
     "__typename": "StepFile",
     "id": "U3RlcEZpbGU6Y21jYWhiNzBsOGZ3czFzYW9rbmw3enRuaw==",
     "downloadable": {
-      "id": "cmcahb70l8fws1saoknl7ztnk",                  // CUID — stable per upload
+      "id": "cmcahb70l8fws1saoknl7ztnk", // CUID — stable per upload
       "url": "https://vz-12f1059a-6c7.b-cdn.net/…/fd4f7856-40d2-4d25-bb53-8bf102a34d96/playlist.m3u8?…",
       "metadata": {
         "__typename": "VideoMetadata",
         "duration": 150,
-        "width": 1920, "height": 1080,
-        "spriteUrls": [/* 3 sprite sheets for scrub previews */],
+        "width": 1920,
+        "height": 1080,
+        "spriteUrls": [
+          /* 3 sprite sheets for scrub previews */
+        ],
         "timePerThumbnail": 2,
-        "status": "finished"
-      }
-    }
-  }
+        "status": "finished",
+      },
+    },
+  },
 }
 ```
 
@@ -279,13 +288,13 @@ What works and what doesn't, found by saving payloads in the block and
 reading the rendered output via the Editor's "Vorschau" tab (the preview
 that mirrors student rendering exactly):
 
-| Payload                                                                   | Survives? |
-|---------------------------------------------------------------------------|-----------|
-| `<script type="application/json" data-vp-config>{...}</script>`           | ❌ stripped — entire embed block disappears |
-| `<div data-vp-config style="display:none">{...}</div>`                    | ❌ stripped |
-| `<!--VP_CONFIG {...} VP_CONFIG-->`                                        | ❌ stripped |
-| `<pre data-vp-config style="display:none">{...}</pre>`                    | ✅ rendered, textContent intact |
-| `<p>Hello</p>`                                                            | ✅ rendered (visible) |
+| Payload                                                         | Survives?                                   |
+| --------------------------------------------------------------- | ------------------------------------------- |
+| `<script type="application/json" data-vp-config>{...}</script>` | ❌ stripped — entire embed block disappears |
+| `<div data-vp-config style="display:none">{...}</div>`          | ❌ stripped                                 |
+| `<!--VP_CONFIG {...} VP_CONFIG-->`                              | ❌ stripped                                 |
+| `<pre data-vp-config style="display:none">{...}</pre>`          | ✅ rendered, textContent intact             |
+| `<p>Hello</p>`                                                  | ✅ rendered (visible)                       |
 
 Diagnosis: LearningSuite's embed-block sanitiser allows standard HTML tags
 with their `data-*` attributes, but strips `<script>`, hidden-div containers
@@ -312,6 +321,7 @@ also picks up `<div>` / `<span>` variants when they're embedded outside
 LearningSuite (e.g. our own preview pages).
 
 Caveats:
+
 - "Vorschau" tab in the Editor reflects student render; trust it over the
   Editor's own block-preview (which shows the raw saved string).
 - The "In Seite anzeigen" toggle on the block must stay selected. The
@@ -321,11 +331,11 @@ Caveats:
 
 ### Three stable identifiers (all derivable at runtime)
 
-| ID | Example | Where | Best for |
-|---|---|---|---|
-| `Downloadable.id` (CUID) | `cmcahb70l8fws1saoknl7ztnk` | `StepFileQuery` response | Primary key in our DB |
-| StepFile global ID (base64) | `U3RlcEZpbGU6…enRuaw==` | Page content `fileId` + `StepFileQuery.id` | API key when re-querying LearningSuite |
-| Bunny CDN UUID | `fd4f7856-40d2-4d25-bb53-8bf102a34d96` | URL path of the m3u8 | Cheapest runtime lookup — regex out of `hlsEl.src`, no GraphQL hooking needed |
+| ID                          | Example                                | Where                                      | Best for                                                                      |
+| --------------------------- | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------- |
+| `Downloadable.id` (CUID)    | `cmcahb70l8fws1saoknl7ztnk`            | `StepFileQuery` response                   | Primary key in our DB                                                         |
+| StepFile global ID (base64) | `U3RlcEZpbGU6…enRuaw==`                | Page content `fileId` + `StepFileQuery.id` | API key when re-querying LearningSuite                                        |
+| Bunny CDN UUID              | `fd4f7856-40d2-4d25-bb53-8bf102a34d96` | URL path of the m3u8                       | Cheapest runtime lookup — regex out of `hlsEl.src`, no GraphQL hooking needed |
 
 These three are 1:1: one StepFile = one Downloadable = one Bunny upload.
 
@@ -346,13 +356,14 @@ These three are 1:1: one StepFile = one Downloadable = one Bunny upload.
 ### Auth caveat
 
 Every GraphQL request carries `Authorization: Bearer <JWT>`. The JWT decodes to roughly:
+
 ```json
 {
   "tenantId": "cm5lic5gj51jtatmmhbdrugh1",
-  "sub":      "cmewi5wdu0j4u1zgsvjcbn8q6",   // user id
-  "roleId":   "trainer",
-  "rights":   ["ADMINZONE_ACCESS"],
-  "exp":      1777997767                      // ~5 minute window
+  "sub": "cmewi5wdu0j4u1zgsvjcbn8q6", // user id
+  "roleId": "trainer",
+  "rights": ["ADMINZONE_ACCESS"],
+  "exp": 1777997767 // ~5 minute window
 }
 ```
 
@@ -373,7 +384,7 @@ the button opens a modal dialog with two steps:
    into any LLM (ChatGPT / Claude / …) together with the lesson
    transcript or script. The LLM returns a finished
    `<pre data-vp-config>{…}</pre>` block which the admin pastes into the
-   embed block. Save → click *Vorschau* → overlays appear.
+   embed block. Save → click _Vorschau_ → overlays appear.
 
 The prompt is the single source of truth for the JSON schema. It lives
 inline in `admin-toggle.js` as the `PROMPT_TEXT` constant — edit it
@@ -383,11 +394,11 @@ there to update the wording shown in the dialog.
 
 Three small scripts, each self-gated to only run where it makes sense:
 
-| Script | Active when | Job |
-|---|---|---|
-| `public/runtime/reskin-player.js`   | A `[data-vp-config]` element exists on the page | Hides native Vidstack/Mux UI, mounts custom controls, exposes `window.player` API |
-| `public/runtime/demo-overlays.js`   | A `[data-vp-config]` element exists on the page | Reads the JSON, mounts overlays + sidebar, drives time-sync |
-| `public/runtime/admin-toggle.js`    | URL contains `/admin/editor/` AND no `?view=preview` | Mounts the authoring banner + dialog above each `<hls-video>` |
+| Script                            | Active when                                          | Job                                                                               |
+| --------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `public/runtime/reskin-player.js` | A `[data-vp-config]` element exists on the page      | Hides native Vidstack/Mux UI, mounts custom controls, exposes `window.player` API |
+| `public/runtime/demo-overlays.js` | A `[data-vp-config]` element exists on the page      | Reads the JSON, mounts overlays + sidebar, drives time-sync                       |
+| `public/runtime/admin-toggle.js`  | URL contains `/admin/editor/` AND no `?view=preview` | Mounts the authoring banner + dialog above each `<hls-video>`                     |
 
 A page that has none of these triggers stays untouched — `reskin-player.js`
 short-circuits inside `attach()` and `demo-overlays.js` returns early with
@@ -403,6 +414,29 @@ three `<script src=…>` tags to a global script slot. Without that, an
 admin who pastes the JSON into the embed block sees a perfectly valid
 `<pre>` in the rendered DOM but no overlays — the symptom that triggered
 the diagnosis here.
+
+## Player discovery — how the runtime finds the player element
+
+The reskin/overlay runtimes no longer hardcode the `hls-video` tag. Discovery
+lives in `runtime-src/common/player.ts` (`scanPlayers`) and degrades through
+four strategies, first hit wins:
+
+1. **`[data-vp-player]` contract** — an explicit marker on (or wrapping) the
+   player element. Wins regardless of tag name or wrapper nesting.
+2. **Known tags** — `hls-video`, then `mux-player`, then `media-controller video`.
+3. **Capability sweep** — any element forwarding the media API
+   (`play()` + `currentTime` + `duration`), including inside **open** shadow
+   roots (closed roots are unreachable).
+4. Otherwise **none** — nothing is reskinned and the native player is left
+   untouched (`_diag().discovery` reports which strategy matched).
+
+**Authoring recommendation:** if a future LearningSuite update renames or
+restructures the player element and the tag/capability fallbacks prove
+insufficient, add `data-vp-player` to the player element (or its wrapper) in the
+embed block. It is the durable, structure-independent hook — the same pattern
+that already makes `[data-vp-config]` robust. The light DOM is searched first;
+the shadow-DOM traversal and capability sweep run only when the light DOM holds
+no player, so the common path stays cheap.
 
 ## Hosting the runtime scripts on Vercel
 
@@ -428,12 +462,15 @@ Our Vercel team has SAML / deployment protection on by default, so a raw
 LearningSuite tenant returns 401. Two ways out:
 
 1. **Protection Bypass for Automation** (recommended for the spike).
-   Project Settings → *Deployment Protection* → enable *Protection
-   Bypass for Automation* → copy the generated secret. Append it as a
+   Project Settings → _Deployment Protection_ → enable _Protection
+   Bypass for Automation_ → copy the generated secret. Append it as a
    query string to every script URL:
 
    ```html
-   <script src="https://….vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET" defer></script>
+   <script
+     src="https://….vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET"
+     defer
+   ></script>
    ```
 
    The secret is a static, project-scoped token; rotate it from the same
@@ -457,9 +494,18 @@ Once the bypass is in place, paste these three lines into the global
 such slot, into a "Code einbetten" block on every lesson):
 
 ```html
-<script src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET" defer></script>
-<script src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/demo-overlays.js?x-vercel-protection-bypass=SECRET" defer></script>
-<script src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/admin-toggle.js?x-vercel-protection-bypass=SECRET" defer></script>
+<script
+  src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET"
+  defer
+></script>
+<script
+  src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/demo-overlays.js?x-vercel-protection-bypass=SECRET"
+  defer
+></script>
+<script
+  src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/admin-toggle.js?x-vercel-protection-bypass=SECRET"
+  defer
+></script>
 ```
 
 All three are self-gating — they only do anything on pages where they
@@ -485,12 +531,16 @@ The fix in all three scripts:
 ```js
 // First thing inside the IIFE:
 if (Array.isArray(window.__vpXxxCleanup)) {
-  for (const fn of window.__vpXxxCleanup) { try { fn(); } catch {} }
+  for (const fn of window.__vpXxxCleanup) {
+    try {
+      fn();
+    } catch {}
+  }
 }
 window.__vpXxxCleanup = [];
 
 // Each setup pushes its own teardown:
-const mo = new MutationObserver(scheduleScan);  // scheduleScan is debounced (250ms)
+const mo = new MutationObserver(scheduleScan); // scheduleScan is debounced (250ms)
 mo.observe(document.body, { subtree: true, childList: true });
 window.__vpXxxCleanup.push(() => mo.disconnect());
 ```
@@ -518,12 +568,12 @@ components, no row-flex parent ready to host a right column.
 `public/runtime/demo-overlays.js` now picks the strategy at runtime:
 
 - **Strategy A — flex sibling of `<main>`.** Try the original approach.
-  After insertion, *verify* that `sidebar.left ≥ main.right` AND
+  After insertion, _verify_ that `sidebar.left ≥ main.right` AND
   `sidebar.right ≤ window.innerWidth`. If not, **roll back** the layout
   edits (sibling `display` values, parent `display:flex`, `gap`,
   `flex` on `<main>`) and try B.
 - **Strategy B — fixed right rail.** `position: fixed; top:24; right:24;
-  bottom:24; width:380; z-index:50` mounted on `<body>`. Always reaches
+bottom:24; width:380; z-index:50` mounted on `<body>`. Always reaches
   the viewport edge regardless of host layout.
 
 The post-install verification + rollback is the key — without it, A
@@ -540,8 +590,13 @@ as blank lines. The section pill ballooned to ~156 px tall when only
 ~33 px of content was visible. Fix in `demo-overlays.js`:
 
 ```css
-.vp-section-pill, .vp-section-pill * { white-space: normal; }
-.vp-section-pill .vp-sec-title { white-space: nowrap; }
+.vp-section-pill,
+.vp-section-pill * {
+  white-space: normal;
+}
+.vp-section-pill .vp-sec-title {
+  white-space: nowrap;
+}
 ```
 
 A second related bug: the original section pill rebuilt its full
