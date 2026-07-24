@@ -970,7 +970,11 @@
       const coachingPanel = sidebar.querySelector(
         '[data-panel="coaching"]'
       );
+      let coachingSig = null;
       function renderCoaching() {
+        const sig = `${w.__vpActivePhase}|${w.__vpActiveIntervention}|${w.__vpExpandedPhase}`;
+        if (sig === coachingSig) return;
+        coachingSig = sig;
         coachingPanel.innerHTML = phases.map((p, i) => {
           const open = p.id === w.__vpExpandedPhase;
           const active = p.id === w.__vpActivePhase;
@@ -1074,7 +1078,12 @@
       const metaPanel = sidebar.querySelector(
         '[data-panel="meta"]'
       );
+      let metaSig = null;
       function renderMeta() {
+        var _a2;
+        const sig = (_a2 = w.__vpActiveMeta) != null ? _a2 : "";
+        if (sig === metaSig) return;
+        metaSig = sig;
         metaPanel.innerHTML = `<div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:10px">7 Master Steps</div>
       <ol style="list-style:none;padding:0;margin:0;display:grid;gap:6px">
         ${metaSteps.map((m) => {

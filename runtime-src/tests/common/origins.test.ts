@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getTrustedOrigins, makeAssetOriginChecker } from "./origins";
+import {
+  getTrustedOrigins,
+  makeAssetOriginChecker,
+} from "../../common/origins";
 
 const setTrusted = (value: unknown): void => {
   (window as unknown as { __vpTrustedOrigins?: unknown }).__vpTrustedOrigins =

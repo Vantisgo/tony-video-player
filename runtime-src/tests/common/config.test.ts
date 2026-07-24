@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { loadVpConfig, parseVpConfig } from "./config";
+import { loadVpConfig, parseVpConfig } from "../../common/config";
 
 afterEach(() => {
   document.body.innerHTML = "";

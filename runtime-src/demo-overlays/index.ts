@@ -783,7 +783,11 @@ function main(): string {
     const coachingPanel = sidebar.querySelector(
       '[data-panel="coaching"]',
     ) as HTMLElement;
+    let coachingSig: string | null = null;
     function renderCoaching(): void {
+      const sig = `${w.__vpActivePhase}|${w.__vpActiveIntervention}|${w.__vpExpandedPhase}`;
+      if (sig === coachingSig) return;
+      coachingSig = sig;
       coachingPanel.innerHTML = phases
         .map((p, i) => {
           const open = p.id === w.__vpExpandedPhase;
@@ -910,7 +914,11 @@ function main(): string {
     const metaPanel = sidebar.querySelector(
       '[data-panel="meta"]',
     ) as HTMLElement;
+    let metaSig: string | null = null;
     function renderMeta(): void {
+      const sig = w.__vpActiveMeta ?? "";
+      if (sig === metaSig) return;
+      metaSig = sig;
       metaPanel.innerHTML = `<div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:10px">7 Master Steps</div>
       <ol style="list-style:none;padding:0;margin:0;display:grid;gap:6px">
         ${metaSteps

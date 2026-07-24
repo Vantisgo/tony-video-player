@@ -65,24 +65,33 @@ function main(): string {
     } else if (m.type === "play") api.play();
     else if (m.type === "pause") api.pause();
   });
-  bus.on("any", (p) => {
+  // Cache the trusted-iframe target list instead of re-querying the DOM on
+  // every bus emit (~4x/s during playback). Rebuilt by scan() when the DOM
+  // changes (see the MutationObserver below).
+  let iframeTargets: { frame: HTMLIFrameElement; origin: string }[] = [];
+  function refreshIframeTargets(): void {
+    const next: { frame: HTMLIFrameElement; origin: string }[] = [];
     document.querySelectorAll("iframe").forEach((f) => {
-      let targetOrigin: string;
+      const frame = f as HTMLIFrameElement;
+      let origin: string;
       try {
-        targetOrigin = new URL(f.src, location.href).origin;
+        origin = new URL(frame.src, location.href).origin;
       } catch {
         return;
       }
-      if (!vpTrustedOrigins.has(targetOrigin)) return;
+      if (!vpTrustedOrigins.has(origin)) return;
+      next.push({ frame, origin });
+    });
+    iframeTargets = next;
+  }
+  bus.on("any", (p) => {
+    for (const { frame, origin } of iframeTargets) {
       try {
-        f.contentWindow?.postMessage(
-          { __source: "player", ...p },
-          targetOrigin,
-        );
+        frame.contentWindow?.postMessage({ __source: "player", ...p }, origin);
       } catch {
         /* ignore cross-frame post failures */
       }
-    });
+    }
   });
 
   const overlays: OverlaySlot[] = [];
@@ -207,6 +216,7 @@ function main(): string {
     let externalLanguagePack: LanguagePack | null = null;
     let externalAudioIndex = -1;
     let externalSubtitleIndex = -1;
+    let renderedCueText = "";
     let externalAudioSyncTimer: ReturnType<typeof setInterval> | null = null;
     let audibleMuted = !!mediaEl.muted;
     let disposed = false;
@@ -634,15 +644,18 @@ function main(): string {
       const cue = track?.cues.find(
         (item) => time >= item.from && time < item.to,
       );
+      const nextText = cue?.text ?? "";
+      if (nextText === renderedCueText) return;
+      renderedCueText = nextText;
 
       subtitleLayer.replaceChildren();
-      if (!cue) {
+      if (!nextText) {
         subtitleLayer.hidden = true;
         return;
       }
       const el = document.createElement("span");
       el.className = "vp-subtitle-cue";
-      el.textContent = cue.text;
+      el.textContent = nextText;
       subtitleLayer.appendChild(el);
       subtitleLayer.hidden = false;
     }
@@ -655,10 +668,11 @@ function main(): string {
         );
         return;
       }
-      const tracks = getLearningSuiteTranscriptTracks(mediaEl);
       const track =
         learningSuiteSubtitleIndex >= 0
-          ? tracks[learningSuiteSubtitleIndex]
+          ? getLearningSuiteTranscriptTracks(mediaEl)[
+              learningSuiteSubtitleIndex
+            ]
           : null;
       renderSubtitleCue(track, time);
     }
@@ -1015,10 +1029,12 @@ function main(): string {
     if (!Number.isNaN(mediaEl.duration)) onMeta();
   }
 
-  const scan = () =>
+  const scan = () => {
     document
       .querySelectorAll("hls-video")
       .forEach((el) => attach(el as MediaEl));
+    refreshIframeTargets();
+  };
   scan();
   // Debounced scan so React's chatty re-renders don't trigger a full
   // querySelectorAll on every mutation.
@@ -1031,7 +1047,12 @@ function main(): string {
     }, 250);
   }
   const mo = new MutationObserver(scheduleScan);
-  mo.observe(document.body, { subtree: true, childList: true });
+  mo.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["src"],
+  });
   pushCleanup(CLEANUP_KEY, () => {
     mo.disconnect();
     if (scanPending) clearTimeout(scanPending);

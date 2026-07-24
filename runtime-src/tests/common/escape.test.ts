@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { esc } from "./escape";
+import { esc } from "../../common/escape";
 
 describe("esc", () => {
   it("neutralizes an XSS payload into inert text", () => {

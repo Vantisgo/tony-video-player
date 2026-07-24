@@ -27,6 +27,24 @@
 
 ---
 
+## 2026-07-24 · (no ticket) · Runtime playback hot-path performance fixes
+
+- **Decision**: The per-`timeupdate` path (~4×/s) is the performance-critical surface for the
+  injected runtime. Guard it: (a) reskin only calls `getLearningSuiteTranscriptTracks`
+  (which does `apollo.cache.extract()` — a full store snapshot) when a LS subtitle is actually
+  selected; (b) demo `renderCoaching`/`renderMeta` dirty-check a signature (active phase /
+  intervention / expanded phase, and active meta) before rebuilding `innerHTML`; (c) reskin
+  subtitle-cue render skips when the displayed cue text is unchanged.
+- **Decision**: Cross-frame bus broadcast uses a **cached** trusted-iframe target list
+  refreshed from the existing debounced `scan()`; the reskin `MutationObserver` now also watches
+  `attributes: ["src"]` so iframe `src` changes refresh it. Avoids `querySelectorAll("iframe")` +
+  `new URL()` per emit. (Throttling time-broadcasts was the considered alternative; not taken.)
+- **Gotcha (tests)**: happy-dom navigates a real `<iframe>` with an http `src` (emits
+  Abort/NotSupported traces). In tests, append the iframe with **no** `src` and expose trusted
+  `src`/`contentWindow` via instance `Object.defineProperty` getters instead.
+- **Pattern**: `renderSection` (demo) is the reference for dirty-checked rendering; new per-frame
+  renderers should follow it rather than unconditional `innerHTML =`.
+
 ## 2026-07-24 · (no ticket) · Runtime augment security hardening
 
 - **Decision**: Fixed XSS by escaping at the `innerHTML` interpolation sites (`esc()` +

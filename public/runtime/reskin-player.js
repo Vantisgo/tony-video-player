@@ -395,24 +395,30 @@
       } else if (m.type === "play") api.play();
       else if (m.type === "pause") api.pause();
     });
-    bus.on("any", (p) => {
+    let iframeTargets = [];
+    function refreshIframeTargets() {
+      const next = [];
       document.querySelectorAll("iframe").forEach((f) => {
-        var _a;
-        let targetOrigin;
+        const frame = f;
+        let origin;
         try {
-          targetOrigin = new URL(f.src, location.href).origin;
+          origin = new URL(frame.src, location.href).origin;
         } catch {
           return;
         }
-        if (!vpTrustedOrigins.has(targetOrigin)) return;
+        if (!vpTrustedOrigins.has(origin)) return;
+        next.push({ frame, origin });
+      });
+      iframeTargets = next;
+    }
+    bus.on("any", (p) => {
+      var _a;
+      for (const { frame, origin } of iframeTargets) {
         try {
-          (_a = f.contentWindow) == null ? void 0 : _a.postMessage(
-            { __source: "player", ...p },
-            targetOrigin
-          );
+          (_a = frame.contentWindow) == null ? void 0 : _a.postMessage({ __source: "player", ...p }, origin);
         } catch {
         }
-      });
+      }
     });
     const overlays = [];
     const activeOverlays = /* @__PURE__ */ new Set();
@@ -530,6 +536,7 @@
       let externalLanguagePack = null;
       let externalAudioIndex = -1;
       let externalSubtitleIndex = -1;
+      let renderedCueText = "";
       let externalAudioSyncTimer = null;
       let audibleMuted = !!mediaEl.muted;
       let disposed = false;
@@ -874,17 +881,21 @@
         return { source: "none", options: [] };
       }
       function renderSubtitleCue(track, time) {
+        var _a;
         const cue = track == null ? void 0 : track.cues.find(
           (item) => time >= item.from && time < item.to
         );
+        const nextText = (_a = cue == null ? void 0 : cue.text) != null ? _a : "";
+        if (nextText === renderedCueText) return;
+        renderedCueText = nextText;
         subtitleLayer.replaceChildren();
-        if (!cue) {
+        if (!nextText) {
           subtitleLayer.hidden = true;
           return;
         }
         const el = document.createElement("span");
         el.className = "vp-subtitle-cue";
-        el.textContent = cue.text;
+        el.textContent = nextText;
         subtitleLayer.appendChild(el);
         subtitleLayer.hidden = false;
       }
@@ -897,8 +908,7 @@
           );
           return;
         }
-        const tracks = getLearningSuiteTranscriptTracks(mediaEl);
-        const track = learningSuiteSubtitleIndex >= 0 ? tracks[learningSuiteSubtitleIndex] : null;
+        const track = learningSuiteSubtitleIndex >= 0 ? getLearningSuiteTranscriptTracks(mediaEl)[learningSuiteSubtitleIndex] : null;
         renderSubtitleCue(track, time);
       }
       function setSubtitleTrack(source, value) {
@@ -1218,7 +1228,10 @@
       updateTrackMenus();
       if (!Number.isNaN(mediaEl.duration)) onMeta();
     }
-    const scan = () => document.querySelectorAll("hls-video").forEach((el) => attach(el));
+    const scan = () => {
+      document.querySelectorAll("hls-video").forEach((el) => attach(el));
+      refreshIframeTargets();
+    };
     scan();
     let scanPending = 0;
     function scheduleScan() {
@@ -1229,7 +1242,12 @@
       }, 250);
     }
     const mo = new MutationObserver(scheduleScan);
-    mo.observe(document.body, { subtree: true, childList: true });
+    mo.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["src"]
+    });
     pushCleanup(CLEANUP_KEY, () => {
       mo.disconnect();
       if (scanPending) clearTimeout(scanPending);
