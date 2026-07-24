@@ -1,0 +1,226 @@
+// admin-toggle — Admin-only banner + dialog for activating Advanced Video Modus.
+//
+// Mounts only inside the LearningSuite admin editor's EDIT view (URL contains
+// `/admin/editor/` and no `?view=preview`). Watches every <hls-video> and
+// inserts a banner above its container with an "Aktivieren / Bearbeiten" button
+// that opens a dialog explaining the two-step setup (add a "Code einbetten"
+// block, paste an LLM prompt's output). Idempotent + re-injectable.
+import { pushCleanup, resetCleanup } from "../common/cleanup";
+import { PROMPT_TEXT } from "./prompt";
+import { ADMIN_CSS } from "./styles";
+
+const CLEANUP_KEY = "__vpAdminCleanup";
+
+type AdminHlsEl = HTMLElement & { __vpAdminAttached?: boolean };
+
+function main(): string {
+  // Idempotency: tear down everything from a previous run before setting up.
+  resetCleanup(CLEANUP_KEY);
+  document.getElementById("vp-admin-toggle-style")?.remove();
+  document.querySelectorAll(".vp-admin-banner").forEach((el) => el.remove());
+  document.getElementById("vp-admin-dialog-host")?.remove();
+  document.querySelectorAll("hls-video").forEach((v) => {
+    delete (v as AdminHlsEl).__vpAdminAttached;
+  });
+
+  const styleEl = document.createElement("style");
+  styleEl.id = "vp-admin-toggle-style";
+  styleEl.textContent = ADMIN_CSS;
+  document.head.appendChild(styleEl);
+
+  function hasVpConfigOnPage(): boolean {
+    if (document.querySelector("[data-vp-config]:not(script)")) return true;
+    if (document.querySelector("script[data-vp-config]")) return true;
+    // Edit-mode DOM stores the raw saved code as a string in disabled inputs.
+    return [...document.querySelectorAll('input[type="text"]')].some(
+      (i) =>
+        typeof (i as HTMLInputElement).value === "string" &&
+        (i as HTMLInputElement).value.includes("data-vp-config"),
+    );
+  }
+
+  function openDialog(onAfterClose?: () => void): void {
+    document.getElementById("vp-admin-dialog-host")?.remove();
+    const host = document.createElement("div");
+    host.id = "vp-admin-dialog-host";
+    host.className = "vp-admin-dialog-backdrop";
+    host.innerHTML = `
+      <div class="vp-admin-dialog" role="dialog" aria-modal="true">
+        <header>
+          <span class="vp-icon" style="font-size:22px">⚡</span>
+          <h2>Advanced Video Modus aktivieren</h2>
+          <button class="vp-close" aria-label="Schließen">×</button>
+        </header>
+        <section>
+          <h3><span class="vp-step-num">1</span>Code-Block hinzufügen</h3>
+          <p>Füge unter dem Video einen <strong>"Code einbetten"</strong>-Block hinzu — links in der Block-Sidebar unter <em>Code-Elemente → Code einbetten</em>.</p>
+          <p>Stelle den Block auf <strong>"In Seite anzeigen"</strong> (Standard).</p>
+        </section>
+        <section>
+          <h3><span class="vp-step-num">2</span>Prompt an LLM, dann Antwort einfügen</h3>
+          <p>Kopiere den folgenden Prompt, gib ihn an dein LLM (ChatGPT, Claude, …) zusammen mit dem Lektions-Transkript / Drehbuch. Die Antwort des LLMs ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.</p>
+          <div class="vp-prompt-wrap">
+            <textarea class="vp-prompt" readonly></textarea>
+            <button class="vp-copy-btn">Prompt kopieren</button>
+          </div>
+        </section>
+        <footer>
+          <span class="vp-tip">💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays).</span>
+        </footer>
+      </div>
+    `;
+    (host.querySelector(".vp-prompt") as HTMLTextAreaElement).value =
+      PROMPT_TEXT;
+    function closeDialog(): void {
+      host.remove();
+      document.removeEventListener("keydown", onKey);
+      if (typeof onAfterClose === "function") {
+        try {
+          onAfterClose();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    function onKey(e: KeyboardEvent): void {
+      if (e.key === "Escape") closeDialog();
+    }
+    (host.querySelector(".vp-close") as HTMLElement).onclick = closeDialog;
+    host.addEventListener("click", (e) => {
+      if (e.target === host) closeDialog();
+    });
+    document.addEventListener("keydown", onKey);
+    const copyBtn = host.querySelector(".vp-copy-btn") as HTMLButtonElement;
+    copyBtn.onclick = async () => {
+      const ta = host.querySelector(".vp-prompt") as HTMLTextAreaElement;
+      ta.select();
+      try {
+        await navigator.clipboard.writeText(ta.value);
+      } catch {
+        try {
+          document.execCommand("copy");
+        } catch {
+          /* ignore */
+        }
+      }
+      copyBtn.textContent = "✓ Kopiert";
+      copyBtn.dataset.copied = "1";
+      setTimeout(() => {
+        copyBtn.textContent = "Prompt kopieren";
+        copyBtn.dataset.copied = "0";
+      }, 1800);
+    };
+    document.body.appendChild(host);
+  }
+
+  function attach(hlsEl: AdminHlsEl): void {
+    if (hlsEl.__vpAdminAttached) return;
+    const playerHost = hlsEl.parentElement;
+    if (!playerHost) return;
+    const insertParent = playerHost.parentElement;
+    if (!insertParent) return;
+    if (
+      playerHost.previousElementSibling?.classList?.contains("vp-admin-banner")
+    ) {
+      hlsEl.__vpAdminAttached = true;
+      return;
+    }
+    hlsEl.__vpAdminAttached = true;
+
+    const banner = document.createElement("div");
+    banner.className = "vp-admin-banner";
+    banner.innerHTML = `
+      <span class="vp-icon">⚡</span>
+      <div class="vp-text">
+        <div class="vp-title">Advanced Video Modus</div>
+        <div class="vp-sub">Re-Skin · Overlays · Coaching-Sidebar — gesteuert per JSON im Code-einbetten-Block</div>
+      </div>
+      <span class="vp-status" data-vp-status></span>
+      <button class="vp-cta" type="button">Aktivieren / Bearbeiten</button>
+    `;
+    const status = banner.querySelector("[data-vp-status]") as HTMLElement;
+    function refreshStatus(): void {
+      const active = hasVpConfigOnPage();
+      const next = active ? "1" : "0";
+      const text = active ? "✓ Konfig vorhanden" : "noch nicht aktiviert";
+      if (status.dataset.active !== next) status.dataset.active = next;
+      if (status.textContent !== text) status.textContent = text;
+    }
+    refreshStatus();
+    (banner.querySelector("button.vp-cta") as HTMLButtonElement).onclick = (
+      e,
+    ) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openDialog(refreshStatus);
+    };
+    insertParent.insertBefore(banner, playerHost);
+
+    // Lightweight passive refresh: poll every 2s, skip if status unchanged.
+    const pollId = setInterval(refreshStatus, 2000);
+    pushCleanup(CLEANUP_KEY, () => clearInterval(pollId));
+  }
+
+  function isEditMode(): boolean {
+    if (!location.pathname.includes("/admin/editor/")) return false;
+    if (new URLSearchParams(location.search).get("view") === "preview")
+      return false;
+    return true;
+  }
+
+  function teardownBanners(): void {
+    document.querySelectorAll(".vp-admin-banner").forEach((el) => el.remove());
+    document.getElementById("vp-admin-dialog-host")?.remove();
+    document.querySelectorAll("hls-video").forEach((v) => {
+      delete (v as AdminHlsEl).__vpAdminAttached;
+    });
+  }
+
+  function scan(): void {
+    document
+      .querySelectorAll("hls-video")
+      .forEach((el) => attach(el as AdminHlsEl));
+  }
+
+  function applyMode(): void {
+    if (isEditMode()) scan();
+    else teardownBanners();
+  }
+
+  applyMode();
+
+  // Debounce scan so React's chatty re-renders don't burn CPU.
+  let scanPending: ReturnType<typeof setTimeout> | 0 = 0;
+  function scheduleApply(): void {
+    if (scanPending) return;
+    scanPending = setTimeout(() => {
+      scanPending = 0;
+      applyMode();
+    }, 250);
+  }
+  const mo = new MutationObserver(scheduleApply);
+  mo.observe(document.body, { subtree: true, childList: true });
+  pushCleanup(CLEANUP_KEY, () => {
+    mo.disconnect();
+    if (scanPending) clearTimeout(scanPending);
+  });
+
+  // SPA navigation: popstate fires for back/forward but not pushState (which LS
+  // uses for Editor / Vorschau), so also poll the URL on a short interval.
+  let lastHref = location.href;
+  const checkUrl = () => {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    applyMode();
+  };
+  window.addEventListener("popstate", checkUrl);
+  pushCleanup(CLEANUP_KEY, () =>
+    window.removeEventListener("popstate", checkUrl),
+  );
+  const urlPollId = setInterval(checkUrl, 600);
+  pushCleanup(CLEANUP_KEY, () => clearInterval(urlPollId));
+
+  return "admin-toggle armed";
+}
+
+(window as unknown as { __vpAdminStatus?: string }).__vpAdminStatus = main();

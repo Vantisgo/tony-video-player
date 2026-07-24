@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "es2019",
+    "lib": ["dom", "dom.iterable", "es2020"],
+    "types": [],
+    "jsx": "preserve",
+    "plugins": [],
+    "noEmit": true
+  },
+  "include": ["runtime-src/**/*.ts"],
+  "exclude": ["node_modules"]
+}

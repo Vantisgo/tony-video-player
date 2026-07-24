@@ -1,5 +1,10 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+.idea
+.claude/CLAUDE.md
+.claude/settings.json
+.claude/settings.local.json
+
 # dependencies
 /node_modules
 /.pnp
@@ -12,6 +17,9 @@
 
 # testing
 /coverage
+
+# generated runtime bundles: the .js are committed, the source maps are not
+public/runtime/*.js.map
 
 # next.js
 /.next/
