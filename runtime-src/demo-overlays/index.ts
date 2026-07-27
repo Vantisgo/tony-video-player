@@ -1,3 +1,4 @@
+import { resolveAttachmentUrl } from "../common/attachments";
 import { resetCleanup, pushCleanup } from "../common/cleanup";
 import { esc } from "../common/escape";
 import { formatTime as fmt } from "../common/format";
@@ -17,6 +18,7 @@ import {
 import { ANIM_CSS, SECTION_CSS, T } from "./styles";
 
 const CLEANUP_KEY = "__vpDemoCleanup";
+const AUDIO_EL_ID = "vp-audio-el";
 
 // Our own origin (the injected <script>'s), resolved synchronously — used for
 // the kill-switch + telemetry API calls.
@@ -35,10 +37,14 @@ function reportFailure(errorType: string): void {
 
 interface AudioController {
   state: "idle" | "playing" | "paused";
+  // "file" plays the real attachment audio and takes its clock from the
+  // element's timeupdate; "tts" speaks `script` on a simulated clock.
+  mode: "tts" | "file";
   active: Audio | null;
   audioTime: number;
   videoResumeTime: number;
   triggered: Set<string>;
+  audioEl: HTMLAudioElement | null;
   _tickHandle: ReturnType<typeof setTimeout> | null;
   activate(a: Audio, videoT: number): void;
   togglePlay(): void;
@@ -129,6 +135,7 @@ function main(): string {
         "vp-demo-sidebar",
         "vp-anim-style",
         "__vp-section-style",
+        AUDIO_EL_ID,
       ].forEach((id) => document.getElementById(id)?.remove());
       reportFailure("demo-setup-error");
     }
@@ -393,12 +400,52 @@ function main(): string {
 
     // ─── Audio state machine ───
     const videoEl: HTMLMediaElement | null = findPlayers()[0] ?? null;
+
+    // One persistent, hidden <audio> for the whole run: creating it (and its
+    // listeners) inside activate() would stack a fresh element per cue.
+    document.getElementById(AUDIO_EL_ID)?.remove();
+    const audioEl = document.createElement("audio");
+    audioEl.id = AUDIO_EL_ID;
+    // No `crossorigin`: a bare media element plays the signed GCS URL in no-cors
+    // mode, which needs no CORS headers.
+    audioEl.preload = "none";
+    audioEl.style.display = "none";
+    document.body.appendChild(audioEl);
+
+    // Play the real file when the cue names an attachment we can find on the
+    // page; otherwise (and on any playback failure) speak the script instead.
+    function startFile(a: Audio, url: string): void {
+      audioCtrl.mode = "file";
+      audioEl.src = url;
+      try {
+        audioEl.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+      const p = audioEl.play();
+      if (p && typeof p.catch === "function") p.catch(() => fallbackToTts(a));
+    }
+
+    function fallbackToTts(a: Audio): void {
+      if (audioCtrl.state === "idle" || audioCtrl.mode !== "file") return;
+      audioCtrl.mode = "tts";
+      try {
+        audioEl.pause();
+      } catch {
+        /* ignore */
+      }
+      audioCtrl._speak(a);
+      audioCtrl._scheduleTick();
+    }
+
     const audioCtrl: AudioController = {
       state: "idle",
+      mode: "tts",
       active: null,
       audioTime: 0,
       videoResumeTime: 0,
       triggered: new Set(),
+      audioEl,
       _tickHandle: null,
 
       activate(a, videoT) {
@@ -413,25 +460,34 @@ function main(): string {
         } catch {
           /* ignore */
         }
+        // Resolve lazily: the anchor may render late, and its signed URL is
+        // re-minted on every page load, so it is never cached.
+        const url = resolveAttachmentUrl(a.audioFile);
+        if (url) {
+          startFile(a, url);
+          audioCtrl._render();
+          return;
+        }
+        audioCtrl.mode = "tts";
         audioCtrl._speak(a);
         audioCtrl._scheduleTick();
       },
       togglePlay() {
         if (audioCtrl.state === "idle") return;
-        if (audioCtrl.state === "playing") {
-          audioCtrl.state = "paused";
-          try {
-            speechSynthesis.pause();
-          } catch {
-            /* ignore */
-          }
-        } else {
-          audioCtrl.state = "playing";
-          try {
-            speechSynthesis.resume();
-          } catch {
-            /* ignore */
-          }
+        const pausing = audioCtrl.state === "playing";
+        audioCtrl.state = pausing ? "paused" : "playing";
+        try {
+          if (audioCtrl.mode === "file") {
+            if (pausing) audioEl.pause();
+            else {
+              const p = audioEl.play();
+              if (p && typeof p.catch === "function")
+                p.catch((err) => console.warn("[vp] audio resume failed", err));
+            }
+          } else if (pausing) speechSynthesis.pause();
+          else speechSynthesis.resume();
+        } catch {
+          /* ignore */
         }
         audioCtrl._scheduleTick();
         audioCtrl._render();
@@ -444,6 +500,17 @@ function main(): string {
           clearTimeout(audioCtrl._tickHandle);
           audioCtrl._tickHandle = null;
         }
+        // Also covers a cue that started in file mode and fell back to TTS.
+        if (audioEl.hasAttribute("src")) {
+          try {
+            audioEl.pause();
+            audioEl.removeAttribute("src");
+            audioEl.load();
+          } catch {
+            /* ignore */
+          }
+        }
+        audioCtrl.mode = "tts";
         try {
           speechSynthesis.cancel();
         } catch {
@@ -468,10 +535,17 @@ function main(): string {
       },
       seekRel(delta) {
         if (audioCtrl.state === "idle" || !audioCtrl.active) return;
-        audioCtrl.audioTime = Math.max(
-          0,
-          Math.min(audioCtrl.active.dur, audioCtrl.audioTime + delta),
-        );
+        const from =
+          audioCtrl.mode === "file" ? audioEl.currentTime : audioCtrl.audioTime;
+        const next = Math.max(0, Math.min(audioCtrl.active.dur, from + delta));
+        audioCtrl.audioTime = next;
+        if (audioCtrl.mode === "file") {
+          try {
+            audioEl.currentTime = next;
+          } catch {
+            /* ignore */
+          }
+        }
         audioCtrl._render();
       },
       _speak(a) {
@@ -494,7 +568,13 @@ function main(): string {
         return audioCtrl.state !== "idle";
       },
       _scheduleTick() {
-        if (audioCtrl._tickHandle) clearTimeout(audioCtrl._tickHandle);
+        if (audioCtrl._tickHandle) {
+          clearTimeout(audioCtrl._tickHandle);
+          audioCtrl._tickHandle = null;
+        }
+        // File mode takes its clock from the element's timeupdate; the simulated
+        // clock is TTS-only.
+        if (audioCtrl.mode === "file") return;
         if (audioCtrl.state !== "playing") return;
         audioCtrl._tickHandle = setTimeout(() => {
           audioCtrl._tickHandle = null;
@@ -516,6 +596,48 @@ function main(): string {
       },
     };
     w.__audioCtrl = audioCtrl;
+
+    // Wired once, on the persistent element — never inside activate().
+    const onAudioTimeUpdate = () => {
+      if (
+        audioCtrl.state === "idle" ||
+        audioCtrl.mode !== "file" ||
+        !audioCtrl.active
+      )
+        return;
+      audioCtrl.audioTime = Math.min(audioCtrl.active.dur, audioEl.currentTime);
+      audioCtrl._render();
+    };
+    const onAudioEnded = () => {
+      // Only the file clock ends a cue; a TTS cue ends on the utterance.
+      if (audioCtrl.state !== "idle" && audioCtrl.mode === "file")
+        audioCtrl.end({ resume: true });
+    };
+    const onAudioError = () => {
+      const active = audioCtrl.active;
+      if (audioCtrl.state === "idle" || audioCtrl.mode !== "file" || !active)
+        return;
+      console.warn(
+        "[vp] audio load failed; falling back to TTS",
+        audioEl.error,
+      );
+      fallbackToTts(active);
+    };
+    audioEl.addEventListener("timeupdate", onAudioTimeUpdate);
+    audioEl.addEventListener("ended", onAudioEnded);
+    audioEl.addEventListener("error", onAudioError);
+    pushCleanup(CLEANUP_KEY, () => {
+      audioEl.removeEventListener("timeupdate", onAudioTimeUpdate);
+      audioEl.removeEventListener("ended", onAudioEnded);
+      audioEl.removeEventListener("error", onAudioError);
+      try {
+        audioEl.pause();
+      } catch {
+        /* ignore */
+      }
+      audioEl.removeAttribute("src");
+      audioEl.remove();
+    });
 
     const onCaptureClick = (e: MouseEvent) => {
       if (!audioCtrl.isActive()) return;

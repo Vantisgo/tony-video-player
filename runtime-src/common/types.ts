@@ -32,6 +32,10 @@ export interface Audio {
   title: string;
   voice: string;
   script: string;
+  // Exact filename of the voice-over attached to the LearningSuite lesson.
+  // Optional: without it (or when no matching attachment is on the page) the
+  // overlay falls back to speaking `script` via SpeechSynthesis.
+  audioFile?: string;
 }
 
 export interface MetaStep {

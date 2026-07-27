@@ -33,6 +33,10 @@ sciences[]:  (Wissenschafts-Pop-Ups, je 5s sichtbar bei jedem Timestamp)
 
 audios[]:    (Voice-Over-Einschübe; pausieren das Video)
   id, t (Trigger), dur (Dauer in Sek), title, voice (Sprecher-Name), script (gesprochener Text)
+  audioFile — (optional) exakter Dateiname des als "Anhang" der Lektion hochgeladenen
+              Voice-Over-.mp3 (z.B. "Intro.mp3"). VOM ADMIN einzutragen — das LLM kennt
+              den Dateinamen nicht. Weglassen, wenn kein Anhang existiert; dann wird
+              script per Text-to-Speech vorgelesen.
 
 metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
   id, n (Nummer), title, t (Trigger Sek)
@@ -54,7 +58,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
     { "id":"s1", "name":"...", "description":"...", "timestampsSec":[22] }
   ],
   "audios": [
-    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "script":"..." }
+    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "script":"...", "audioFile":"DATEINAME.mp3" }
   ],
   "metaSteps": [
     { "id":"m1", "n":1, "title":"...", "t":4 }
@@ -67,6 +71,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
 - ALLE id-Strings müssen eindeutig sein
 - t-Werte (Zeitstempel) realistisch zum Video-Inhalt
 - Sprache des Materials beibehalten
+- audioFile nur setzen, wenn eine gleichnamige Datei als Anhang der Lektion existiert (sonst weglassen)
 - Antworte NUR mit dem <pre>-Block (keine Einleitung, keine Schluss-Erklärung)
 - Der Block wird 1:1 in den LearningSuite "Code einbetten"-Block eingefügt
 

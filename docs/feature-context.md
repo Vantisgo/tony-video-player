@@ -164,3 +164,31 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
 - **Follow-up (operational, not code)**: provision Edge Config (`EDGE_CONFIG` + `runtimeConfig`
   key), set `RUNTIME_ALERT_WEBHOOK_URL` + `RUNTIME_TELEMETRY_ALLOWED_ORIGINS`, confirm LS CSP
   `connect-src` allows our origin (fail-open covers it if not).
+
+## 2026-07-27 · audio-attach · Voice-over audio from LearningSuite attachments
+
+- **Decision**: Voice-over audio lives **in LearningSuite as a lesson attachment**, never on our
+  infrastructure. `audios[].audioFile` holds the attachment's exact filename; `common/attachments.ts`
+  `resolveAttachmentUrl()` resolves it **lazily at cue time** from the rendered DOM
+  (`a[href*="/courses/steps/"]` whose trimmed text is that filename) and returns only `https:`
+  hrefs. The signed GCS URL is re-minted on every page load, so it is never cached, stored, or put
+  in config — and no LearningSuite auth token is ever touched. GraphQL/`StepFileQuery` resolution
+  and CUID-based matching were both rejected (needs persisted-query hashes / worse authoring UX).
+- **Decision**: `AudioController` is **mode-aware** (`"file" | "tts"`) and TTS is the universal
+  fallback — unset/unmatched/non-https filename, a rejected `play()`, or a media `error` all
+  degrade to the pre-existing `SpeechSynthesis` path with the banner unchanged. Any new cue
+  behaviour must keep both modes working; `DEFAULT_AUDIOS` intentionally has no `audioFile` so the
+  demo defaults keep exercising the fallback.
+- **Decision**: In file mode the overlay clock comes from the element's real `timeupdate` and the
+  cue ends on `ended`; the 100ms simulated tick is TTS-only (`_scheduleTick` no-ops in file mode).
+  Config `dur` only sizes the progress bar — real playback wins.
+- **Gotcha**: exactly **one** persistent hidden `<audio>` (`#vp-audio-el`) is created per mount with
+  its listeners wired once and registered in the cleanup registry — never create an element or add
+  listeners inside `activate()`, or re-injection stacks them. It carries **no `crossorigin`**
+  attribute on purpose: a bare media element plays the signed GCS URL in no-cors mode with no CORS
+  headers, and `currentTime`/`duration`/`ended` still work cross-origin.
+- **Gotcha (tests)**: happy-dom never fires `timeupdate`/`ended`, so controller tests dispatch them
+  by hand; `<hls-video>` is an unknown element there with no media methods, so asserting
+  video pause/resume needs a real `<video data-vp-player>` (the discovery "contract" strategy).
+- **Follow-up**: an admin-toggle "capture attachment filename" button, and deleting the now-dead
+  `public/uploads/audio/*.mp3` + the audio branches of `app/api/upload/route.ts`.
