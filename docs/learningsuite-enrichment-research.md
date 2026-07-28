@@ -390,30 +390,50 @@ The prompt is the single source of truth for the JSON schema. It lives
 inline in `admin-toggle.js` as the `PROMPT_TEXT` constant — edit it
 there to update the wording shown in the dialog.
 
-## Three-script architecture and activation gates
+## Loader + three-script architecture and activation gates
 
-Three small scripts, each self-gated to only run where it makes sense:
+One loader is injected; it decides which of the three augment scripts a page
+actually needs. Each augment script additionally self-gates, so it is also safe
+to inject on its own:
 
-| Script                            | Active when                                          | Job                                                                               |
-| --------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `public/runtime/reskin-player.js` | A `[data-vp-config]` element exists on the page      | Hides native Vidstack/Mux UI, mounts custom controls, exposes `window.player` API |
-| `public/runtime/demo-overlays.js` | A `[data-vp-config]` element exists on the page      | Reads the JSON, mounts overlays + sidebar, drives time-sync                       |
-| `public/runtime/admin-toggle.js`  | URL contains `/admin/editor/` AND no `?view=preview` | Mounts the authoring banner + dialog above each `<hls-video>`                     |
+| Script                            | Active when                                          | Job                                                                                              |
+| --------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `public/runtime/loader.js`        | Always — this is the only tag the tenant carries     | Resolves our origin, asks the kill-switch once, injects the scripts below when their gate passes |
+| `public/runtime/reskin-player.js` | A `[data-vp-config]` element exists on the page      | Hides native Vidstack/Mux UI, mounts custom controls, exposes `window.player` API                |
+| `public/runtime/demo-overlays.js` | A `[data-vp-config]` element exists on the page      | Reads the JSON, mounts overlays + sidebar, drives time-sync                                      |
+| `public/runtime/admin-toggle.js`  | URL contains `/admin/editor/` AND no `?view=preview` | Mounts the authoring banner + dialog above each `<hls-video>`                                    |
 
-A page that has none of these triggers stays untouched — `reskin-player.js`
-short-circuits inside `attach()` and `demo-overlays.js` returns early with
-`'demo: idle (no config)'`. So all three scripts can be loaded globally
-(via the LearningSuite global `<script>` slot or a hosted bundle) without
-risk of polluting unrelated lessons.
+A page that has none of these triggers stays untouched: the loader injects
+nothing (so nothing beyond ~8KB is downloaded), and even when a script is
+injected anyway, `reskin-player.js` short-circuits inside `attach()` and
+`demo-overlays.js` returns early. Loading everything globally is therefore still
+safe — the loader only makes it cheaper.
+
+What the loader adds on top of the individual gates:
+
+- **One kill-switch request per page** instead of two. The loader calls
+  `/api/runtime-config` and publishes the verdict on `window.__vpRuntimeGate`;
+  `common/killswitch.ts` honours that flag instead of re-fetching. A `false`
+  verdict now also stops `admin-toggle.js`, which previously ran ungated.
+- **Explicit ordering.** `demo-overlays.js` dereferences `window.player`, which
+  `reskin-player.js` publishes — the loader injects demo only after reskin has
+  loaded and that global exists (3s backstop, then it injects anyway and warns).
+- **Lazy gates.** LearningSuite renders the embed block via React _after_ head
+  scripts run, so the loader re-evaluates its gates on a debounced
+  MutationObserver plus a URL poll — a config (or an editor navigation) that
+  appears later still activates the right scripts.
+- **Diagnostics:** `window.__vpLoaderStatus` (`"loader armed"` /
+  `"loader: disabled by kill-switch"`) and `window.__vpLoaded` (the entries it
+  injected, in order).
 
 Important: a `<pre data-vp-config>` alone does **not** activate the editor
-— the runtime scripts have to be loaded too. During development they were
-injected by hand via `agent-browser eval -b`. For production this means
-hosting the three files somewhere reachable (Vercel/static-CDN) and adding
-three `<script src=…>` tags to a global script slot. Without that, an
-admin who pastes the JSON into the embed block sees a perfectly valid
-`<pre>` in the rendered DOM but no overlays — the symptom that triggered
-the diagnosis here.
+— the runtime has to be loaded too. During development it was injected by
+hand via `agent-browser eval -b`. For production this means hosting the
+files somewhere reachable (Vercel/static-CDN) and adding **one**
+`<script src=…/runtime/loader.js>` tag to a global script slot. Without
+that, an admin who pastes the JSON into the embed block sees a perfectly
+valid `<pre>` in the rendered DOM but no overlays — the symptom that
+triggered the diagnosis here.
 
 ## Player discovery — how the runtime finds the player element
 
@@ -489,27 +509,28 @@ LearningSuite tenant returns 401. Two ways out:
 
 ### LearningSuite global-script-slot
 
-Once the bypass is in place, paste these three lines into the global
+Once the bypass is in place, paste this **one** line into the global
 `<script>` slot of the LearningSuite tenant (or, if the tenant has no
 such slot, into a "Code einbetten" block on every lesson):
 
 ```html
 <script
-  src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/reskin-player.js?x-vercel-protection-bypass=SECRET"
-  defer
-></script>
-<script
-  src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/demo-overlays.js?x-vercel-protection-bypass=SECRET"
-  defer
-></script>
-<script
-  src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/admin-toggle.js?x-vercel-protection-bypass=SECRET"
+  src="https://tony-video-player-git-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app/runtime/loader.js?x-vercel-protection-bypass=SECRET"
   defer
 ></script>
 ```
 
-All three are self-gating — they only do anything on pages where they
-should — so loading them globally is safe.
+The loader copies **its own query string** onto every child URL, so the
+bypass secret is pasted once and still reaches `reskin-player.js`,
+`demo-overlays.js` and `admin-toggle.js`. Put the secret on the loader URL
+and nowhere else.
+
+**Direct injection (debugging / e2e).** The three bundles remain
+individually loadable and individually self-gating, so the old three-tag
+snippet still works, and `agent-browser eval -b` / Playwright can inject a
+single bundle. In that mode each bundle asks the kill-switch itself
+(`window.__vpRuntimeGate` is only set by the loader) and the bypass secret
+has to be on each URL by hand.
 
 ## Self-cleanup pattern for re-injectable runtime scripts
 
@@ -609,6 +630,7 @@ content / class attributes per tick.
 ## Files in this branch
 
 - `docs/learningsuite-enrichment-research.md` — this document
+- `public/runtime/loader.js` — the only injected tag; gates + injects the three below
 - `public/runtime/reskin-player.js` — re-skin runtime (gated by `[data-vp-config]`)
 - `public/runtime/demo-overlays.js` — overlays + sidebar runtime (gated, dual mount strategy)
 - `public/runtime/admin-toggle.js` — admin-only banner + dialog with the LLM prompt

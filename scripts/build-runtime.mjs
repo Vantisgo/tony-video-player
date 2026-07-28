@@ -12,6 +12,7 @@ const banner = {
 /** @type {import('esbuild').BuildOptions} */
 const options = {
   entryPoints: {
+    loader: "runtime-src/loader/index.ts",
     "reskin-player": "runtime-src/reskin-player/index.ts",
     "demo-overlays": "runtime-src/demo-overlays/index.ts",
     "admin-toggle": "runtime-src/admin-toggle/index.ts",

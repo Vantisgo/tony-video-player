@@ -224,6 +224,8 @@
   var FLAG_PATH = "/api/runtime-config";
   var TIMEOUT_MS = 3e3;
   async function shouldRun(baseUrl) {
+    if (typeof window.__vpRuntimeGate === "boolean")
+      return window.__vpRuntimeGate;
     const url = runtimeApiUrl(baseUrl, FLAG_PATH);
     if (!url) return true;
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;

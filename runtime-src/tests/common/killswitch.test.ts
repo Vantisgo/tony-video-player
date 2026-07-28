@@ -10,6 +10,9 @@ function stubFetch(impl: () => Promise<unknown>): void {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  // happy-dom reuses the global window between tests — the loader's verdict must
+  // not leak into the fail-open cases below.
+  delete window.__vpRuntimeGate;
 });
 
 describe("shouldRun (F5 kill-switch)", () => {
@@ -47,5 +50,25 @@ describe("shouldRun (F5 kill-switch)", () => {
       }),
     );
     expect(await shouldRun(BASE)).toBe(true);
+  });
+
+  it("honours a verdict the loader already published, without fetching", async () => {
+    const fetchSpy = vi.fn(() =>
+      Promise.resolve({ ok: true, json: async () => ({ enabled: false }) }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    window.__vpRuntimeGate = true;
+    expect(await shouldRun(BASE)).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("honours a published `false` verdict, without fetching", async () => {
+    const fetchSpy = vi.fn(() =>
+      Promise.resolve({ ok: true, json: async () => ({ enabled: true }) }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    window.__vpRuntimeGate = false;
+    expect(await shouldRun(BASE)).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

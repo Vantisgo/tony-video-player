@@ -12,6 +12,13 @@ const FLAG_PATH = "/api/runtime-config";
 const TIMEOUT_MS = 3000;
 
 export async function shouldRun(baseUrl: string): Promise<boolean> {
+  // loader.js asks once per page load and publishes the verdict, so the bundles
+  // it injects skip this request. `typeof` — not truthiness — so an explicit
+  // `false` is honoured, and an absent flag still fetches: a bundle injected on
+  // its own (debugging, e2e) keeps its own kill-switch.
+  if (typeof window.__vpRuntimeGate === "boolean")
+    return window.__vpRuntimeGate;
+
   const url = runtimeApiUrl(baseUrl, FLAG_PATH);
   if (!url) return true; // unknown origin → can't ask → run
 
