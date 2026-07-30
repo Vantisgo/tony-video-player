@@ -416,7 +416,6 @@ der Leitung stehen nur SHA-Hashes).
   strukturiert den Host um, ändert Control-Klassennamen, liefert eine blockierende CSP
   aus), wird heute erst bemerkt, wenn ein Mensch eine Lesson öffnet.
 - `docs/e2e-overlay-canary-decisions.md`
-- `package-lock.json`
 
 **Operativ (kein Code):** Edge Config provisionieren (`EDGE_CONFIG` +
 `runtimeConfig`-Key), `RUNTIME_ALERT_WEBHOOK_URL` und

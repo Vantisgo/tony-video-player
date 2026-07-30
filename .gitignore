@@ -15,6 +15,11 @@
 !.yarn/releases
 !.yarn/versions
 
+# lockfiles: bun.lock is the only one, CI and Vercel build with bun
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
 # testing
 /coverage
 
