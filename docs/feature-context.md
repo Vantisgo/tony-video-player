@@ -218,3 +218,22 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   runner has no happy-dom). happy-dom refuses to load injected `<script src>` (logs
   `NotSupportedError`, harmless), so tests dispatch `load` by hand; `window.location.href` is
   assignable; and fake timers must be installed **before** the loader arms its `window.player` poll.
+
+## 2026-07-28 · (no ticket) · Hiding voice-over attachments while the reskin is active
+
+- **Decision**: the audio/voice-over attachments a lesson carries are **hidden while a player is
+  re-skinned** — `hideAudioAttachments()` / `restoreAudioAttachments()` in `common/attachments.ts`,
+  driven from the reskin's `scan()` via `syncAudioAttachmentVisibility()`. Rule is filename-based:
+  every `a[href*="/courses/steps/"]` whose visible text ends in `.mp3` (case-insensitive), **page-wide**
+  across all lesson steps. Other extensions (`.m4a`, `.wav`) are deliberately out of scope.
+- **Decision**: anchors are hidden with inline `display:none`, **never removed** — `resolveAttachmentUrl()`
+  still has to read their freshly signed href at cue time, and inline style beats the host's MUI
+  stylesheet (`hidden` / `[hidden]` would not). The previous inline display is parked in
+  `data-vp-hidden-attachment` on the element itself, so restoring needs no module state and stays
+  correct across a re-injected runtime.
+- **Decision**: an "Anhänge:" heading left with no visible entry **stays visible** (user's call) —
+  hiding it would mean guessing at the LearningSuite container structure.
+- **Gotcha**: visibility mirrors `[data-vp-reskinned]`, not "we ran once" — `scan()` restores when no
+  player is re-skinned, so the attach safety-net rollback and the per-player `teardown()` both hand the
+  attachments back automatically (teardown calls the sync itself, since the MutationObserver may
+  already be gone).

@@ -9,15 +9,20 @@
       return "";
     }
   }
+  function attachmentAnchors(doc) {
+    return Array.from(
+      doc.querySelectorAll('a[href*="/courses/steps/"]')
+    );
+  }
+  function attachmentFilename(anchor) {
+    return (anchor.textContent || "").trim();
+  }
   function resolveAttachmentUrl(filename, doc = document) {
     const want = String(filename != null ? filename : "").trim();
     if (!want) return "";
     const wantLc = want.toLowerCase();
-    const candidates = Array.from(
-      doc.querySelectorAll('a[href*="/courses/steps/"]')
-    ).map((a) => ({
-      // An inner icon <svg> contributes no text, so trimming the label is enough.
-      text: (a.textContent || "").trim(),
+    const candidates = attachmentAnchors(doc).map((a) => ({
+      text: attachmentFilename(a),
       href: a.href || a.getAttribute("href") || ""
     }));
     const matched = [

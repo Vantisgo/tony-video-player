@@ -1,3 +1,7 @@
+import {
+  hideAudioAttachments,
+  restoreAudioAttachments,
+} from "../common/attachments";
 import { createBus } from "../common/bus";
 import { pushCleanup, resetCleanup } from "../common/cleanup";
 import { listToArray } from "../common/dom";
@@ -1115,6 +1119,8 @@ function main(): string {
       shell.remove();
       delete (host as HTMLElement).dataset.vpReskinned;
       delete hlsEl.__vpAttached;
+      // Hand the .mp3 attachments back unless another player is still re-skinned.
+      syncAudioAttachmentVisibility();
     };
     pushCleanup(CLEANUP_KEY, teardown);
     // The shell is CSS-anchored to the host (position:absolute; inset:0), so it
@@ -1155,11 +1161,21 @@ function main(): string {
     }
   }
 
+  // Mirrors the reskin's own state: while a player is re-skinned the lesson's
+  // .mp3 attachments are hidden, otherwise they are the host's again. Re-run on
+  // every scan because LearningSuite renders the "Anhänge" list independently of
+  // the player.
+  function syncAudioAttachmentVisibility(): void {
+    if (document.querySelector("[data-vp-reskinned]")) hideAudioAttachments();
+    else restoreAudioAttachments();
+  }
+
   const scan = () => {
     const { players, strategy } = scanPlayers();
     noteDiscovery(strategy);
     players.forEach((el) => attach(el));
     refreshIframeTargets();
+    syncAudioAttachmentVisibility();
   };
   scan();
   // Debounced scan so React's chatty re-renders don't trigger a full
@@ -1182,6 +1198,7 @@ function main(): string {
   pushCleanup(CLEANUP_KEY, () => {
     mo.disconnect();
     if (scanPending) clearTimeout(scanPending);
+    restoreAudioAttachments();
   });
 
   // We deliberately do NOT patch history.pushState / replaceState — the

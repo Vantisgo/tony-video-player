@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveAttachmentUrl } from "../../common/attachments";
+import {
+  hideAudioAttachments,
+  resolveAttachmentUrl,
+  restoreAudioAttachments,
+} from "../../common/attachments";
 
 const SIGNED_BASE =
   "https://storage.googleapis.com/learningsuite-prod-de-storage-x/courses/steps/";
@@ -121,5 +125,99 @@ describe("resolveAttachmentUrl", () => {
       `${SIGNED_BASE}other`,
     );
     expect(resolveAttachmentUrl("Intro.mp3")).toBe("");
+  });
+});
+
+describe("hideAudioAttachments", () => {
+  it("hides every .mp3 lesson attachment", () => {
+    const intro = addAttachment({
+      text: "Intro.mp3",
+      href: `${SIGNED_BASE}intro`,
+      withIcon: true,
+    });
+    const phase = addAttachment({
+      text: "  Voiceover Phase 1.mp3  ",
+      href: `${SIGNED_BASE}phase`,
+    });
+
+    hideAudioAttachments();
+
+    expect(intro.style.display).toBe("none");
+    expect(phase.style.display).toBe("none");
+  });
+
+  it("leaves non-audio attachments visible", () => {
+    const workbook = addAttachment({
+      text: "Workbook.pdf",
+      href: `${SIGNED_BASE}workbook`,
+    });
+
+    hideAudioAttachments();
+
+    expect(workbook.style.display).toBe("");
+  });
+
+  it("hides an .MP3 attachment regardless of extension casing", () => {
+    const intro = addAttachment({
+      text: "Intro.MP3",
+      href: `${SIGNED_BASE}intro`,
+    });
+
+    hideAudioAttachments();
+
+    expect(intro.style.display).toBe("none");
+  });
+
+  it("ignores an .mp3 link that is not a lesson-step attachment", () => {
+    const elsewhere = addAttachment({
+      text: "Intro.mp3",
+      href: "https://example.com/elsewhere/Intro.mp3",
+    });
+
+    hideAudioAttachments();
+
+    expect(elsewhere.style.display).toBe("");
+  });
+
+  it("keeps a hidden attachment resolvable for voice-over playback", () => {
+    const href = `${SIGNED_BASE}intro?X-Goog-Expires=604800`;
+    addAttachment({ text: "Intro.mp3", href });
+
+    hideAudioAttachments();
+
+    expect(resolveAttachmentUrl("Intro.mp3")).toBe(href);
+  });
+
+  it("restores the attachment, including a pre-existing inline display", () => {
+    const intro = addAttachment({
+      text: "Intro.mp3",
+      href: `${SIGNED_BASE}intro`,
+    });
+    const phase = addAttachment({
+      text: "Voiceover Phase 1.mp3",
+      href: `${SIGNED_BASE}phase`,
+    });
+    phase.style.display = "flex";
+
+    hideAudioAttachments();
+    restoreAudioAttachments();
+
+    expect(intro.getAttribute("style")).toBe(null);
+    expect(phase.style.display).toBe("flex");
+    expect(document.querySelector("[data-vp-hidden-attachment]")).toBeNull();
+  });
+
+  it("restores the original display after repeated hide calls", () => {
+    const intro = addAttachment({
+      text: "Intro.mp3",
+      href: `${SIGNED_BASE}intro`,
+    });
+    intro.style.display = "block";
+
+    hideAudioAttachments();
+    hideAudioAttachments();
+    restoreAudioAttachments();
+
+    expect(intro.style.display).toBe("block");
   });
 });
