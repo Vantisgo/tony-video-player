@@ -1078,8 +1078,6 @@
         }
         .vp-quiz-eyebrow { font:600 11px system-ui; letter-spacing:.6px; text-transform:uppercase; color:rgba(168,191,186,.7); margin-bottom:2px; }
         .vp-quiz-heading { margin:2px 0 8px; font:700 18px system-ui; color:#f4f7f6; }
-        .vp-quiz-meta-row { display:flex; justify-content:flex-end; margin:-5px 0 8px; }
-        .vp-quiz-score-chip { font:600 11.5px system-ui; padding:3px 10px; border-radius:999px; background:rgba(0,225,165,.12); border:1px solid rgba(0,225,165,.28); color:#62dfc1; }
         .vp-quiz-prompt { font:600 15.5px/1.4 system-ui; color:#f4f7f6; margin:0 0 10px; }
         .vp-quiz-options { display:grid; grid-template-columns:1fr; gap:8px; margin:0 0 4px; }
         @container vp-quiz (min-width: 380px) {
@@ -1102,7 +1100,8 @@
         .vp-quiz-option[data-state="correct"] .vp-quiz-option-badge { background:#22c55e; color:#052e12; }
         .vp-quiz-option[data-state="wrong"] .vp-quiz-option-badge { background:#ef4444; color:#2a0505; }
         .vp-quiz-option-text { flex:1; line-height:1.35; }
-        .vp-quiz-option-icon { font-size:13px; flex:0 0 auto; }
+        .vp-quiz-option-wrap { display:grid; gap:6px; min-width:0; }
+        .vp-quiz-inline-explanation { font:500 12.5px/1.5 system-ui; color:rgba(168,191,186,.88); margin:0 4px 2px; }
         .vp-quiz-countdown { display:flex; align-items:center; gap:8px; margin:0 0 8px; }
         .vp-quiz-ring { width:30px; height:30px; flex:0 0 auto; }
         .vp-quiz-ring-track { fill:none; stroke:rgba(255,255,255,.15); stroke-width:3; }
@@ -1110,14 +1109,9 @@
         .vp-quiz-countdown[data-warn="1"] .vp-quiz-ring-fill { stroke:#f87171; }
         .vp-quiz-countdown-num { font:700 13px ui-monospace,monospace; color:rgba(168,191,186,.9); min-width:2.4ch; text-align:right; }
         .vp-quiz-countdown[data-warn="1"] .vp-quiz-countdown-num { color:#fca5a5; }
-        .vp-quiz-feedback-banner { display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:10px; font:700 13px system-ui; margin:0 0 10px; }
-        .vp-quiz-card[data-vp-quiz-mode="feedback"] .vp-quiz-feedback-banner { padding:7px 10px; margin-bottom:6px; }
         .vp-quiz-card[data-vp-quiz-mode="feedback"] .vp-quiz-options { gap:6px; margin-bottom:2px; }
         .vp-quiz-card[data-vp-quiz-mode="feedback"] .vp-quiz-option { padding:7px 10px; }
         .vp-quiz-card[data-vp-quiz-mode="feedback"] .vp-quiz-actions { margin-top:8px; }
-        .vp-quiz-feedback-banner[data-outcome="correct"] { background:rgba(74,222,128,.16); color:#bbf7d0; border:1px solid rgba(74,222,128,.35); }
-        .vp-quiz-feedback-banner[data-outcome="wrong"], .vp-quiz-feedback-banner[data-outcome="timeout"], .vp-quiz-feedback-banner[data-outcome="skipped"] { background:rgba(248,113,113,.14); color:#fecaca; border:1px solid rgba(248,113,113,.32); }
-        .vp-quiz-explanation { font:500 12.5px/1.5 system-ui; color:rgba(168,191,186,.88); margin:0 0 12px; }
         .vp-quiz-skip { display:block; background:none; border:0; color:rgba(168,191,186,.62); font:500 12px system-ui; text-decoration:underline; cursor:pointer; padding:2px 0 0; margin-top:0; }
         .vp-quiz-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; flex-wrap:wrap; }
         .vp-quiz-btn { border:0; border-radius:10px; padding:9px 16px; font:600 13px system-ui; cursor:pointer; }
@@ -1191,34 +1185,6 @@
       return wrap;
     }
 
-    function buildQuizFeedback(result, question) {
-      const copy = {
-        correct:  { icon: '✓', text: 'Richtig!' },
-        wrong:    { icon: '✕', text: 'Leider falsch.' },
-        timeout:  { icon: '⏱', text: 'Zeit abgelaufen.' },
-        skipped:  { icon: '—', text: 'Übersprungen.' },
-      }[result.outcome] || { icon: '✕', text: 'Leider falsch.' };
-
-      const bannerKids = [
-        qzEl('span', { 'aria-hidden': 'true' }, [copy.icon]),
-        qzEl('span', {}, [copy.text]),
-      ];
-      if (result.outcome !== 'correct') {
-        const correctOption = question.options.find((o) => o.id === question.correctOptionId);
-        if (correctOption) {
-          bannerKids.push(qzEl('span', {}, [' Richtig ist: ']));
-          bannerKids.push(qzEl('strong', {}, [correctOption.text]));
-        }
-      }
-
-      const frag = qzEl('div', {});
-      frag.appendChild(qzEl('div', { class: 'vp-quiz-feedback-banner', 'data-outcome': result.outcome, role: 'alert', 'data-vp-quiz-feedback': '' }, bannerKids));
-      if (question.explanation) {
-        frag.appendChild(qzEl('p', { class: 'vp-quiz-explanation', 'data-vp-quiz-explanation': '' }, [question.explanation]));
-      }
-      return frag;
-    }
-
     function buildQuizOption(option, idx, question, result, mode) {
       const isAnswered = mode === 'feedback' || mode === 'awaiting-continue';
       const selectedId = result?.selectedOptionId ?? null;
@@ -1232,8 +1198,6 @@
         qzEl('span', { class: 'vp-quiz-option-badge', 'aria-hidden': 'true' }, [String.fromCharCode(65 + idx)]),
         qzEl('span', { class: 'vp-quiz-option-text' }, [option.text]),
       ];
-      if (state === 'correct') kids.push(qzEl('span', { class: 'vp-quiz-option-icon', 'aria-hidden': 'true' }, ['✓']));
-      if (state === 'wrong')   kids.push(qzEl('span', { class: 'vp-quiz-option-icon', 'aria-hidden': 'true' }, ['✕']));
 
       const btn = qzEl('button', {
         type: 'button',
@@ -1272,33 +1236,18 @@
 
     function buildQuizQuestion(card, question) {
       const mode = quizCtrl.mode;
-      const idx = quizCtrl.questionIndex;
-      const total = quizCtrl.activeQuiz.questions.length;
       const isAnswered = mode === 'feedback' || mode === 'awaiting-continue';
       const result = quizCtrl.results.get(quizCtrl.resultKey(quizCtrl.activeQuiz, question)) || null;
 
       if (quizCtrl.activeQuiz.title) {
         card.appendChild(qzEl('div', { class: 'vp-quiz-eyebrow' }, [quizCtrl.activeQuiz.title]));
       }
-      card.appendChild(qzEl('h2', { id: 'vp-quiz-heading', class: 'vp-quiz-heading', tabindex: '-1' }, [`Frage ${idx + 1} von ${total}`]));
-
-      if (quiz.showScore) {
-        const correctSoFar = [...quizCtrl.results.values()].filter((r) => r.outcome === 'correct').length;
-        const answeredSoFar = quizCtrl.results.size;
-        card.appendChild(qzEl('div', { class: 'vp-quiz-meta-row' }, [
-          qzEl('span', { class: 'vp-quiz-score-chip' }, [`${correctSoFar} / ${answeredSoFar} richtig`]),
-        ]));
-      }
 
       if (mode === 'question' && question.timeoutSec && question.showCountdown) {
         card.appendChild(buildQuizCountdown(question));
       }
 
-      card.appendChild(qzEl('p', { class: 'vp-quiz-prompt', id: 'vp-quiz-prompt' }, [question.prompt]));
-
-      if (isAnswered && result) {
-        card.appendChild(buildQuizFeedback(result, question));
-      }
+      card.appendChild(qzEl('p', { class: 'vp-quiz-prompt', id: 'vp-quiz-prompt', tabindex: '-1' }, [question.prompt]));
 
       if (mode === 'question') quizOptionFocusIndex = 0;
       const optionsHost = qzEl('div', {
@@ -1308,9 +1257,17 @@
         'data-cols': question.options.length === 4 ? '2' : '1',
         'data-vp-quiz-options': '',
       });
-      const buttons = question.options.map((option, i) => buildQuizOption(option, i, question, result, mode));
-      buttons.forEach((b) => optionsHost.appendChild(b));
+      const optionRows = question.options.map((option, i) => {
+        const button = buildQuizOption(option, i, question, result, mode);
+        const wrap = qzEl('div', { class: 'vp-quiz-option-wrap' }, [button]);
+        if (isAnswered && option.id === question.correctOptionId && question.explanation) {
+          wrap.appendChild(qzEl('p', { class: 'vp-quiz-inline-explanation', 'data-vp-quiz-explanation': '' }, [question.explanation]));
+        }
+        return { button, wrap };
+      });
+      optionRows.forEach(({ wrap }) => optionsHost.appendChild(wrap));
       card.appendChild(optionsHost);
+      const buttons = optionRows.map(({ button }) => button);
       if (mode === 'question') wireQuizOptionNav(optionsHost, buttons);
 
       if (mode === 'question') {
@@ -1476,7 +1433,7 @@
         class: 'vp-quiz-card vp-quiz-anim-card',
         role: 'dialog',
         'aria-modal': 'true',
-        'aria-labelledby': 'vp-quiz-heading',
+        'aria-labelledby': quizCtrl.mode === 'summary' ? 'vp-quiz-heading' : 'vp-quiz-prompt',
         tabindex: '-1',
         'data-vp-quiz-card': '',
         'data-vp-quiz-mode': quizCtrl.mode,
@@ -1492,7 +1449,7 @@
         const question = quizCtrl.currentQuestion();
         if (!question) { clearQuiz(); return; }
         buildQuizQuestion(card, question);
-        if (quizCtrl.mode === 'question') focusTarget = card.querySelector('#vp-quiz-heading');
+        if (quizCtrl.mode === 'question') focusTarget = card.querySelector('#vp-quiz-prompt');
         else if (quizCtrl.mode === 'feedback') focusTarget = card.querySelector('[data-vp-quiz-feedback-continue]');
         else if (quizCtrl.mode === 'awaiting-continue') focusTarget = card.querySelector('[data-vp-quiz-continue]');
       }
