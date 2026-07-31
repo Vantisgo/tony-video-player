@@ -60,6 +60,7 @@ model Intervention {
   id                        String   @id @default(uuid())
   title                     String
   timestampSec              Float
+  endTimeSec                Float?
   prompt                    String
   description               String
   methodModelFramework      String
