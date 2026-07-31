@@ -142,7 +142,8 @@ Anhand des unten gegebenen Lektions-Materials (Transkript, Drehbuch oder Inhalts
   "phases":   [ Sektionen des Coaching-Bogens, jeweils mit interventions[] ],
   "sciences": [ Wissenschafts-Pop-Ups, kurze 5-Sekunden-Trigger ],
   "audios":   [ Voice-Over-Banner, pausieren das Video für einen Audio-Einschub ],
-  "metaSteps":[ "Master-Schritt"-Pills für den globalen Bogen, ~5s sichtbar ]
+  "metaSteps":[ "Master-Schritt"-Pills für den globalen Bogen, ~5s sichtbar ],
+  "quiz":     { optionale interaktive Wissensfragen an definierten Video-Unterbrechungen }
 }
 
 ═══ Felder im Detail ═══
@@ -169,6 +170,18 @@ audios[]:    (Voice-Over-Einschübe; pausieren das Video)
 metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
   id, n (Nummer), title, t (Trigger Sek)
 
+quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
+  feedbackDurationSec — Dauer der Antwort-Rückmeldung; Standard 3
+  showScore            — true zeigt den laufenden Punktestand
+  showSummary          — true zeigt am Videoende eine Auswertung
+  passingPercent       — optionale Bestehensgrenze von 0 bis 100
+  quizzes[]:
+    id, title, t (Unterbrechungs-Zeitpunkt), resume ("auto" oder "manual")
+    questions[]:
+      id, prompt, explanation (optional), timeoutSec (optional, mindestens 5), showCountdown
+      correctOptionId — id der einzigen richtigen Antwort
+      options[]       — 1 bis 4 Objekte mit jeweils id und text
+
 ═══ Output-Format (NUR DIESES, keine Erklärung davor/danach) ═══
 
 <pre data-vp-config style="display:none">
@@ -190,7 +203,29 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
   ],
   "metaSteps": [
     { "id":"m1", "n":1, "title":"...", "t":4 }
-  ]
+  ],
+  "quiz": {
+    "feedbackDurationSec":3,
+    "showScore":true,
+    "showSummary":true,
+    "passingPercent":70,
+    "quizzes":[
+      {
+        "id":"q1", "title":"Kurz-Check", "t":45, "resume":"auto",
+        "questions":[
+          {
+            "id":"q1-1", "prompt":"Welche Aussage trifft zu?", "explanation":"...",
+            "timeoutSec":15, "showCountdown":true, "correctOptionId":"q1-1-b",
+            "options":[
+              { "id":"q1-1-a", "text":"..." },
+              { "id":"q1-1-b", "text":"..." },
+              { "id":"q1-1-c", "text":"..." }
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }
 </pre>
 
@@ -198,6 +233,8 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
 
 - ALLE id-Strings müssen eindeutig sein
 - t-Werte (Zeitstempel) realistisch zum Video-Inhalt
+- Jede Quizfrage braucht 1–4 Antworten; correctOptionId muss auf genau eine option.id verweisen
+- timeoutSec nur verwenden, wenn Zeitdruck didaktisch sinnvoll ist; empfohlen sind mindestens 15 Sekunden
 - Sprache des Materials beibehalten
 - Antworte NUR mit dem <pre>-Block (keine Einleitung, keine Schluss-Erklärung)
 - Der Block wird 1:1 in den LearningSuite "Code einbetten"-Block eingefügt
