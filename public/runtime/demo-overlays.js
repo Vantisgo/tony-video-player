@@ -22,7 +22,7 @@
   // dark-mode accent; the supporting surfaces use the accompanying teal and
   // charcoal swatches.
   const T = {
-    card: '#323333', fg: '#f4f7f6', muted: '#164f49', mutedFg: '#a8bfba',
+    card: '#323333', neutral: '#3d3f3f', fg: '#f4f7f6', muted: '#164f49', mutedFg: '#a8bfba',
     border: '#505352',
     primary: '#00e1a5', primaryFg: '#062b22',
     primarySoft: 'rgba(0,225,165,.14)', primaryRing: 'rgba(0,225,165,.42)',
@@ -1651,7 +1651,7 @@
                 <div style="display:grid;gap:6px">
                   ${p.interventions.map(iv => {
                     const ivActive = iv.id === window.__vpActiveIntervention;
-                    return `<div data-seek="${iv.t}" style="padding:9px 11px;border-radius:8px;background:${ivActive ? T.primarySoft : T.muted};border:1px solid ${ivActive ? T.primaryRing : T.border};cursor:pointer">
+                    return `<div data-seek="${iv.t}" style="padding:9px 11px;border-radius:8px;background:${ivActive ? T.primarySoft : T.neutral};border:1px solid ${ivActive ? T.primaryRing : T.border};cursor:pointer">
                       <div style="display:flex;gap:8px;align-items:baseline">
                         <span style="font:700 11.5px ui-monospace,monospace;color:${ivActive ? T.primary : T.mutedFg};min-width:28px">${iv.label}</span>
                         <strong style="flex:1;font:600 13px system-ui;color:${T.fg}">${iv.title}</strong>
