@@ -895,6 +895,10 @@
         });
         this.mode = 'feedback';
         renderQuiz();
+        // Incorrect answers show corrective copy. Keep that feedback visible
+        // until the learner explicitly continues so it cannot disappear
+        // before they have had time to read it.
+        if (outcome === 'wrong') return;
         this._feedbackHandle = setTimeout(() => {
           this._feedbackHandle = null;
           this.advance();
@@ -902,6 +906,13 @@
       },
 
       skip() { this.answer(null, 'skipped'); },
+
+      continueFeedback() {
+        if (this.mode !== 'feedback') return;
+        if (this._feedbackHandle) clearTimeout(this._feedbackHandle);
+        this._feedbackHandle = null;
+        this.advance();
+      },
 
       advance() {
         if (!this.activeQuiz || this.mode !== 'feedback') return;
@@ -1062,14 +1073,15 @@
           border:1px solid rgba(0,225,165,.34);
           border-radius:18px;
           box-shadow:0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
-          color:#f4f7f6; font-family:system-ui; padding:20px 20px 18px; outline:none;
+          color:#f4f7f6; font-family:system-ui; padding:14px 16px 12px; outline:none;
+          scrollbar-width:thin; scrollbar-color:rgba(0,225,165,.35) transparent;
         }
         .vp-quiz-eyebrow { font:600 11px system-ui; letter-spacing:.6px; text-transform:uppercase; color:rgba(168,191,186,.7); margin-bottom:2px; }
-        .vp-quiz-heading { margin:2px 0 10px; font:700 18px system-ui; color:#f4f7f6; }
-        .vp-quiz-meta-row { display:flex; justify-content:flex-end; margin:-6px 0 10px; }
+        .vp-quiz-heading { margin:2px 0 8px; font:700 18px system-ui; color:#f4f7f6; }
+        .vp-quiz-meta-row { display:flex; justify-content:flex-end; margin:-5px 0 8px; }
         .vp-quiz-score-chip { font:600 11.5px system-ui; padding:3px 10px; border-radius:999px; background:rgba(0,225,165,.12); border:1px solid rgba(0,225,165,.28); color:#62dfc1; }
-        .vp-quiz-prompt { font:600 15.5px/1.4 system-ui; color:#f4f7f6; margin:0 0 14px; }
-        .vp-quiz-options { display:grid; grid-template-columns:1fr; gap:10px; margin:0 0 8px; }
+        .vp-quiz-prompt { font:600 15.5px/1.4 system-ui; color:#f4f7f6; margin:0 0 10px; }
+        .vp-quiz-options { display:grid; grid-template-columns:1fr; gap:8px; margin:0 0 4px; }
         @container vp-quiz (min-width: 380px) {
           .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr 1fr; }
         }
@@ -1077,7 +1089,7 @@
           display:flex; align-items:center; gap:10px; width:100%;
           text-align:left; cursor:pointer; font:500 13.5px system-ui; color:#f4f7f6;
           background:rgba(22,79,73,.38); border:1px solid rgba(0,225,165,.2);
-          border-radius:12px; padding:11px 13px;
+          border-radius:12px; padding:9px 11px;
           transition:background .18s ease, border-color .18s ease;
         }
         .vp-quiz-option:hover:not(:disabled) { background:rgba(22,79,73,.7); }
@@ -1091,7 +1103,7 @@
         .vp-quiz-option[data-state="wrong"] .vp-quiz-option-badge { background:#ef4444; color:#2a0505; }
         .vp-quiz-option-text { flex:1; line-height:1.35; }
         .vp-quiz-option-icon { font-size:13px; flex:0 0 auto; }
-        .vp-quiz-countdown { display:flex; align-items:center; gap:8px; margin:0 0 12px; }
+        .vp-quiz-countdown { display:flex; align-items:center; gap:8px; margin:0 0 8px; }
         .vp-quiz-ring { width:30px; height:30px; flex:0 0 auto; }
         .vp-quiz-ring-track { fill:none; stroke:rgba(255,255,255,.15); stroke-width:3; }
         .vp-quiz-ring-fill { fill:none; stroke:#00e1a5; stroke-width:3; stroke-linecap:round; transform:rotate(-90deg); transform-origin:50% 50%; transition:stroke-dashoffset .1s linear, stroke .2s ease; }
@@ -1102,7 +1114,7 @@
         .vp-quiz-feedback-banner[data-outcome="correct"] { background:rgba(74,222,128,.16); color:#bbf7d0; border:1px solid rgba(74,222,128,.35); }
         .vp-quiz-feedback-banner[data-outcome="wrong"], .vp-quiz-feedback-banner[data-outcome="timeout"], .vp-quiz-feedback-banner[data-outcome="skipped"] { background:rgba(248,113,113,.14); color:#fecaca; border:1px solid rgba(248,113,113,.32); }
         .vp-quiz-explanation { font:500 12.5px/1.5 system-ui; color:rgba(168,191,186,.88); margin:0 0 12px; }
-        .vp-quiz-skip { display:block; background:none; border:0; color:rgba(168,191,186,.62); font:500 12px system-ui; text-decoration:underline; cursor:pointer; padding:4px 0 0; margin-top:2px; }
+        .vp-quiz-skip { display:block; background:none; border:0; color:rgba(168,191,186,.62); font:500 12px system-ui; text-decoration:underline; cursor:pointer; padding:2px 0 0; margin-top:0; }
         .vp-quiz-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; flex-wrap:wrap; }
         .vp-quiz-btn { border:0; border-radius:10px; padding:9px 16px; font:600 13px system-ui; cursor:pointer; }
         .vp-quiz-btn-primary { background:#00e1a5; color:#062b22; }
@@ -1303,6 +1315,14 @@
         card.appendChild(skipBtn);
       }
 
+      if (mode === 'feedback' && result?.outcome === 'wrong') {
+        const actions = qzEl('div', { class: 'vp-quiz-actions' });
+        const cont = qzEl('button', { type: 'button', class: 'vp-quiz-btn vp-quiz-btn-primary', 'data-vp-quiz-feedback-continue': '' }, ['Continue']);
+        cont.addEventListener('click', () => quizCtrl.continueFeedback());
+        actions.appendChild(cont);
+        card.appendChild(actions);
+      }
+
       if (mode === 'awaiting-continue') {
         const actions = qzEl('div', { class: 'vp-quiz-actions' });
         const cont = qzEl('button', { type: 'button', class: 'vp-quiz-btn vp-quiz-btn-primary', 'data-vp-quiz-continue': '' }, ['Video fortsetzen']);
@@ -1469,6 +1489,7 @@
         if (!question) { clearQuiz(); return; }
         buildQuizQuestion(card, question);
         if (quizCtrl.mode === 'question') focusTarget = card.querySelector('#vp-quiz-heading');
+        else if (quizCtrl.mode === 'feedback') focusTarget = card.querySelector('[data-vp-quiz-feedback-continue]');
         else if (quizCtrl.mode === 'awaiting-continue') focusTarget = card.querySelector('[data-vp-quiz-continue]');
       }
 
