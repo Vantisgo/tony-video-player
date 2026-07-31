@@ -1,13 +1,13 @@
-// admin-toggle.js — Admin-only banner + dialog for activating Advanced Video Modus.
+// admin-toggle.js — Admin-only launch button + dialog for activating Advanced Video Modus.
 //
 // Behaviour:
-//   - Banner only mounts inside the LearningSuite admin editor's EDIT view
-//     (URL contains `/admin/editor/` AND no `?view=preview`).
-//   - In Vorschau / preview / student-facing pages, the banner is removed
+//   - Launch button only mounts inside the LearningSuite admin editor's EDIT
+//     view (URL contains `/admin/editor/` AND no `?view=preview`).
+//   - In Vorschau / preview / student-facing pages, the button is removed
 //     so the video gets only the overlay + sidebar (rendered by the other
 //     two scripts).
-//   - Watches every <hls-video> on the page and inserts a small banner
-//     directly above its container with a "Aktivieren / Bearbeiten" button.
+//   - Watches every <hls-video> on the page and inserts a small quiet
+//     "enable Annotation" text button directly below its container.
 //   - The button opens a modal dialog explaining the two-step setup:
 //       1. add a "Code einbetten" block under the video
 //       2. copy a ready-made LLM prompt (with the JSON schema baked in)
@@ -17,11 +17,11 @@
 // the URL flips between …/27ZqYKF1 and …/27ZqYKF1?view=preview without
 // reloading the page. So this script can't decide once at load and bail;
 // it has to re-evaluate on URL changes (popstate + a short URL poll for
-// pushState which doesn't fire popstate). The banners get torn down when
+// pushState which doesn't fire popstate). The buttons get torn down when
 // we leave edit view and re-mounted when we return.
 //
-// Idempotent: re-running the script removes any previous banner / dialog
-// host before recreating them.
+// Idempotent: re-running the script removes any previous launch button /
+// dialog host before recreating them.
 
 (() => {
   // Idempotency: tear down everything from a previous run BEFORE we set up
@@ -33,7 +33,9 @@
   }
   window.__vpAdminCleanup = [];
   document.getElementById('vp-admin-toggle-style')?.remove();
-  document.querySelectorAll('.vp-admin-banner').forEach(el => el.remove());
+  // Also sweep the legacy .vp-admin-banner in case an older deployed script
+  // left one behind before this runtime upgraded it to a launch button.
+  document.querySelectorAll('.vp-admin-launch, .vp-admin-banner').forEach(el => el.remove());
   document.getElementById('vp-admin-dialog-host')?.remove();
   // Also clear the per-element attached flag on existing <hls-video>s so
   // attach() reattaches cleanly.
@@ -42,31 +44,18 @@
   const styleEl = document.createElement('style');
   styleEl.id = 'vp-admin-toggle-style';
   styleEl.textContent = `
-    .vp-admin-banner, .vp-admin-banner * { white-space:normal; box-sizing:border-box; }
-    .vp-admin-banner {
-      display:flex; align-items:center; gap:12px;
-      background:linear-gradient(135deg, #fff7ed, #ffedd5);
-      border:1px solid #fdba74; border-radius:12px;
-      padding:10px 14px; margin:0 0 12px 0;
-      font:500 13px/1.4 system-ui, -apple-system, sans-serif;
-      color:#7c2d12; pointer-events:auto;
+    .vp-admin-launch {
+      white-space:normal; box-sizing:border-box;
+      display:block; width:max-content; text-align:left;
+      margin:6px 0 0 2px; padding:2px 4px;
+      background:transparent; border:0; border-radius:4px;
+      font:500 12px system-ui, -apple-system, sans-serif;
+      color:#64748b; cursor:pointer;
     }
-    .vp-admin-banner .vp-icon { font-size:18px; line-height:1; }
-    .vp-admin-banner .vp-text { flex:1; min-width:0; }
-    .vp-admin-banner .vp-title { font-weight:600; color:#9a3412; }
-    .vp-admin-banner .vp-sub   { font-size:11px; color:#9a3412; opacity:.75; margin-top:2px; }
-    .vp-admin-banner .vp-status {
-      font:600 11px system-ui; padding:3px 9px; border-radius:999px;
-      background:rgba(34,197,94,.18); color:#15803d; display:none; flex-shrink:0;
+    .vp-admin-launch:hover { color:#0f172a; text-decoration:underline; }
+    .vp-admin-launch:focus-visible {
+      outline:2px solid #ea580c; outline-offset:2px;
     }
-    .vp-admin-banner .vp-status[data-active="1"] { display:inline-block; }
-    .vp-admin-banner .vp-status[data-active="0"] { display:inline-block; background:rgba(100,116,139,.12); color:#475569; }
-    .vp-admin-banner button.vp-cta {
-      background:#ea580c; color:#fff; border:0; border-radius:8px;
-      padding:8px 14px; font:600 13px system-ui; cursor:pointer;
-      transition:background .15s ease; flex-shrink:0;
-    }
-    .vp-admin-banner button.vp-cta:hover { background:#c2410c; }
 
     .vp-admin-dialog-backdrop {
       position:fixed; inset:0; background:rgba(15,23,42,.55);
@@ -244,14 +233,6 @@ quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
 [FÜGE HIER DAS LEKTIONS-TRANSKRIPT, DREHBUCH ODER DIE INHALTSBESCHREIBUNG EIN]
 `;
 
-  function hasVpConfigOnPage() {
-    if (document.querySelector('[data-vp-config]:not(script)')) return true;
-    if (document.querySelector('script[data-vp-config]')) return true;
-    // Edit-mode DOM stores the raw saved code as a string in disabled inputs.
-    return [...document.querySelectorAll('input[type="text"]')].some(i =>
-      typeof i.value === 'string' && i.value.includes('data-vp-config'));
-  }
-
   function openDialog(onAfterClose) {
     document.getElementById('vp-admin-dialog-host')?.remove();
     const host = document.createElement('div');
@@ -311,45 +292,22 @@ quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
     if (!playerHost) return;
     const insertParent = playerHost.parentElement;
     if (!insertParent) return;
-    if (playerHost.previousElementSibling?.classList?.contains('vp-admin-banner')) {
+    if (playerHost.nextElementSibling?.classList?.contains('vp-admin-launch')) {
       hlsEl.__vpAdminAttached = true;
       return;
     }
     hlsEl.__vpAdminAttached = true;
 
-    const banner = document.createElement('div');
-    banner.className = 'vp-admin-banner';
-    banner.innerHTML = `
-      <span class="vp-icon">⚡</span>
-      <div class="vp-text">
-        <div class="vp-title">Advanced Video Modus</div>
-        <div class="vp-sub">Re-Skin · Overlays · Coaching-Sidebar — gesteuert per JSON im Code-einbetten-Block</div>
-      </div>
-      <span class="vp-status" data-vp-status></span>
-      <button class="vp-cta" type="button">Aktivieren / Bearbeiten</button>
-    `;
-    const status = banner.querySelector('[data-vp-status]');
-    function refreshStatus() {
-      const active = hasVpConfigOnPage();
-      const next = active ? '1' : '0';
-      const text = active ? '✓ Konfig vorhanden' : 'noch nicht aktiviert';
-      // Skip DOM writes if nothing changed — avoids needless layout work.
-      if (status.dataset.active !== next) status.dataset.active = next;
-      if (status.textContent !== text)   status.textContent  = text;
-    }
-    refreshStatus();
-    banner.querySelector('button.vp-cta').onclick = (e) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'vp-admin-launch';
+    button.textContent = 'enable Annotation';
+    button.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      openDialog(refreshStatus);
+      openDialog();
     };
-    insertParent.insertBefore(banner, playerHost);
-
-    // Lightweight passive refresh: poll every 2s, skip if status unchanged.
-    // The previous attribute-MutationObserver on body+subtree pinned the CPU
-    // because LearningSuite's React app constantly mutates input `value`s.
-    const pollId = setInterval(refreshStatus, 2000);
-    window.__vpAdminCleanup.push(() => clearInterval(pollId));
+    insertParent.insertBefore(button, playerHost.nextSibling);
   }
 
   function isEditMode() {
@@ -358,8 +316,8 @@ quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
     return true;
   }
 
-  function teardownBanners() {
-    document.querySelectorAll('.vp-admin-banner').forEach(el => el.remove());
+  function teardownLaunchButtons() {
+    document.querySelectorAll('.vp-admin-launch, .vp-admin-banner').forEach(el => el.remove());
     document.getElementById('vp-admin-dialog-host')?.remove();
     // Re-arm attach() for any future return to edit mode.
     document.querySelectorAll('hls-video').forEach(v => { delete v.__vpAdminAttached; });
@@ -369,7 +327,7 @@ quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
 
   function applyMode() {
     if (isEditMode()) scan();
-    else teardownBanners();
+    else teardownLaunchButtons();
   }
 
   applyMode();
