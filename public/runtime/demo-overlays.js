@@ -18,12 +18,14 @@
   }
   window.__vpDemoCleanup = [];
 
-  // Theme tokens translated from globals.css OKLCH
+  // Dark LearningSuite enrichment palette. The primary is the configured
+  // dark-mode accent; the supporting surfaces use the accompanying teal and
+  // charcoal swatches.
   const T = {
-    card: '#ffffff', fg: '#1f1f25', muted: '#f4f4f5', mutedFg: '#71717a',
-    border: '#e5e7eb',
-    primary: '#d97757', primaryFg: '#fffaf5',
-    primarySoft: 'rgba(217,119,87,.10)', primaryRing: 'rgba(217,119,87,.25)',
+    card: '#323333', fg: '#f4f7f6', muted: '#164f49', mutedFg: '#a8bfba',
+    border: '#505352',
+    primary: '#00e1a5', primaryFg: '#062b22',
+    primarySoft: 'rgba(0,225,165,.14)', primaryRing: 'rgba(0,225,165,.42)',
     radius: '12px',
   };
 
@@ -1592,7 +1594,7 @@
 
       sidebar = document.createElement('aside');
       sidebar.id = 'vp-demo-sidebar';
-      sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,.06); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
+      sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; color-scheme:dark; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.24); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
       sidebar.innerHTML = `
         <div style="padding:12px 14px 0">
           <div data-tabbar style="display:flex;gap:4px;background:${T.muted};padding:4px;border-radius:10px;"></div>
@@ -1623,7 +1625,7 @@
           b.style.background = active ? T.card : 'transparent';
           b.style.color = active ? T.fg : T.mutedFg;
           b.style.fontWeight = active ? '600' : '500';
-          b.style.boxShadow = active ? '0 1px 2px rgba(0,0,0,.06)' : 'none';
+          b.style.boxShadow = active ? '0 1px 3px rgba(0,0,0,.28)' : 'none';
           b.style.font = (active ? '600' : '500') + ' 13px system-ui';
         });
         Object.entries(panelEls).forEach(([k, p]) => { p.style.display = (k === target) ? '' : 'none'; });
@@ -1648,7 +1650,7 @@
         return `
           <div style="margin-bottom:10px;border:2px solid ${active ? T.primary : T.border};background:${T.card};border-radius:${T.radius};overflow:hidden;${active ? `box-shadow:0 0 0 4px ${T.primarySoft};` : ''}transition:all .2s">
             <button data-phase-toggle="${p.id}" style="width:100%;text-align:left;background:none;border:0;padding:12px;cursor:pointer;display:flex;gap:12px;align-items:flex-start">
-              <div style="flex-shrink:0;width:36px;height:36px;border-radius:8px;background:${active ? T.primary : T.muted};color:${active ? '#fff' : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">${i+1}</div>
+              <div style="flex-shrink:0;width:36px;height:36px;border-radius:8px;background:${active ? T.primary : T.muted};color:${active ? T.primaryFg : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">${i+1}</div>
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                   <h3 style="margin:0;font:600 14.5px system-ui;color:${active ? T.primary : T.fg}">${p.title}</h3>
@@ -1733,7 +1735,7 @@
           ${metaSteps.map(m => {
             const active = window.__vpActiveMeta === m.id;
             return `<li data-seek="${m.t}" style="padding:10px 11px;border-radius:${T.radius};background:${active ? T.primarySoft : T.card};border:1px solid ${active ? T.primaryRing : T.border};cursor:pointer;display:flex;gap:10px;align-items:flex-start">
-              <div style="flex-shrink:0;width:28px;height:28px;border-radius:7px;background:${active ? T.primary : T.muted};color:${active ? '#fff' : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${m.n}</div>
+              <div style="flex-shrink:0;width:28px;height:28px;border-radius:7px;background:${active ? T.primary : T.muted};color:${active ? T.primaryFg : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${m.n}</div>
               <div style="flex:1;min-width:0">
                 <div style="display:flex;gap:8px;align-items:baseline">
                   <strong style="font:600 13.5px system-ui;color:${T.fg};flex:1">${m.title}</strong>
