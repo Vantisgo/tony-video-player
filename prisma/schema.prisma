@@ -60,6 +60,9 @@ model Intervention {
   id                        String   @id @default(uuid())
   title                     String
   timestampSec              Float
+  /// Exclusive end time. The intervention is current on [timestampSec, endTimeSec);
+  /// NULL keeps the open-ended behaviour (current until the next intervention).
+  endTimeSec                Float?
   prompt                    String
   description               String
   methodModelFramework      String
