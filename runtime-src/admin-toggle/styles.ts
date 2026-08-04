@@ -1,30 +1,17 @@
-// Banner + dialog styling for the admin authoring UI.
+// Launch button + dialog styling for the admin authoring UI.
 export const ADMIN_CSS = `
-    .vp-admin-banner, .vp-admin-banner * { white-space:normal; box-sizing:border-box; }
-    .vp-admin-banner {
-      display:flex; align-items:center; gap:12px;
-      background:linear-gradient(135deg, #fff7ed, #ffedd5);
-      border:1px solid #fdba74; border-radius:12px;
-      padding:10px 14px; margin:0 0 12px 0;
-      font:500 13px/1.4 system-ui, -apple-system, sans-serif;
-      color:#7c2d12; pointer-events:auto;
+    .vp-admin-launch {
+      white-space:normal; box-sizing:border-box;
+      display:block; width:max-content; text-align:left;
+      margin:6px 0 0 2px; padding:2px 4px;
+      background:transparent; border:0; border-radius:4px;
+      font:500 12px system-ui, -apple-system, sans-serif;
+      color:#64748b; cursor:pointer;
     }
-    .vp-admin-banner .vp-icon { font-size:18px; line-height:1; }
-    .vp-admin-banner .vp-text { flex:1; min-width:0; }
-    .vp-admin-banner .vp-title { font-weight:600; color:#9a3412; }
-    .vp-admin-banner .vp-sub   { font-size:11px; color:#9a3412; opacity:.75; margin-top:2px; }
-    .vp-admin-banner .vp-status {
-      font:600 11px system-ui; padding:3px 9px; border-radius:999px;
-      background:rgba(34,197,94,.18); color:#15803d; display:none; flex-shrink:0;
+    .vp-admin-launch:hover { color:#0f172a; text-decoration:underline; }
+    .vp-admin-launch:focus-visible {
+      outline:2px solid #ea580c; outline-offset:2px;
     }
-    .vp-admin-banner .vp-status[data-active="1"] { display:inline-block; }
-    .vp-admin-banner .vp-status[data-active="0"] { display:inline-block; background:rgba(100,116,139,.12); color:#475569; }
-    .vp-admin-banner button.vp-cta {
-      background:#ea580c; color:#fff; border:0; border-radius:8px;
-      padding:8px 14px; font:600 13px system-ui; cursor:pointer;
-      transition:background .15s ease; flex-shrink:0;
-    }
-    .vp-admin-banner button.vp-cta:hover { background:#c2410c; }
 
     .vp-admin-dialog-backdrop {
       position:fixed; inset:0; background:rgba(15,23,42,.55);

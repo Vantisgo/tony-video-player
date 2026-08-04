@@ -1,10 +1,12 @@
-// admin-toggle — Admin-only banner + dialog for activating Advanced Video Modus.
+// admin-toggle — Admin-only launch button + dialog for activating Advanced Video
+// Modus.
 //
 // Mounts only inside the LearningSuite admin editor's EDIT view (URL contains
-// `/admin/editor/` and no `?view=preview`). Watches every <hls-video> and
-// inserts a banner above its container with an "Aktivieren / Bearbeiten" button
-// that opens a dialog explaining the two-step setup (add a "Code einbetten"
-// block, paste an LLM prompt's output). Idempotent + re-injectable.
+// `/admin/editor/` and no `?view=preview`). Watches every <hls-video> and inserts
+// a quiet text button BELOW its container, labelled from a one-shot
+// config-presence check, that opens a dialog explaining the two-step setup (add a
+// "Code einbetten" block, paste an LLM prompt's output). Idempotent +
+// re-injectable.
 import { pushCleanup, resetCleanup } from "../common/cleanup";
 import { PROMPT_TEXT } from "./prompt";
 import { ADMIN_CSS } from "./styles";
@@ -17,7 +19,11 @@ function main(): string {
   // Idempotency: tear down everything from a previous run before setting up.
   resetCleanup(CLEANUP_KEY);
   document.getElementById("vp-admin-toggle-style")?.remove();
-  document.querySelectorAll(".vp-admin-banner").forEach((el) => el.remove());
+  // Sweep the legacy .vp-admin-banner too, so upgrading over an already-deployed
+  // older script removes the banner it left behind.
+  document
+    .querySelectorAll(".vp-admin-launch, .vp-admin-banner")
+    .forEach((el) => el.remove());
   document.getElementById("vp-admin-dialog-host")?.remove();
   document.querySelectorAll("hls-video").forEach((v) => {
     delete (v as AdminHlsEl).__vpAdminAttached;
@@ -119,46 +125,33 @@ function main(): string {
     if (!playerHost) return;
     const insertParent = playerHost.parentElement;
     if (!insertParent) return;
-    if (
-      playerHost.previousElementSibling?.classList?.contains("vp-admin-banner")
-    ) {
+    if (playerHost.nextElementSibling?.classList?.contains("vp-admin-launch")) {
       hlsEl.__vpAdminAttached = true;
       return;
     }
     hlsEl.__vpAdminAttached = true;
 
-    const banner = document.createElement("div");
-    banner.className = "vp-admin-banner";
-    banner.innerHTML = `
-      <span class="vp-icon">⚡</span>
-      <div class="vp-text">
-        <div class="vp-title">Advanced Video Modus</div>
-        <div class="vp-sub">Re-Skin · Overlays · Coaching-Sidebar — gesteuert per JSON im Code-einbetten-Block</div>
-      </div>
-      <span class="vp-status" data-vp-status></span>
-      <button class="vp-cta" type="button">Aktivieren / Bearbeiten</button>
-    `;
-    const status = banner.querySelector("[data-vp-status]") as HTMLElement;
-    function refreshStatus(): void {
-      const active = hasVpConfigOnPage();
-      const next = active ? "1" : "0";
-      const text = active ? "✓ Konfig vorhanden" : "noch nicht aktiviert";
-      if (status.dataset.active !== next) status.dataset.active = next;
-      if (status.textContent !== text) status.textContent = text;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "vp-admin-launch";
+
+    // Read the config-presence signal EXACTLY twice per attach: once here, and
+    // once when the dialog closes. It scans input values, which LearningSuite's
+    // React app rewrites constantly — the 2s poll this replaces was pegging the
+    // renderer. Never re-arm an interval or observer on it.
+    function labelButton(): void {
+      button.textContent = hasVpConfigOnPage()
+        ? "edit Annotation"
+        : "enable Annotation";
     }
-    refreshStatus();
-    (banner.querySelector("button.vp-cta") as HTMLButtonElement).onclick = (
-      e,
-    ) => {
+    labelButton();
+
+    button.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      openDialog(refreshStatus);
+      openDialog(labelButton);
     };
-    insertParent.insertBefore(banner, playerHost);
-
-    // Lightweight passive refresh: poll every 2s, skip if status unchanged.
-    const pollId = setInterval(refreshStatus, 2000);
-    pushCleanup(CLEANUP_KEY, () => clearInterval(pollId));
+    insertParent.insertBefore(button, playerHost.nextSibling);
   }
 
   function isEditMode(): boolean {
@@ -168,8 +161,10 @@ function main(): string {
     return true;
   }
 
-  function teardownBanners(): void {
-    document.querySelectorAll(".vp-admin-banner").forEach((el) => el.remove());
+  function teardownLaunchButtons(): void {
+    document
+      .querySelectorAll(".vp-admin-launch, .vp-admin-banner")
+      .forEach((el) => el.remove());
     document.getElementById("vp-admin-dialog-host")?.remove();
     document.querySelectorAll("hls-video").forEach((v) => {
       delete (v as AdminHlsEl).__vpAdminAttached;
@@ -184,7 +179,7 @@ function main(): string {
 
   function applyMode(): void {
     if (isEditMode()) scan();
-    else teardownBanners();
+    else teardownLaunchButtons();
   }
 
   applyMode();
