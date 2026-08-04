@@ -9,7 +9,7 @@ import { getBunnyVideoId } from "../common/tracks";
 import { getRuntimeBaseUrl } from "../common/runtime-url";
 import { shouldRun } from "../common/killswitch";
 import { report } from "../common/beacon";
-import type { Audio, Intervention, Phase, VpConfig } from "../common/types";
+import type { Audio, Phase, VpConfig } from "../common/types";
 import {
   DEFAULT_AUDIOS,
   DEFAULT_META_STEPS,
@@ -379,7 +379,7 @@ function main(): string {
         <div data-empty hidden style="color:rgba(168,191,186,.72); font-size:13px">Starting soon...</div>
       </div>
     </div>`;
-    slotTL.appendChild(sectionPill);
+    if (showSectionOverlay) slotTL.appendChild(sectionPill);
 
     const $ = (sel: string): HTMLElement =>
       sectionPill.querySelector(sel) as HTMLElement;
@@ -412,6 +412,9 @@ function main(): string {
     });
 
     function renderSection(): void {
+      // One phase (or none): the Coaching tab already says everything the pill
+      // would, so the video overlay stays off.
+      if (!showSectionOverlay) return;
       const t = window.player.current ?? 0;
       const phase = phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec);
       const section = phase?.title ?? "Intro";

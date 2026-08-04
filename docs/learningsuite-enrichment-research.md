@@ -96,15 +96,16 @@ Generic, content-free re-skin:
 ### `public/runtime/demo-overlays.js`
 
 Demo content + UI styled to match the tony-video-player repo (Coaching/Science/Meta
-Structure tabs, orange primary, MUI light card). Demonstrates the four overlay types
+Structure tabs, orange primary, MUI light card). Demonstrates the overlay types
 referenced in the codebase under `components/video-player/overlays/`:
 
-| Overlay               | Position           | Source component        | Trigger                                                                                     |
-| --------------------- | ------------------ | ----------------------- | ------------------------------------------------------------------------------------------- |
-| Section Indicator     | top-left           | `section-indicator.tsx` | always visible during a phase; collapsed pill, hover to expand                              |
-| Science Corner        | top-right          | `science-trigger.tsx`   | fires for 5s when video crosses any `timestampsSec` of a science item                       |
-| Audio (Voice-Over)    | lower-third banner | `audio-overlay.tsx`     | one-shot when video crosses an audio's `t`; pauses video, plays audio, resumes video on end |
-| 7 Master Steps fly-in | bottom-right       | `meta-step-overlay.tsx` | violet pill for 5s when crossing each step's `t`                                            |
+| Overlay               | Position           | Source component        | Trigger                                                                                         |
+| --------------------- | ------------------ | ----------------------- | ----------------------------------------------------------------------------------------------- |
+| Section Indicator     | top-left           | `section-indicator.tsx` | always visible during a phase; collapsed pill, hover to expand                                  |
+| Science Corner        | top-right          | `science-trigger.tsx`   | fires for 5s when video crosses any `timestampsSec` of a science item                           |
+| Audio (Voice-Over)    | lower-third banner | `audio-overlay.tsx`     | one-shot when video crosses an audio's `t`; pauses video, plays audio, resumes video on end     |
+| 7 Master Steps fly-in | bottom-right       | `meta-step-overlay.tsx` | violet pill for 5s when crossing each step's `t`                                                |
+| Interactive quiz      | centered modal     | LearningSuite runtime   | pauses at a quiz break, gives immediate answer feedback, then resumes automatically or manually |
 
 Behaviours wired in the demo:
 
@@ -121,6 +122,64 @@ Behaviours wired in the demo:
   TTS) so you actually hear something. In production, swap for a real `<audio>`
   element bound to the `audioUrl` and use its native `timeupdate`/`ended` events —
   the rest of the state machine is already shaped for that.
+
+### Optional interactive-quiz config
+
+The embedded JSON may include a top-level `quiz` object. Omitting it leaves all
+existing enriched videos unchanged. The machine-readable contract lives at
+`public/runtime/vp-config.schema.json`.
+
+```json
+{
+  "quiz": {
+    "feedbackDurationSec": 3,
+    "showScore": true,
+    "showSummary": true,
+    "passingPercent": 70,
+    "quizzes": [
+      {
+        "id": "check-1",
+        "title": "Kurz-Check",
+        "t": 45,
+        "resume": "auto",
+        "questions": [
+          {
+            "id": "check-1-question-1",
+            "prompt": "Welche Aussage fasst den Abschnitt am besten zusammen?",
+            "explanation": "Die Intervention macht das Muster sichtbar, ohne die Beziehungssicherheit zu verlieren.",
+            "timeoutSec": 15,
+            "showCountdown": true,
+            "correctOptionId": "answer-b",
+            "options": [
+              { "id": "answer-a", "text": "Die Emotion wird vermieden." },
+              {
+                "id": "answer-b",
+                "text": "Das Muster wird sicher sichtbar gemacht."
+              },
+              {
+                "id": "answer-c",
+                "text": "Die Perspektive bleibt unverändert."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- Each break always pauses the media element. `resume: "auto"` continues after
+  the feedback delay; `"manual"` waits for the learner's Continue action.
+- `timeoutSec` is optional. When present, expiry is recorded as unanswered and
+  reveals the correct option. `showCountdown: false` keeps the deadline without
+  showing the visual timer.
+- A break may contain multiple questions, presented in order. Each question has
+  one to four options and exactly one `correctOptionId`.
+- Natural playback crossings trigger quizzes; seeking past one does not. A
+  completed break does not repeat during the same page session.
+- Answers, score, and summary exist only in browser memory. Nothing is persisted
+  or sent to LearningSuite or this application's API.
 
 ### Sidebar replacement
 

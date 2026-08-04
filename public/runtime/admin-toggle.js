@@ -37,7 +37,8 @@ Anhand des unten gegebenen Lektions-Materials (Transkript, Drehbuch oder Inhalts
   "phases":   [ Sektionen des Coaching-Bogens, jeweils mit interventions[] ],
   "sciences": [ Wissenschafts-Pop-Ups, kurze 5-Sekunden-Trigger ],
   "audios":   [ Voice-Over-Banner, pausieren das Video für einen Audio-Einschub ],
-  "metaSteps":[ "Master-Schritt"-Pills für den globalen Bogen, ~5s sichtbar ]
+  "metaSteps":[ "Master-Schritt"-Pills für den globalen Bogen, ~5s sichtbar ],
+  "quiz":     { optionale interaktive Wissensfragen an definierten Video-Unterbrechungen }
 }
 
 ═══ Felder im Detail ═══
@@ -53,6 +54,9 @@ phases[]:
     label — kurzer Label, z.B. "1.1"
     title — Titel der Intervention
     t     — Trigger-Zeitpunkt (Sekunde im Video)
+    end   — OPTIONAL: Sekunde, bis zu der die Intervention aktuell ist (exklusiv).
+            Ohne end bleibt sie aktuell, bis die nächste Intervention beginnt
+            oder die Phase endet.
     desc  — 1 Satz Beschreibung
 
 sciences[]:  (Wissenschafts-Pop-Ups, je 5s sichtbar bei jedem Timestamp)
@@ -64,6 +68,18 @@ audios[]:    (Voice-Over-Einschübe; pausieren das Video)
               Voice-Over-.mp3 (z.B. "Intro.mp3"). VOM ADMIN einzutragen — das LLM kennt
               den Dateinamen nicht. Weglassen, wenn kein Anhang existiert; dann wird
               script per Text-to-Speech vorgelesen.
+
+quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
+  feedbackDurationSec — Dauer der Antwort-Rückmeldung; Standard 3
+  showScore            — true zeigt in der Auswertung den Punktestand
+  showSummary          — true zeigt am Videoende eine Auswertung
+  passingPercent       — optionale Bestehensgrenze von 0 bis 100
+  quizzes[]:
+    id, title, t (Unterbrechungs-Zeitpunkt), resume ("auto" oder "manual")
+    questions[]:
+      id, prompt, explanation (optional), timeoutSec (optional, mindestens 5), showCountdown
+      correctOptionId — id der einzigen richtigen Antwort
+      options[]       — 1 bis 4 Objekte mit jeweils id und text
 
 metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
   id, n (Nummer), title, t (Trigger Sek)
@@ -77,7 +93,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
       "id":"p1", "title":"Einführung", "description":"...",
       "startTimeSec":0, "endTimeSec":60,
       "interventions":[
-        { "id":"i11", "label":"1.1", "title":"...", "t":10, "desc":"..." }
+        { "id":"i11", "label":"1.1", "title":"...", "t":10, "end":25, "desc":"..." }
       ]
     }
   ],
@@ -89,7 +105,29 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
   ],
   "metaSteps": [
     { "id":"m1", "n":1, "title":"...", "t":4 }
-  ]
+  ],
+  "quiz": {
+    "feedbackDurationSec":3,
+    "showScore":true,
+    "showSummary":true,
+    "passingPercent":70,
+    "quizzes":[
+      {
+        "id":"q1", "title":"Kurz-Check", "t":45, "resume":"auto",
+        "questions":[
+          {
+            "id":"q1-1", "prompt":"Welche Aussage trifft zu?", "explanation":"...",
+            "timeoutSec":15, "showCountdown":true, "correctOptionId":"q1-1-b",
+            "options":[
+              { "id":"q1-1-a", "text":"..." },
+              { "id":"q1-1-b", "text":"..." },
+              { "id":"q1-1-c", "text":"..." }
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }
 </pre>
 
@@ -97,6 +135,9 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
 
 - ALLE id-Strings müssen eindeutig sein
 - t-Werte (Zeitstempel) realistisch zum Video-Inhalt
+- end muss größer als t sein; ohne end bleibt die Intervention offen (bisheriges Verhalten)
+- Jede Quizfrage braucht 1–4 Antworten; correctOptionId muss auf genau eine option.id verweisen
+- timeoutSec nur verwenden, wenn Zeitdruck didaktisch sinnvoll ist; empfohlen sind mindestens 15 Sekunden
 - Sprache des Materials beibehalten
 - audioFile nur setzen, wenn eine gleichnamige Datei als Anhang der Lektion existiert (sonst weglassen)
 - Antworte NUR mit dem <pre>-Block (keine Einleitung, keine Schluss-Erklärung)
@@ -109,31 +150,18 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
 
   // runtime-src/admin-toggle/styles.ts
   var ADMIN_CSS = `
-    .vp-admin-banner, .vp-admin-banner * { white-space:normal; box-sizing:border-box; }
-    .vp-admin-banner {
-      display:flex; align-items:center; gap:12px;
-      background:linear-gradient(135deg, #fff7ed, #ffedd5);
-      border:1px solid #fdba74; border-radius:12px;
-      padding:10px 14px; margin:0 0 12px 0;
-      font:500 13px/1.4 system-ui, -apple-system, sans-serif;
-      color:#7c2d12; pointer-events:auto;
+    .vp-admin-launch {
+      white-space:normal; box-sizing:border-box;
+      display:block; width:max-content; text-align:left;
+      margin:6px 0 0 2px; padding:2px 4px;
+      background:transparent; border:0; border-radius:4px;
+      font:500 12px system-ui, -apple-system, sans-serif;
+      color:#64748b; cursor:pointer;
     }
-    .vp-admin-banner .vp-icon { font-size:18px; line-height:1; }
-    .vp-admin-banner .vp-text { flex:1; min-width:0; }
-    .vp-admin-banner .vp-title { font-weight:600; color:#9a3412; }
-    .vp-admin-banner .vp-sub   { font-size:11px; color:#9a3412; opacity:.75; margin-top:2px; }
-    .vp-admin-banner .vp-status {
-      font:600 11px system-ui; padding:3px 9px; border-radius:999px;
-      background:rgba(34,197,94,.18); color:#15803d; display:none; flex-shrink:0;
+    .vp-admin-launch:hover { color:#0f172a; text-decoration:underline; }
+    .vp-admin-launch:focus-visible {
+      outline:2px solid #ea580c; outline-offset:2px;
     }
-    .vp-admin-banner .vp-status[data-active="1"] { display:inline-block; }
-    .vp-admin-banner .vp-status[data-active="0"] { display:inline-block; background:rgba(100,116,139,.12); color:#475569; }
-    .vp-admin-banner button.vp-cta {
-      background:#ea580c; color:#fff; border:0; border-radius:8px;
-      padding:8px 14px; font:600 13px system-ui; cursor:pointer;
-      transition:background .15s ease; flex-shrink:0;
-    }
-    .vp-admin-banner button.vp-cta:hover { background:#c2410c; }
 
     .vp-admin-dialog-backdrop {
       position:fixed; inset:0; background:rgba(15,23,42,.55);
@@ -202,7 +230,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
     var _a, _b;
     resetCleanup(CLEANUP_KEY);
     (_a = document.getElementById("vp-admin-toggle-style")) == null ? void 0 : _a.remove();
-    document.querySelectorAll(".vp-admin-banner").forEach((el) => el.remove());
+    document.querySelectorAll(".vp-admin-launch, .vp-admin-banner").forEach((el) => el.remove());
     (_b = document.getElementById("vp-admin-dialog-host")) == null ? void 0 : _b.remove();
     document.querySelectorAll("hls-video").forEach((v) => {
       delete v.__vpAdminAttached;
@@ -296,39 +324,24 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
       if (!playerHost) return;
       const insertParent = playerHost.parentElement;
       if (!insertParent) return;
-      if ((_b2 = (_a2 = playerHost.previousElementSibling) == null ? void 0 : _a2.classList) == null ? void 0 : _b2.contains("vp-admin-banner")) {
+      if ((_b2 = (_a2 = playerHost.nextElementSibling) == null ? void 0 : _a2.classList) == null ? void 0 : _b2.contains("vp-admin-launch")) {
         hlsEl.__vpAdminAttached = true;
         return;
       }
       hlsEl.__vpAdminAttached = true;
-      const banner = document.createElement("div");
-      banner.className = "vp-admin-banner";
-      banner.innerHTML = `
-      <span class="vp-icon">⚡</span>
-      <div class="vp-text">
-        <div class="vp-title">Advanced Video Modus</div>
-        <div class="vp-sub">Re-Skin · Overlays · Coaching-Sidebar — gesteuert per JSON im Code-einbetten-Block</div>
-      </div>
-      <span class="vp-status" data-vp-status></span>
-      <button class="vp-cta" type="button">Aktivieren / Bearbeiten</button>
-    `;
-      const status = banner.querySelector("[data-vp-status]");
-      function refreshStatus() {
-        const active = hasVpConfigOnPage();
-        const next = active ? "1" : "0";
-        const text = active ? "✓ Konfig vorhanden" : "noch nicht aktiviert";
-        if (status.dataset.active !== next) status.dataset.active = next;
-        if (status.textContent !== text) status.textContent = text;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "vp-admin-launch";
+      function labelButton() {
+        button.textContent = hasVpConfigOnPage() ? "edit Annotation" : "enable Annotation";
       }
-      refreshStatus();
-      banner.querySelector("button.vp-cta").onclick = (e) => {
+      labelButton();
+      button.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        openDialog(refreshStatus);
+        openDialog(labelButton);
       };
-      insertParent.insertBefore(banner, playerHost);
-      const pollId = setInterval(refreshStatus, 2e3);
-      pushCleanup(CLEANUP_KEY, () => clearInterval(pollId));
+      insertParent.insertBefore(button, playerHost.nextSibling);
     }
     function isEditMode() {
       if (!location.pathname.includes("/admin/editor/")) return false;
@@ -336,9 +349,9 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
         return false;
       return true;
     }
-    function teardownBanners() {
+    function teardownLaunchButtons() {
       var _a2;
-      document.querySelectorAll(".vp-admin-banner").forEach((el) => el.remove());
+      document.querySelectorAll(".vp-admin-launch, .vp-admin-banner").forEach((el) => el.remove());
       (_a2 = document.getElementById("vp-admin-dialog-host")) == null ? void 0 : _a2.remove();
       document.querySelectorAll("hls-video").forEach((v) => {
         delete v.__vpAdminAttached;
@@ -349,7 +362,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
     }
     function applyMode() {
       if (isEditMode()) scan();
-      else teardownBanners();
+      else teardownLaunchButtons();
     }
     applyMode();
     let scanPending = 0;
