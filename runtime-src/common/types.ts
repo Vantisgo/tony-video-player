@@ -6,6 +6,10 @@ export interface Intervention {
   label: string;
   title: string;
   t: number;
+  // Exclusive end time. The intervention is current on [t, end); without it (or
+  // with a non-numeric value) it stays current until the next intervention or
+  // the end of the phase. Mirrors the lesson model's `endTimeSec`.
+  end?: number | null;
   desc: string;
 }
 
@@ -45,11 +49,70 @@ export interface MetaStep {
   t: number;
 }
 
+// ─── Interactive quiz (optional `quiz` section of the enrichment config) ───
+// These are POST-normalisation shapes: every optional authoring field has
+// already been defaulted by normalizeQuizConfig, so consumers never re-default.
+export interface AnswerOption {
+  id: string;
+  text: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  prompt: string;
+  options: AnswerOption[];
+  correctOptionId: string;
+  // "" when the author supplied none.
+  explanation: string;
+  // null when absent or outside the accepted 5–300s integer range.
+  timeoutSec: number | null;
+  showCountdown: boolean;
+}
+
+export interface QuizBreak {
+  id: string;
+  t: number;
+  // "" when the author supplied none.
+  title: string;
+  resume: "auto" | "manual";
+  questions: QuizQuestion[];
+}
+
+export interface QuizConfig {
+  feedbackDurationSec: number;
+  showScore: boolean;
+  showSummary: boolean;
+  passingPercent: number | null;
+  quizzes: QuizBreak[];
+}
+
+export type QuizOutcome = "correct" | "wrong" | "timeout" | "skipped";
+
+export type QuizMode =
+  | "idle"
+  | "question"
+  | "feedback"
+  | "awaiting-continue"
+  | "summary";
+
+export interface QuizResult {
+  quizId: string;
+  questionId: string;
+  prompt: string;
+  selectedOptionId: string | null;
+  correctOptionId: string;
+  outcome: QuizOutcome;
+}
+
 export interface VpConfig {
   phases: Phase[];
   sciences: Science[];
   audios: Audio[];
   metaSteps: MetaStep[];
+  // Opt-in for the built-in DEFAULT_* sample data. Without it an absent config
+  // section renders nothing rather than the demo arc.
+  demo?: boolean;
+  quiz?: QuizConfig | null;
 }
 
 // ─── Player event bus payloads ───

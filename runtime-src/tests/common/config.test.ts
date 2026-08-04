@@ -48,8 +48,53 @@ describe("parseVpConfig", () => {
   });
 
   it("does not throw on non-object input", () => {
-    expect(parseVpConfig(null)).toEqual({});
-    expect(parseVpConfig("x")).toEqual({});
+    for (const raw of [null, "x"]) {
+      const parsed = parseVpConfig(raw);
+      expect(parsed.phases).toBeUndefined();
+      expect(parsed.sciences).toBeUndefined();
+      expect(parsed.audios).toBeUndefined();
+      expect(parsed.metaSteps).toBeUndefined();
+      // Non-array sections come back undefined ("absent, use the default"), but
+      // demo/quiz are always resolved: no opt-in, no quiz.
+      expect(parsed.demo).toBe(false);
+      expect(parsed.quiz).toBeNull();
+    }
+  });
+
+  it("resolves demo only for an explicit boolean true", () => {
+    expect(parseVpConfig({}).demo).toBe(false);
+    expect(parseVpConfig({ demo: "yes" }).demo).toBe(false);
+    expect(parseVpConfig({ demo: true }).demo).toBe(true);
+  });
+
+  it("normalises a quiz section and nulls an invalid one", () => {
+    expect(parseVpConfig(validConfig).quiz).toBeNull();
+    expect(parseVpConfig({ quiz: { quizzes: [] } }).quiz).toBeNull();
+
+    const parsed = parseVpConfig({
+      ...validConfig,
+      quiz: {
+        quizzes: [
+          {
+            id: "quiz-1",
+            t: 45,
+            questions: [
+              {
+                id: "q1",
+                prompt: "p",
+                correctOptionId: "b",
+                options: [
+                  { id: "a", text: "a" },
+                  { id: "b", text: "b" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(parsed.quiz?.quizzes).toHaveLength(1);
+    expect(parsed.quiz?.feedbackDurationSec).toBe(3);
   });
 });
 
