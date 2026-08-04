@@ -376,7 +376,7 @@ function main(): string {
           <div class="vp-sec-count" data-count></div>
           <div class="vp-sec-rows" data-rows></div>
         </div>
-        <div data-empty hidden style="color:rgba(255,237,213,.65); font-size:13px">Starting soon...</div>
+        <div data-empty hidden style="color:rgba(168,191,186,.72); font-size:13px">Starting soon...</div>
       </div>
     </div>`;
     slotTL.appendChild(sectionPill);
@@ -514,11 +514,11 @@ function main(): string {
       w.__vpHighlightedScience = active.id;
       renderScienceHighlight();
       slotTR.innerHTML = `
-      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(249,115,22,.30), rgba(245,158,11,.30), rgba(234,179,8,.28)); border:1px solid rgba(253,186,116,.35); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#fff7ed; pointer-events:auto; cursor:pointer;">
+      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
         <span style="font-size:14px;line-height:1">🧪</span>
-        <span style="font:600 12px system-ui; color:#fff; letter-spacing:.2px">Science:</span>
-        <span style="font:500 12px system-ui; color:rgba(255,237,213,.85); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        <button style="background:linear-gradient(90deg, #ea580c, #d97706); color:#fff; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">Open</button>
+        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">Science:</span>
+        <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
+        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">Open</button>
       </div>`;
       const openSci = (e: Event) => {
         e.stopPropagation();
@@ -860,31 +860,31 @@ function main(): string {
       slotLowerThird.dataset.kind = "audio";
       slotLowerThird.dataset.activeAudio = active.id;
       slotLowerThird.innerHTML = `
-      <div class="vp-anim-bottom" style="display:flex; align-items:center; gap:14px; background:linear-gradient(135deg, rgba(249,115,22,.22), rgba(245,158,11,.22), rgba(234,179,8,.22)); border:1px solid rgba(253,186,116,.30); border-radius:14px; padding:10px 14px; backdrop-filter:blur(10px); box-shadow:0 14px 32px rgba(0,0,0,.35); color:#fff7ed; pointer-events:auto;">
+      <div class="vp-anim-bottom" style="display:flex; align-items:center; gap:14px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:14px; padding:10px 14px; backdrop-filter:blur(10px); box-shadow:0 14px 32px rgba(0,0,0,.35); color:#f4f7f6; pointer-events:auto;">
         <div style="position:relative;flex-shrink:0">
-          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#ea580c,#d97706);border:2px solid #fb923c;display:flex;align-items:center;justify-content:center;font:700 14px system-ui;color:#fff">FH</div>
-          <div style="position:absolute;right:-3px;bottom:-3px;width:16px;height:16px;border-radius:50%;border:2px solid #fff;background:linear-gradient(135deg,#ea580c,#d97706);display:flex;align-items:center;justify-content:center;font-size:9px">🎙️</div>
+          <div style="width:40px;height:40px;border-radius:50%;background:#00e1a5;border:2px solid #62dfc1;display:flex;align-items:center;justify-content:center;font:700 14px system-ui;color:#062b22">FH</div>
+          <div style="position:absolute;right:-3px;bottom:-3px;width:16px;height:16px;border-radius:50%;border:2px solid #323333;background:#00e1a5;display:flex;align-items:center;justify-content:center;font-size:9px">🎙️</div>
         </div>
         <div style="flex:0 0 auto; min-width:0; max-width:35%;">
-          <div style="font:700 13.5px system-ui;color:#fff; overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(active.title)}</div>
+          <div style="font:700 13.5px system-ui;color:#f4f7f6; overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(active.title)}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:1px">
-            <span style="font:500 11px system-ui;color:rgba(255,237,213,.7); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">by ${esc(active.voice)}</span>
-            <span style="width:4px;height:4px;border-radius:50%;background:#fbbf24" class="vp-pulse"></span>
-            <span style="font:500 10.5px system-ui;color:rgba(255,237,213,.55);text-transform:uppercase;letter-spacing:.4px">${isPlaying ? "Playing" : "Paused"}</span>
+            <span style="font:500 11px system-ui;color:rgba(168,191,186,.8); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">by ${esc(active.voice)}</span>
+            <span style="width:4px;height:4px;border-radius:50%;background:#00e1a5" class="vp-pulse"></span>
+            <span style="font:500 10.5px system-ui;color:rgba(168,191,186,.62);text-transform:uppercase;letter-spacing:.4px">${isPlaying ? "Playing" : "Paused"}</span>
           </div>
         </div>
         <div style="flex:1; display:flex; align-items:center; gap:10px; min-width:0;">
-          <span data-elapsed style="font:500 11px ui-monospace,monospace;color:rgba(255,237,213,.7);min-width:36px">${fmt(elapsed)}</span>
+          <span data-elapsed style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px">${fmt(elapsed)}</span>
           <div style="flex:1;height:6px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden">
-            <div data-fill style="width:${pct}%; height:100%; background:linear-gradient(90deg,#fb923c,#fbbf24,#facc15); transition:width .15s linear;"></div>
+            <div data-fill style="width:${pct}%; height:100%; background:linear-gradient(90deg,#00e1a5,#2edbb1,#62dfc1); transition:width .15s linear;"></div>
           </div>
-          <span style="font:500 11px ui-monospace,monospace;color:rgba(255,237,213,.7);min-width:36px;text-align:right">${fmt(active.dur)}</span>
+          <span style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px;text-align:right">${fmt(active.dur)}</span>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button data-action="audio-back" title="-10s" style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
-          <button data-action="audio-playpause" title="Play/Pause" style="background:linear-gradient(90deg,#ea580c,#d97706);color:#fff;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
-          <button data-action="audio-fwd" title="+10s" style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
-          <button data-action="audio-skip" title="Skip" style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
+          <button data-action="audio-back" title="-10s" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
+          <button data-action="audio-playpause" title="Play/Pause" style="background:#00e1a5;color:#062b22;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
+          <button data-action="audio-fwd" title="+10s" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
+          <button data-action="audio-skip" title="Skip" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
         </div>
       </div>`;
       const stop = (e: Event) => e.stopPropagation();
@@ -935,11 +935,11 @@ function main(): string {
       slotBR.dataset.kind = "meta";
       slotBR.dataset.activeMeta = active.id;
       slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(139,92,246,.22), rgba(168,85,247,.22), rgba(217,70,239,.22)); border:1px solid rgba(196,181,253,.30); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f5f3ff; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="Open Meta Structure">
-        <div style="width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg, #7c3aed, #9333ea); color:#fff; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
-        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(221,214,254,.75)">Step ${esc(active.n)} / 7</span>
-        <span style="width:1px; height:14px; background:rgba(196,181,253,.35)"></span>
-        <span style="font:600 13px system-ui; color:#fff; line-height:1">${esc(active.title)}</span>
+      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="Open Meta Structure">
+        <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
+        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">Step ${esc(active.n)} / ${metaSteps.length}</span>
+        <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
+        <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
       </div>`;
       (
         slotBR.querySelector('[data-overlay-action="meta"]') as HTMLElement
@@ -963,7 +963,7 @@ function main(): string {
     // ─── Sidebar (Coaching / Science / Meta Structure) ───
     const sidebar = document.createElement("aside");
     sidebar.id = "vp-demo-sidebar";
-    sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,.06); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
+    sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; color-scheme:dark; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.24); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
     // Only tabs whose config section has content exist at all — an empty
     // "Science" tab is dead UI, not a placeholder.
     const tabDefs = [
@@ -1155,7 +1155,7 @@ function main(): string {
           return `
         <div style="margin-bottom:10px;border:2px solid ${active ? T.primary : T.border};background:${T.card};border-radius:${T.radius};overflow:hidden;${active ? `box-shadow:0 0 0 4px ${T.primarySoft};` : ""}transition:all .2s">
           <button data-phase-toggle="${esc(p.id)}" style="width:100%;text-align:left;background:none;border:0;padding:12px;cursor:pointer;display:flex;gap:12px;align-items:flex-start">
-            <div style="flex-shrink:0;width:36px;height:36px;border-radius:8px;background:${active ? T.primary : T.muted};color:${active ? "#fff" : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">${i + 1}</div>
+            <div style="flex-shrink:0;width:36px;height:36px;border-radius:8px;background:${active ? T.primary : T.muted};color:${active ? T.primaryFg : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">${i + 1}</div>
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <h3 style="margin:0;font:600 14.5px system-ui;color:${active ? T.primary : T.fg}">${esc(p.title)}</h3>
@@ -1181,7 +1181,7 @@ function main(): string {
                 ${p.interventions
                   .map((iv) => {
                     const ivActive = iv.id === w.__vpActiveIntervention;
-                    return `<div data-seek="${esc(iv.t)}" style="padding:9px 11px;border-radius:8px;background:${ivActive ? T.primarySoft : T.muted};border:1px solid ${ivActive ? T.primaryRing : T.border};cursor:pointer">
+                    return `<div data-seek="${esc(iv.t)}" style="padding:9px 11px;border-radius:8px;background:${ivActive ? T.primarySoft : T.neutral};border:1px solid ${ivActive ? T.primaryRing : T.border};cursor:pointer">
                     <div style="display:flex;gap:8px;align-items:baseline">
                       <span style="font:700 11.5px ui-monospace,monospace;color:${ivActive ? T.primary : T.mutedFg};min-width:28px">${esc(iv.label)}</span>
                       <strong style="flex:1;font:600 13px system-ui;color:${T.fg}">${esc(iv.title)}</strong>
@@ -1284,7 +1284,7 @@ function main(): string {
           .map((m) => {
             const active = w.__vpActiveMeta === m.id;
             return `<li data-seek="${esc(m.t)}" style="padding:10px 11px;border-radius:${T.radius};background:${active ? T.primarySoft : T.card};border:1px solid ${active ? T.primaryRing : T.border};cursor:pointer;display:flex;gap:10px;align-items:flex-start">
-            <div style="flex-shrink:0;width:28px;height:28px;border-radius:7px;background:${active ? T.primary : T.muted};color:${active ? "#fff" : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${esc(m.n)}</div>
+            <div style="flex-shrink:0;width:28px;height:28px;border-radius:7px;background:${active ? T.primary : T.muted};color:${active ? T.primaryFg : T.mutedFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${esc(m.n)}</div>
             <div style="flex:1;min-width:0">
               <div style="display:flex;gap:8px;align-items:baseline">
                 <strong style="font:600 13.5px system-ui;color:${T.fg};flex:1">${esc(m.title)}</strong>
