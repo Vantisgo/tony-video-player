@@ -77,7 +77,7 @@ So that **the enrichment layer reads as part of the course rather than a bolted-
 - **Commits:** _(none yet)_
 - **Agent / Session:** claude-opus-5 / session ba3ec5c2-6e53-41f5-9ffc-608520dd5cb7
 - **Back refs:**
-  - `.claude/PRPs/plans/2026-08-04_spike-parity_quiz-lifecycle-darktheme.plan.md` — ships the German quiz strings this plan externalises; **must land first** (it creates `demo-overlays/quiz.ts`)
+  - `.claude/PRPs/plans/completed/2026-08-04_spike-parity_quiz-lifecycle-darktheme.plan.md` — ships the German quiz strings this plan externalises; **must land first** (it creates `demo-overlays/quiz.ts`)
   - `.claude/PRPs/plans/completed/2026-07-24_refactor_runtime-ts-module-migration.plan.md` — established `runtime-src/common/` as the home for shared runtime modules
 - **Forward refs:** _(none yet)_
 
@@ -87,10 +87,11 @@ So that **the enrichment layer reads as part of the course rather than a bolted-
 
 ## Blocking Dependency
 
-**Do not start this plan until the spike-parity plan is merged.** It creates
-`runtime-src/demo-overlays/quiz.ts` with ~30 of the strings this plan externalises, and it edits
-`admin-toggle/{index,styles,prompt}.ts`. Running them in parallel guarantees conflicts in the same
-files for no benefit.
+**Satisfied as of 2026-08-04** — the spike-parity plan is implemented and archived, so
+`runtime-src/demo-overlays/quiz.ts` and the reworked `admin-toggle/` now exist on
+`feature/mm-refactoring`. Re-run the inventory greps in _Agent Notes_ against the current
+source before starting: the German quiz strings landed as written, and `admin-toggle`'s button
+label is now `enable Annotation` / `edit Annotation` (two strings, not one).
 
 ---
 
@@ -672,7 +673,7 @@ _Append-only history of changes made **after** this plan was first built (newest
 <summary>2026-08-04 — initial plan created</summary>
 
 Created as the companion follow-up to
-`.claude/PRPs/plans/2026-08-04_spike-parity_quiz-lifecycle-darktheme.plan.md`, per the user's
+`.claude/PRPs/plans/completed/2026-08-04_spike-parity_quiz-lifecycle-darktheme.plan.md`, per the user's
 decision to keep that plan's German quiz strings as-is and plan i18n separately. String inventory
 derived by grep from `feature/mm-refactoring` plus the strings the spike-parity plan introduces.
 

@@ -16,7 +16,9 @@
   no `type="module"`, no runtime imports. The `.js` are committed and CI drift-checks them
   (`git diff --exit-code -- public/runtime`); the `.js.map` are external + gitignored.
   `.prettierignore` excludes the generated `.js` so the pre-commit `pretty-quick` doesn't
-  fight the drift-check. **Do NOT add a schema/validation library to the runtime bundle** —
+  fight the drift-check, and `eslint.config.mjs` ignores them too (their only warnings are
+  esbuild's `x?.y()` statement style, and the count crept per rebuild).
+  **Do NOT add a schema/validation library to the runtime bundle** —
   it inlines into the injected script (zod added ~50KB); strict validation belongs
   server-side. Validate with `npm run typecheck:runtime` + `npm test` (vitest + happy-dom).
 - **Runtime config is untrusted input.** The `[data-vp-config]` JSON is authored by
@@ -30,8 +32,8 @@
   known tags (`hls-video`/`mux-player`/`media-controller video`) → capability
   sweep (incl. open shadow DOM) → none. `[data-vp-player]` on/wrapping the player
   is the durable, structure-independent hook when tags shift. (`admin-toggle`
-  still queries `hls-video` directly — an editor-only banner, intentionally not
-  migrated.)
+  still queries `hls-video` directly — its editor-only launch button is
+  intentionally not migrated.)
 - **Native-chrome hiding must be gated on the `[data-vp-reskinned="true"]`
   success marker.** The `RESKIN_CSS` rules that `display:none` the native
   Vidstack/Mux controls are all scoped under that marker (set on the host only
@@ -39,6 +41,23 @@
   chrome-hiding rule — a failed/aborted attach must leave the native player fully
   operable, never hidden-chrome-with-no-controls. `attach()`/`applySetup()` wrap
   their bodies in try/catch with rollback to preserve this invariant.
+- **The demo overlay mount is a controller, not a one-shot.** A permanent
+  200ms-debounced `MutationObserver` + debounced `popstate` drive `evaluate()`, which
+  remounts when the config JSON changes or `mountState.checkAlive()` reports our nodes
+  are gone, and tears down when the context disappears. Two cleanup scopes: the
+  process-level `CLEANUP_KEY` registry owns the watchers and survives remounts; each
+  mount disposes its own array. Never conflate them — a remount would kill the observer
+  that triggers remounts. Anything a mount adds to the DOM **must** register its own
+  removal (`makeSlot` does); teardown is now a routine path, not just an error path.
+- **`DEFAULT_*` sample data is opt-in via `"demo": true`.** An absent config section
+  renders nothing. Only sidebar tabs whose section has content are created, and with no
+  section content the sidebar is skipped entirely — installing it hides LearningSuite's
+  own right column, so an empty one must not touch the host layout.
+- **Theme tokens have one source: `app/globals.css` `.dark`.** The injected runtime
+  cannot read them (it executes on the LearningSuite origin, where the stylesheet is
+  never loaded), so `demo-overlays/styles.ts` `T` carries the sRGB translation with a
+  `// --var` comment per token. Change globals.css first, then re-translate. `.dark` is
+  currently inert — nothing applies the class.
 - **Runtime→our-API calls go through our own relays and must fail open.** The
   injected runtime runs on the LearningSuite origin, so it resolves _our_ origin
   via `common/runtime-url.ts` (`getRuntimeBaseUrl`, from the injected script URL /
@@ -237,3 +256,49 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   player is re-skinned, so the attach safety-net rollback and the per-player `teardown()` both hand the
   attachments back automatically (teardown calls the sync itself, since the MutationObserver may
   already be gone).
+
+## 2026-08-04 · spike-parity · Quizzes, remount-resilient lifecycle, dark tokens, intervention end times
+
+- **Decision**: `spike/learningsuite-enrichment-poc` was **forward-ported, not merged** — it
+  edited the hand-written `public/runtime/*.js` this branch turned into esbuild output, so a
+  merge clobbers one side either way. Re-implement against `runtime-src/`; treat the spike as
+  read-only reference (`git show spike/…:public/runtime/demo-overlays.js`).
+- **Decision**: the quiz subsystem lives in its own module (`demo-overlays/quiz.ts`) rather
+  than nested in `index.ts` like the other renderers, so the state machine is testable without
+  a mount — the `reskin-player/language-pack.ts` precedent. Its DOM is built with
+  `createElement` + `createTextNode` (`qzEl`), so it is XSS-safe by construction: **never**
+  introduce `innerHTML` there, and never add `esc()` (it would double-escape).
+- **Decision**: quiz state is session-only (no storage, no API) and priority is
+  **quiz > voice-over > passive pills** — ask the quiz first in `recomputeActive`, or a cue
+  starts underneath an open dialog. Quiz key/pointer handling is **capture-phase** to beat the
+  reskin's bubble-phase Space/K shortcut, with an escape hatch so keys are not stolen from
+  LearningSuite form fields outside the dialog.
+- **Deviation**: pill slots stay unconditional (only `vp-slot-quiz` is conditional). They are
+  invisible when empty and have consumers across five renderers; nullable slots would have been
+  a large null-guard sweep for no visible gain. The user-visible outcome comes from the `demo`
+  gate + conditional tabs + skipping the sidebar.
+- **User feedback (2026-08-04)**: dark palette → "port to current standard" (hence the
+  globals.css token source); runtime intervention end times → "implement fully" (hence
+  `common/interventions.ts`, mirroring `lib/active-intervention.ts` — same rule, per-surface
+  field names `t`/`end` vs `timestampSec`/`endTimeSec`, deliberately not shared to keep `lib/`
+  out of the bundle); German quiz strings → keep, plan i18n separately; admin status indicator
+  → re-add without the poll.
+- **Gotcha**: `hasVpConfigOnPage()` scans `input[type=text]` values, which the host's React app
+  rewrites constantly — read it at most a couple of times per attach (render + dialog close).
+  The 2s `setInterval` it replaced pegged the renderer. Never re-arm an interval or observer on it.
+- **Gotcha**: quiz `previousTime` starts at `-0.01`, so the **first** `onTime()` window spans
+  the whole timeline — mounting or resuming past a break opens it immediately rather than
+  skipping it. Intentional (resume-at-position) but surprising; covered by a named test.
+- **Gotcha (tests)**: the controller's `document`-level capture listeners outlive a test file —
+  track harnesses and dispose them in `afterEach`, or later tests fail on intercepted clicks.
+  happy-dom does not evaluate `@container`, so assert `data-cols`, never a computed column count.
+- **Gotcha (lint)**: `bun run lint` already exits 1 on this branch — 7 pre-existing errors in
+  `app/admin/`, `app/api/lessons/`, `components/video-player/`. Compare a **cache-free** run
+  (`rm -rf .next/cache/eslint`) against HEAD before believing a count. Generated
+  `public/runtime/*.js` are now eslint-ignored (their warnings are esbuild's `x?.y()` style and
+  the count crept per rebuild, masking real source warnings).
+- **Gotcha**: `lib/` is **not** prettier-formatted repo-wide (17 files predate the hook, no-semicolon
+  style). Match the surrounding style there; staging a `lib/` file makes `pretty-quick` reformat
+  the whole file, which can bury a small change under hundreds of style lines.
+- **Follow-up**: runtime UI i18n — the quiz ships German inside an otherwise English overlay
+  by design (`.claude/PRPs/plans/2026-08-04_runtime-i18n_locale-aware-overlay-strings.plan.md`).
