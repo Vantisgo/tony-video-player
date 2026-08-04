@@ -4,6 +4,7 @@ import { esc } from "../common/escape";
 import { formatTime as fmt } from "../common/format";
 import { type ConfigHit, loadVpConfig, parseVpConfig } from "../common/config";
 import { findPlayers, resolveHost } from "../common/player";
+import { activeInterventionId } from "../common/interventions";
 import { getBunnyVideoId } from "../common/tracks";
 import { getRuntimeBaseUrl } from "../common/runtime-url";
 import { shouldRun } from "../common/killswitch";
@@ -15,7 +16,8 @@ import {
   DEFAULT_PHASES,
   DEFAULT_SCIENCES,
 } from "./data";
-import { ANIM_CSS, SECTION_CSS, T } from "./styles";
+import { ANIM_CSS, QUIZ_CSS, SECTION_CSS, T } from "./styles";
+import { createQuizController } from "./quiz";
 
 const CLEANUP_KEY = "__vpDemoCleanup";
 const AUDIO_EL_ID = "vp-audio-el";
@@ -70,87 +72,203 @@ interface VpDemoWindow {
 
 const w = window as unknown as VpDemoWindow;
 
+// One mounted overlay set. `cleanups` is MOUNT-scoped — distinct from the
+// process-level CLEANUP_KEY registry, which owns the permanent watchers and must
+// survive a remount (conflating the two makes a remount kill the observer that
+// triggers remounts).
+interface MountState {
+  cleanups: Array<() => void>;
+  raw: string;
+  disposed: boolean;
+  // False once the host has torn our DOM out from under us, or the player we
+  // mounted against is gone — the signal to rebuild.
+  checkAlive: () => boolean;
+}
+
+// Ids of every node a mount can create, for the safety-net sweep.
+const OWNED_NODE_IDS = [
+  "vp-slot-tl",
+  "vp-slot-tr",
+  "vp-slot-br",
+  "vp-slot-lt",
+  "vp-slot-quiz",
+  "vp-demo-sidebar",
+  "vp-anim-style",
+  "__vp-section-style",
+  "__vp-quiz-style",
+  AUDIO_EL_ID,
+];
+
 function main(): string {
   // Idempotency: tear down anything left from a prior run before mounting again.
   resetCleanup(CLEANUP_KEY);
 
-  // LearningSuite renders the embed-block config asynchronously via React, after
-  // head scripts run. Wait for both the <pre data-vp-config> and an <hls-video>,
-  // then defer two animation frames so React has finished reconciling.
-  function deferAndApply(hit: ConfigHit): void {
-    requestAnimationFrame(() => requestAnimationFrame(() => applySetup(hit)));
-  }
+  let generation = 0;
+  let currentMount: MountState | null = null;
+  let everMounted = false;
 
   function readyContext(): ConfigHit | null {
+    // window.player is installed by reskin-player.js; the mount drives overlays
+    // through it, so it is part of "ready", not just the DOM.
+    if (!window.player) return null;
     const hit = loadVpConfig();
     if (!hit) return null;
     if (!findPlayers()[0]) return null;
     return hit;
   }
 
-  const initialContext = readyContext();
-  if (!initialContext) {
-    console.info("[vp] waiting for both <pre data-vp-config> and a player");
-    let done = false;
-    const watcher = new MutationObserver(() => {
-      if (done) return;
-      const hit = readyContext();
-      if (!hit) return;
-      done = true;
-      watcher.disconnect();
-      deferAndApply(hit);
-    });
-    watcher.observe(document.body || document.documentElement, {
-      subtree: true,
-      childList: true,
-    });
-    pushCleanup(CLEANUP_KEY, () => watcher.disconnect());
-    // No-context deadline: if the config is present but the context never becomes
-    // ready (player never appears), report once after a grace period (F6).
-    if (loadVpConfig()) {
-      const deadline = setTimeout(() => {
-        if (!done) reportFailure("demo-context-timeout");
-      }, 10000);
-      pushCleanup(CLEANUP_KEY, () => clearTimeout(deadline));
+  function teardownMount(): void {
+    // Bump unconditionally, even with no active mount: a scheduleMount() may
+    // already be waiting on its double-rAF with currentMount still null, and this
+    // has to invalidate that too (e.g. script re-injection mid-schedule).
+    generation++;
+    if (!currentMount) return;
+    const mount = currentMount;
+    currentMount = null;
+    mount.disposed = true;
+    for (const fn of mount.cleanups.splice(0).reverse()) {
+      try {
+        fn();
+      } catch {
+        /* ignore teardown errors */
+      }
     }
-    return "demo: waiting for config + video";
   }
-  deferAndApply(initialContext);
-  return "demo: setup queued";
 
-  function applySetup(cfgHit: ConfigHit): void {
-    // Safety net: if mounting throws part-way, tear down registered cleanups and
+  function scheduleMount(): void {
+    const gen = ++generation;
+    // LearningSuite renders the embed-block config asynchronously via React. When
+    // a config <pre>/player has just appeared the host is often still mid-
+    // reconciliation and would strip DOM we add to the player host on its next
+    // pass, so defer past two animation frames.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (gen !== generation) return; // superseded by a newer schedule or a teardown
+        const fresh = readyContext();
+        if (!fresh) return;
+        mount(fresh);
+      }),
+    );
+  }
+
+  function evaluate(): void {
+    const hit = readyContext();
+    if (!hit) {
+      teardownMount();
+      return;
+    }
+    if (currentMount) {
+      const raw = JSON.stringify(hit.data);
+      // Nothing changed and our nodes are intact — the overwhelmingly common
+      // case on a chatty React host. Do no work.
+      if (raw === currentMount.raw && currentMount.checkAlive()) return;
+      teardownMount(); // config edited, or the host stripped us — remount fresh
+    }
+    scheduleMount();
+  }
+
+  // ─── Permanent watchers ───
+  // Debounced so React's re-renders don't trigger a full re-evaluation per
+  // mutation. The 200ms is load-bearing: characterData on a React host is chatty.
+  let scanPending: ReturnType<typeof setTimeout> | null = null;
+  function scheduleScan(): void {
+    if (scanPending) return;
+    scanPending = setTimeout(() => {
+      scanPending = null;
+      evaluate();
+    }, 200);
+  }
+
+  const observer = new MutationObserver(scheduleScan);
+  observer.observe(document.body || document.documentElement, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+  });
+  pushCleanup(CLEANUP_KEY, () => {
+    observer.disconnect();
+    if (scanPending) clearTimeout(scanPending);
+    teardownMount();
+  });
+
+  // The editor flips between …/27ZqYKF1 and …?view=preview without reloading, so
+  // the mount decision has to be re-made on history navigation too.
+  let popTimeout: ReturnType<typeof setTimeout> | null = null;
+  const popHandler = (): void => {
+    if (popTimeout) clearTimeout(popTimeout);
+    popTimeout = setTimeout(() => {
+      popTimeout = null;
+      scheduleScan();
+    }, 50);
+  };
+  window.addEventListener("popstate", popHandler);
+  pushCleanup(CLEANUP_KEY, () => {
+    window.removeEventListener("popstate", popHandler);
+    if (popTimeout) clearTimeout(popTimeout);
+  });
+
+  // No-context deadline: a config is on the page but we never manage to mount
+  // (e.g. LearningSuite renamed the player element) — report once (F6).
+  if (loadVpConfig()) {
+    const deadline = setTimeout(() => {
+      if (!everMounted) reportFailure("demo-context-timeout");
+    }, 10000);
+    pushCleanup(CLEANUP_KEY, () => clearTimeout(deadline));
+  }
+
+  evaluate();
+  return "demo overlay controller active";
+
+  function mount(cfgHit: ConfigHit): void {
+    const mountState: MountState = {
+      cleanups: [],
+      raw: JSON.stringify(cfgHit.data),
+      disposed: false,
+      checkAlive: () => true,
+    };
+    currentMount = mountState;
+    // Safety net: if mounting throws part-way, dispose this mount's cleanups and
     // remove any nodes we created, restoring the host DOM (never a half-mounted
-    // overlay set + leaked observers).
+    // overlay set + leaked observers). The process-level registry is left alone —
+    // it owns the watchers that will retry.
     try {
-      applySetupInner(cfgHit);
+      mountInner(cfgHit, mountState);
+      everMounted = true;
     } catch (err) {
       console.error("[vp demo] setup failed; restoring host", err);
-      resetCleanup(CLEANUP_KEY);
-      [
-        "vp-slot-tl",
-        "vp-slot-tr",
-        "vp-slot-br",
-        "vp-slot-lt",
-        "vp-demo-sidebar",
-        "vp-anim-style",
-        "__vp-section-style",
-        AUDIO_EL_ID,
-      ].forEach((id) => document.getElementById(id)?.remove());
+      teardownMount();
+      OWNED_NODE_IDS.forEach((id) => document.getElementById(id)?.remove());
       reportFailure("demo-setup-error");
     }
   }
 
-  function applySetupInner(cfgHit: ConfigHit): void {
+  function mountInner(cfgHit: ConfigHit, mountState: MountState): void {
+    const onCleanup = (fn: () => void): void => {
+      mountState.cleanups.push(fn);
+    };
     console.info(`[vp] config loaded from ${cfgHit.source}`);
     const parsed = parseVpConfig(cfgHit.data);
-    const phases: Phase[] = parsed.phases ?? DEFAULT_PHASES;
-    const sciences = parsed.sciences ?? DEFAULT_SCIENCES;
-    const audios = parsed.audios ?? DEFAULT_AUDIOS;
-    const metaSteps = parsed.metaSteps ?? DEFAULT_META_STEPS;
+    // Never silently substitute demo data for an absent category: an embed with
+    // no phases must render nothing, not our sample coaching arc. DEFAULT_* only
+    // ever applies under the explicit `"demo": true` opt-in.
+    const isDemo = parsed.demo === true;
+    const phases: Phase[] = parsed.phases ?? (isDemo ? DEFAULT_PHASES : []);
+    const sciences = parsed.sciences ?? (isDemo ? DEFAULT_SCIENCES : []);
+    const audios = parsed.audios ?? (isDemo ? DEFAULT_AUDIOS : []);
+    const metaSteps = parsed.metaSteps ?? (isDemo ? DEFAULT_META_STEPS : []);
+    const quiz = parsed.quiz ?? null;
+
+    const showSectionOverlay = phases.length > 1; // one phase: Coaching tab is enough
+    const showCoachingTab = phases.length > 0;
+    const showScienceTab = sciences.length > 0;
+    const showMetaTab = metaSteps.length > 0;
+    const showSidebar = showCoachingTab || showScienceTab || showMetaTab;
+    const showAudio = audios.length > 0;
+    const showQuiz = quiz !== null;
+
     w.__vpConfig = {
       source: cfgHit.source,
-      data: { phases, sciences, audios, metaSteps },
+      data: { phases, sciences, audios, metaSteps, demo: isDemo, quiz },
     };
 
     // ─── Animation keyframes (inject once) ───
@@ -163,6 +281,10 @@ function main(): string {
 
     // ─── Player overlay slots ───
     const player = findPlayers()[0];
+    // Captured so checkAlive() can tell "still the same player" from "the host
+    // swapped the element under us".
+    const mountedPlayer = window.player;
+    const mountedMediaEl = player;
     const playerHost = player ? resolveHost(player) : null;
     if (!playerHost) {
       console.warn("[demo] no player host");
@@ -171,14 +293,22 @@ function main(): string {
     if (getComputedStyle(playerHost).position === "static")
       playerHost.style.position = "relative";
 
-    [
-      "vp-slot-tl",
-      "vp-slot-tr",
-      "vp-slot-br",
-      "vp-slot-lt",
-      "vp-demo-sidebar",
-    ].forEach((id) => document.getElementById(id)?.remove());
+    // Defensive: clear stray nodes with our ids (e.g. a stale mount from before
+    // this controller's own cleanup registry existed).
+    OWNED_NODE_IDS.filter(
+      (id) => id.startsWith("vp-slot-") || id.endsWith("sidebar"),
+    ).forEach((id) => document.getElementById(id)?.remove());
 
+    const SLOT_EVENTS = [
+      "click",
+      "dblclick",
+      "mousedown",
+      "mouseup",
+      "pointerdown",
+      "pointerup",
+      "touchstart",
+      "touchend",
+    ];
     function makeSlot(id: string, posCss: string): HTMLElement {
       const el = document.createElement("div");
       el.id = id;
@@ -186,17 +316,16 @@ function main(): string {
       const swallow = (e: Event) => {
         if (e.target !== el) e.stopPropagation();
       };
-      [
-        "click",
-        "dblclick",
-        "mousedown",
-        "mouseup",
-        "pointerdown",
-        "pointerup",
-        "touchstart",
-        "touchend",
-      ].forEach((ev) => el.addEventListener(ev, swallow));
+      SLOT_EVENTS.forEach((ev) => el.addEventListener(ev, swallow));
       playerHost!.appendChild(el);
+      // Registering removal is what makes teardownMount() actually restore the
+      // host: without it a teardown (config removed, kill-switch, re-injection)
+      // would orphan the slots, and only the next mount's defensive id sweep
+      // would clean them up.
+      onCleanup(() => {
+        SLOT_EVENTS.forEach((ev) => el.removeEventListener(ev, swallow));
+        el.remove();
+      });
       return el;
     }
     const slotTL = makeSlot(
@@ -209,6 +338,14 @@ function main(): string {
       "vp-slot-lt",
       "left:14px; right:14px; bottom:70px;",
     );
+    // The quiz scrim covers the whole player, so unlike the (invisible when
+    // empty) pill slots this one is only created when there is a quiz to show.
+    const slotQuiz = showQuiz
+      ? makeSlot(
+          "vp-slot-quiz",
+          "inset:0; z-index:20; display:flex; align-items:center; justify-content:center;",
+        )
+      : null;
 
     // ─── Section indicator (top-left) ───
     const sectionStyleId = "__vp-section-style";
@@ -279,17 +416,12 @@ function main(): string {
       const phase = phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec);
       const section = phase?.title ?? "Intro";
       const subs = phase
-        ? phase.interventions.map((iv) => ({
+        ? // `current` honours an optional `end`, so an intervention past its end
+          // time falls through to "completed" rather than staying current.
+          phase.interventions.map((iv) => ({
             ...iv,
             completed: t > iv.t,
-            current:
-              (
-                phase.interventions as {
-                  findLast?: (
-                    fn: (x: Intervention) => boolean,
-                  ) => Intervention | undefined;
-                }
-              ).findLast?.((x) => t >= x.t)?.id === iv.id,
+            current: activeInterventionId(phase.interventions, t) === iv.id,
           }))
         : [];
       const cur = subs.find((s) => s.current);
@@ -597,6 +729,21 @@ function main(): string {
     };
     w.__audioCtrl = audioCtrl;
 
+    // Quiz breaks. Created after audioCtrl so it can ask whether a voice-over is
+    // playing; the media element is injected (never re-queried) so discovery
+    // stays the single source of truth for "which element is the player".
+    const quizCtrl =
+      quiz && slotQuiz && player
+        ? createQuizController({
+            quiz,
+            mediaEl: player,
+            playerHost,
+            slot: slotQuiz,
+            isAudioActive: () => audioCtrl.isActive(),
+            onCleanup,
+          })
+        : null;
+
     // Wired once, on the persistent element — never inside activate().
     const onAudioTimeUpdate = () => {
       if (
@@ -626,7 +773,7 @@ function main(): string {
     audioEl.addEventListener("timeupdate", onAudioTimeUpdate);
     audioEl.addEventListener("ended", onAudioEnded);
     audioEl.addEventListener("error", onAudioError);
-    pushCleanup(CLEANUP_KEY, () => {
+    onCleanup(() => {
       audioEl.removeEventListener("timeupdate", onAudioTimeUpdate);
       audioEl.removeEventListener("ended", onAudioEnded);
       audioEl.removeEventListener("error", onAudioError);
@@ -666,7 +813,7 @@ function main(): string {
     };
     document.addEventListener("click", onCaptureClick, true);
     document.addEventListener("keydown", onCaptureKeydown, true);
-    pushCleanup(CLEANUP_KEY, () => {
+    onCleanup(() => {
       document.removeEventListener("click", onCaptureClick, true);
       document.removeEventListener("keydown", onCaptureKeydown, true);
     });
@@ -802,22 +949,47 @@ function main(): string {
       };
     }
 
+    // ─── Quiz overlay styles ───
+    if (showQuiz) {
+      const quizStyleId = "__vp-quiz-style";
+      document.getElementById(quizStyleId)?.remove();
+      const s = document.createElement("style");
+      s.id = quizStyleId;
+      s.textContent = QUIZ_CSS;
+      document.head.appendChild(s);
+      onCleanup(() => document.getElementById(quizStyleId)?.remove());
+    }
+
     // ─── Sidebar (Coaching / Science / Meta Structure) ───
     const sidebar = document.createElement("aside");
     sidebar.id = "vp-demo-sidebar";
     sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,.06); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
+    // Only tabs whose config section has content exist at all — an empty
+    // "Science" tab is dead UI, not a placeholder.
+    const tabDefs = [
+      { key: "coaching", label: "Coaching", show: showCoachingTab },
+      { key: "science", label: "Science", show: showScienceTab },
+      { key: "meta", label: "Meta Structure", show: showMetaTab },
+    ].filter((tab) => tab.show);
+
     sidebar.innerHTML = `
     <div style="padding:12px 14px 0">
       <div style="display:flex;gap:4px;background:${T.muted};padding:4px;border-radius:10px;">
-        <button data-tab="coaching" class="vp-tab vp-tab-active" style="flex:1;padding:7px 10px;border:0;background:${T.card};color:${T.fg};border-radius:7px;cursor:pointer;font:600 13px system-ui;box-shadow:0 1px 2px rgba(0,0,0,.06)">Coaching</button>
-        <button data-tab="science"  class="vp-tab" style="flex:1;padding:7px 10px;border:0;background:transparent;color:${T.mutedFg};border-radius:7px;cursor:pointer;font:500 13px system-ui">Science</button>
-        <button data-tab="meta"     class="vp-tab" style="flex:1;padding:7px 10px;border:0;background:transparent;color:${T.mutedFg};border-radius:7px;cursor:pointer;font:500 13px system-ui">Meta Structure</button>
+        ${tabDefs
+          .map(
+            (tab, i) =>
+              `<button data-tab="${esc(tab.key)}" class="vp-tab${i === 0 ? " vp-tab-active" : ""}" style="flex:1;padding:7px 10px;border:0;background:${i === 0 ? T.card : "transparent"};color:${i === 0 ? T.fg : T.mutedFg};border-radius:7px;cursor:pointer;font:${i === 0 ? "600" : "500"} 13px system-ui;${i === 0 ? "box-shadow:0 1px 3px rgba(0,0,0,.28)" : ""}">${esc(tab.label)}</button>`,
+          )
+          .join("")}
       </div>
     </div>
     <div id="vp-panels" style="flex:1;overflow:auto;min-height:0;padding:14px">
-      <div data-panel="coaching"></div>
-      <div data-panel="science"  style="display:none"></div>
-      <div data-panel="meta"     style="display:none"></div>
+      ${tabDefs
+        .map(
+          (tab, i) =>
+            `<div data-panel="${esc(tab.key)}"${i === 0 ? "" : ' style="display:none"'}></div>`,
+        )
+        .join("")}
     </div>
   `;
 
@@ -866,7 +1038,7 @@ function main(): string {
       for (const t of targets) {
         const prev = t.style.paddingRight;
         t.style.paddingRight = reservePx + "px";
-        pushCleanup(CLEANUP_KEY, () => {
+        onCleanup(() => {
           t.style.paddingRight = prev;
         });
       }
@@ -880,9 +1052,7 @@ function main(): string {
         sidebar.style.maxHeight = `calc(100vh - ${next + SIDEBAR_GAP}px)`;
       };
       window.addEventListener("resize", onResize);
-      pushCleanup(CLEANUP_KEY, () =>
-        window.removeEventListener("resize", onResize),
-      );
+      onCleanup(() => window.removeEventListener("resize", onResize));
     }
 
     function tryFlexSibling(): boolean {
@@ -932,34 +1102,48 @@ function main(): string {
       return false;
     }
 
-    if (!tryFlexSibling()) applyFixedRightRail();
+    // Installing the sidebar hides LearningSuite's own right column, so with
+    // nothing to show we must not touch the host layout at all.
+    if (showSidebar) {
+      if (!tryFlexSibling()) applyFixedRightRail();
+      onCleanup(() => sidebar.remove());
+    }
 
     function setTab(name: string): void {
+      const target = tabDefs.some((tab) => tab.key === name)
+        ? name
+        : tabDefs[0]?.key;
+      if (!target) return;
       sidebar.querySelectorAll(".vp-tab").forEach((b) => {
         const btn = b as HTMLElement;
-        const active = btn.dataset.tab === name;
+        const active = btn.dataset.tab === target;
         btn.style.background = active ? T.card : "transparent";
         btn.style.color = active ? T.fg : T.mutedFg;
         btn.style.fontWeight = active ? "600" : "500";
-        btn.style.boxShadow = active ? "0 1px 2px rgba(0,0,0,.06)" : "none";
+        btn.style.boxShadow = active ? "0 1px 3px rgba(0,0,0,.28)" : "none";
       });
       sidebar.querySelectorAll("[data-panel]").forEach((p) => {
         (p as HTMLElement).style.display =
-          p.getAttribute("data-panel") === name ? "" : "none";
+          p.getAttribute("data-panel") === target ? "" : "none";
       });
     }
     w.__vpSidebarTab = setTab;
+    onCleanup(() => {
+      delete w.__vpSidebarTab;
+    });
     sidebar.querySelectorAll(".vp-tab").forEach((btn) => {
       (btn as HTMLElement).onclick = () =>
         setTab((btn as HTMLElement).dataset.tab!);
     });
 
     // Coaching panel
-    const coachingPanel = sidebar.querySelector(
+    // null when the section has no content and its tab was never created.
+    const coachingPanel = sidebar.querySelector<HTMLElement>(
       '[data-panel="coaching"]',
-    ) as HTMLElement;
+    );
     let coachingSig: string | null = null;
     function renderCoaching(): void {
+      if (!coachingPanel) return;
       const sig = `${w.__vpActivePhase}|${w.__vpActiveIntervention}|${w.__vpExpandedPhase}`;
       if (sig === coachingSig) return;
       coachingSig = sig;
@@ -1039,14 +1223,15 @@ function main(): string {
         };
       });
     }
-    w.__vpExpandedPhase = phases[0].id;
+    if (phases.length) w.__vpExpandedPhase = phases[0].id;
     renderCoaching();
 
     // Science panel
-    const sciencePanel = sidebar.querySelector(
+    const sciencePanel = sidebar.querySelector<HTMLElement>(
       '[data-panel="science"]',
-    ) as HTMLElement;
+    );
     function renderSciencePanel(): void {
+      if (!sciencePanel) return;
       sciencePanel.innerHTML = `<div style="display:grid;gap:8px">
       ${sciences
         .map((s) => {
@@ -1077,7 +1262,7 @@ function main(): string {
     function renderScienceHighlight(): void {
       renderSciencePanel();
       const id = w.__vpHighlightedScience;
-      if (!id) return;
+      if (!id || !sciencePanel) return;
       const card = sciencePanel.querySelector(
         `[data-sci-card="${CSS.escape(id)}"]`,
       );
@@ -1086,11 +1271,10 @@ function main(): string {
     renderSciencePanel();
 
     // Meta Structure panel
-    const metaPanel = sidebar.querySelector(
-      '[data-panel="meta"]',
-    ) as HTMLElement;
+    const metaPanel = sidebar.querySelector<HTMLElement>('[data-panel="meta"]');
     let metaSig: string | null = null;
     function renderMeta(): void {
+      if (!metaPanel) return;
       const sig = w.__vpActiveMeta ?? "";
       if (sig === metaSig) return;
       metaSig = sig;
@@ -1122,10 +1306,9 @@ function main(): string {
     function recomputeActive(t: number): void {
       const phase =
         phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec) || null;
-      let intervention: string | null = null;
-      if (phase)
-        for (const iv of [...phase.interventions].sort((a, b) => a.t - b.t))
-          if (t >= iv.t) intervention = iv.id;
+      const intervention = phase
+        ? activeInterventionId(phase.interventions, t)
+        : null;
       let meta: string | null = null;
       for (const m of metaSteps) if (t >= m.t) meta = m.id;
 
@@ -1139,23 +1322,44 @@ function main(): string {
       renderMeta();
       renderSection();
 
-      maybeTriggerAudio(t);
-      if (audioCtrl.isActive()) {
+      // Priority: an open quiz outranks a voice-over cue, which outranks the
+      // passive pills. Asking the quiz first is what keeps a cue from starting
+      // underneath an open dialog.
+      quizCtrl?.onTime(t);
+      const quizOpen = quizCtrl?.isActive() === true;
+
+      if (!quizOpen) maybeTriggerAudio(t);
+
+      if (quizOpen) {
+        clearMetaPill();
+        clearSciencePill();
+      } else if (showAudio && audioCtrl.isActive()) {
         renderAudio();
-        if (slotBR.dataset.kind === "meta") {
-          slotBR.innerHTML = "";
-          slotBR.dataset.kind = "";
-          slotBR.dataset.activeMeta = "";
-        }
+        clearMetaPill();
+        renderScience(t);
       } else {
         renderMetaStep(t);
+        renderScience(t);
       }
+    }
 
-      renderScience(t);
+    function clearMetaPill(): void {
+      if (slotBR.dataset.kind !== "meta") return;
+      slotBR.innerHTML = "";
+      slotBR.dataset.kind = "";
+      slotBR.dataset.activeMeta = "";
+    }
+
+    function clearSciencePill(): void {
+      if (!slotTR.dataset.activeSci) return;
+      slotTR.innerHTML = "";
+      slotTR.dataset.activeSci = "";
     }
 
     window.player.setOverlays([]);
     const offBus = window.player.on("any", (e) => {
+      if (mountState.disposed) return;
+      if (e.type === "play") quizCtrl?.onPlay();
       if (
         e.type === "time" ||
         e.type === "overlay-show" ||
@@ -1165,9 +1369,31 @@ function main(): string {
       ) {
         recomputeActive(e.time ?? window.player.current ?? 0);
       }
+      // `ended` was previously filtered out entirely; end-anchored quiz breaks
+      // and the summary both hang off it.
+      if (e.type === "ended") quizCtrl?.onEnded();
     });
-    if (typeof offBus === "function") pushCleanup(CLEANUP_KEY, offBus);
+    if (typeof offBus === "function") onCleanup(offBus);
     recomputeActive(window.player.current ?? 0);
+
+    // The host (React) sometimes strips DOM we appended to the player host on a
+    // later reconciliation pass even though the config is unchanged. The
+    // debounced watcher calls this each tick to decide whether to remount. Only
+    // assert nodes this mount actually created — see the show* flags.
+    mountState.checkAlive = () => {
+      if (!playerHost.isConnected) return false;
+      if (window.player !== mountedPlayer) return false;
+      if (findPlayers()[0] !== mountedMediaEl) return false;
+      if (!slotTL.isConnected) return false;
+      if (!slotTR.isConnected) return false;
+      if (!slotBR.isConnected) return false;
+      if (!slotLowerThird.isConnected) return false;
+      if (showQuiz && !slotQuiz?.isConnected) return false;
+      if (showSidebar && !sidebar.isConnected) return false;
+      return true;
+    };
+
+    console.info("[vp] demo overlays mounted");
   }
 }
 

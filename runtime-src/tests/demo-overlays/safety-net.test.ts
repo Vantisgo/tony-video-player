@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerApi } from "../../common/types";
 
-function installPlayerStub(): void {
+function installPlayerStub(opts: { throwOnSetOverlays?: boolean } = {}): void {
   const stub: PlayerApi = {
     get current() {
       return 0;
@@ -11,7 +11,12 @@ function installPlayerStub(): void {
     pause() {},
     seek() {},
     on: () => () => {},
-    setOverlays() {},
+    setOverlays() {
+      // Fault injection point for the rollback test: setOverlays is called at the
+      // very end of the mount, so a throw here guarantees the slots and sidebar
+      // already exist and must be swept back up.
+      if (opts.throwOnSetOverlays) throw new Error("injected mount failure");
+    },
   };
   (window as unknown as { player: PlayerApi }).player = stub;
 }
@@ -88,10 +93,9 @@ afterEach(() => {
 
 describe("demo applySetup rollback (F2)", () => {
   it("AC2: a throw during setup removes the slots + sidebar it mounted", async () => {
-    installPlayerStub();
-    // Empty phases: mounting reaches `phases[0].id` and throws AFTER the slots
-    // and sidebar are created — the catch must restore the host DOM.
-    addConfig({ phases: [], sciences: [], audios: [], metaSteps: [] });
+    installPlayerStub({ throwOnSetOverlays: true });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    addConfig(VALID_CONFIG);
 
     await import("../../demo-overlays/index");
     await nextFrames();
@@ -99,6 +103,21 @@ describe("demo applySetup rollback (F2)", () => {
     expect(document.getElementById("vp-demo-sidebar")).toBeNull();
     expect(document.getElementById("vp-slot-tl")).toBeNull();
     expect(document.getElementById("vp-slot-br")).toBeNull();
+  });
+
+  it("an empty config section is no longer a fault — it mounts and renders nothing", async () => {
+    installPlayerStub();
+    // Previously this threw at `phases[0].id`. Absent sections are now a
+    // supported, silent no-op (the DEFAULT_* sample data needs `demo: true`).
+    addConfig({ phases: [], sciences: [], audios: [], metaSteps: [] });
+
+    await import("../../demo-overlays/index");
+    await nextFrames();
+
+    // Slots still mount (they are invisible when empty), but nothing claims the
+    // host layout: with no section content there is no sidebar at all.
+    expect(document.getElementById("vp-slot-tl")).not.toBeNull();
+    expect(document.getElementById("vp-demo-sidebar")).toBeNull();
   });
 });
 
