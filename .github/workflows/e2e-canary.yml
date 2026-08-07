@@ -1,0 +1,113 @@
+name: e2e-canary
+
+# Runs the injected runtime against the real LearningSuite platform — the one
+# environment none of the checks in runtime.yml can see.
+#
+# Deliberately a separate workflow. This job talks to a third party over a real
+# network and will occasionally be red for reasons that have nothing to do with a
+# change; keeping it out of runtime.yml is what stops that flake from blocking a
+# merge.
+
+on:
+  # The drift canary: does the deployed runtime still work on the live platform?
+  schedule:
+    - cron: "0 6 * * *"
+
+  # Manual run, optionally pointed somewhere specific.
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Course or lesson — URL, id or name. Empty = the default fixtures."
+        required: false
+        type: string
+      video:
+        description: "1-based video index within that course. Empty = all videos."
+        required: false
+        type: string
+
+  # PR-time run: a successful Vercel preview deployment.
+  deployment_status:
+
+jobs:
+  canary:
+    # `deployment_status` fires for every successful deployment, production
+    # included. Without this guard the "PR" path would run in preview mode
+    # against production. Non-deployment triggers pass straight through.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment_status.environment != 'Production' &&
+       github.event.deployment_status.environment != 'production')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      E2E_LS_BASE_URL: ${{ vars.E2E_LS_BASE_URL }}
+      E2E_LS_EMAIL: ${{ secrets.E2E_LS_EMAIL }}
+      E2E_LS_PASSWORD: ${{ secrets.E2E_LS_PASSWORD }}
+      E2E_LS_LOGIN_PATH: ${{ vars.E2E_LS_LOGIN_PATH }}
+      E2E_LS_COURSES_PATH: ${{ vars.E2E_LS_COURSES_PATH }}
+      # Empty on the schedule and on deployment_status, which is what makes those
+      # paths run the committed default fixtures unchanged.
+      E2E_TARGET: ${{ inputs.target }}
+      E2E_VIDEO: ${{ inputs.video }}
+      # Set only on the deployment_status path: its presence is what switches the
+      # run into preview mode.
+      E2E_RUNTIME_BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.environment_url || '' }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+
+      - name: Install Chrome
+        # Real Chrome, not bundled Chromium: Bunny streams H.264/AAC HLS and the
+        # playback assertion needs those codecs to exist.
+        run: bunx playwright install --with-deps chrome
+
+      - name: Run the canary
+        # `bun run e2e`, never `playwright test` — the latter resolves no targets
+        # and would pass having collected nothing.
+        run: bun run e2e
+
+      - name: Upload report and traces
+        uses: actions/upload-artifact@v4
+        # `!cancelled()` rather than `failure()`: when phase 1 fails, the resolve
+        # project's attachment is the only evidence of why a target could not be
+        # found.
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Alert
+        if: failure()
+        # Posts to the same sink the runtime's own failure beacons use, so there
+        # is one place to watch. `source` distinguishes a canary failure from a
+        # runtime-side one. An unset secret skips the step rather than failing it
+        # — a missing webhook must not turn a red canary into a confusing error.
+        env:
+          WEBHOOK: ${{ secrets.RUNTIME_ALERT_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "RUNTIME_ALERT_WEBHOOK_URL is not set — skipping the alert."
+            exit 0
+          fi
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          mode="canary"
+          if [ -n "${E2E_RUNTIME_BASE_URL}" ]; then mode="preview"; fi
+          # jq --arg, not printf: `target` is a free-text workflow_dispatch input,
+          # and a quote in it would otherwise produce malformed JSON.
+          payload=$(jq -nc \
+            --arg mode "$mode" \
+            --arg target "${E2E_TARGET}" \
+            --arg video "${E2E_VIDEO}" \
+            --arg run_url "$run_url" \
+            '{source:"e2e-canary", mode:$mode, target:$target, video:$video, run_url:$run_url}')
+          curl -sS -X POST -H "content-type: application/json" -d "$payload" "$WEBHOOK" || \
+            echo "::warning::alert POST failed"

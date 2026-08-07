@@ -2,7 +2,13 @@
 
 Decisions taken 2026-07-27 for verifying that the injected runtime
 (`reskin-player` + `demo-overlays`) still mounts and works on the real,
-auth-gated LearningSuite instance (`vantisgo.learningsuite.io`).
+auth-gated LearningSuite instance.
+
+> **Tenant (updated 2026-08-07):** the suite runs against
+> `orbit.learningsuite.io`. These decisions were written when the only tenant in
+> play was `vantisgo.learningsuite.io` (where the POC in
+> `docs/learningsuite-enrichment-research.md` ran); nothing below depends on
+> which tenant it is. `docs/e2e-canary.md` is authoritative for configuration.
 
 Implementation plan: `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md`
 
@@ -42,13 +48,13 @@ Implementation plan: `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-ove
 
 Not committable as a `.env.example` — `.gitignore` ignores `.env*`.
 
-| Var                               | Where                        | Purpose                                                               |
-| --------------------------------- | ---------------------------- | --------------------------------------------------------------------- |
-| `E2E_LS_BASE_URL`                 | `.env.local` + repo variable | e.g. `https://vantisgo.learningsuite.io`                              |
-| `E2E_LS_EMAIL`                    | `.env.local` + repo secret   | Dedicated test account (never a real person's)                        |
-| `E2E_LS_PASSWORD`                 | `.env.local` + repo secret   | "                                                                     |
-| `E2E_RUNTIME_BASE_URL`            | PR job only                  | Vercel preview base to redirect `/runtime/*.js` to                    |
-| `VERCEL_AUTOMATION_BYPASS_SECRET` | PR job only                  | Preview deployments are protected; without this the bundle fetch 401s |
+| Var                               | Where                        | Purpose                                                                              |
+| --------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
+| `E2E_LS_BASE_URL`                 | `.env.local` + repo variable | `https://orbit.learningsuite.io` (the tenant under test — the POC ran on `vantisgo`) |
+| `E2E_LS_EMAIL`                    | `.env.local` + repo secret   | Dedicated test account (never a real person's)                                       |
+| `E2E_LS_PASSWORD`                 | `.env.local` + repo secret   | "                                                                                    |
+| `E2E_RUNTIME_BASE_URL`            | PR job only                  | Vercel preview base to redirect `/runtime/*.js` to                                   |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | PR job only                  | Preview deployments are protected; without this the bundle fetch 401s                |
 
 ## Open operational prerequisites
 

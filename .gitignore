@@ -23,6 +23,14 @@ yarn.lock
 # testing
 /coverage
 
+# playwright: e2e/.auth holds a LIVE LearningSuite session (storageState) and the
+# resolved targets hand-off — never commit either. Reports/traces are artifacts.
+e2e/.auth/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # generated runtime bundles: the .js are committed, the source maps are not
 public/runtime/*.js.map
 

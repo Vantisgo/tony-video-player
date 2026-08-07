@@ -97,8 +97,10 @@ A Playwright project at `e2e/`, run by its own `playwright.config.ts`:
 - **Created:** 2026-07-27
 - **Modified:** 2026-07-27 (initial build)
 - **Modified:** 2026-07-28 (parameterised target + video selection; two-phase resolve; tasks 1–12 → 1–16)
-- **Commits:** _(none yet)_
+- **Modified:** 2026-08-07 (built: harness complete; Task 1 human prerequisites and Task 16 live verification outstanding)
+- **Commits:** _(pending — branch `feature/e2e-canary-playwright`)_
 - **Agent / Session:** claude-opus-5 / session 0d3c0d72-a581-4fbe-b9a6-8063390256c1
+- **Agent / Session:** claude-opus-5[1m] / session 779c2b40-face-41b3-aa56-033283950364
 - **Back refs:**
   - `docs/e2e-overlay-canary-decisions.md` — the 12 decisions this plan implements
   - `.claude/PRPs/plans/completed/2026-07-24_resilience_adaptability.plan.md` — player discovery + `_diag().discovery`, the drift signal this canary reads
@@ -449,7 +451,7 @@ Execute in order. Each task is atomic and independently verifiable.
 
 **Status markers** — prefix EVERY task header with one; the build agent updates it inline as it works: `[ ]` idle · `[wip]` in progress · `[x]` complete · `[f]` failed. All tasks start `[ ]`. If a task cannot be made to pass, mark it `[f]`, record why in Agent Notes, and move on if the rest of the plan can still proceed.
 
-### `[ ]` Task 1: GATHER the human prerequisites (blocking, not code)
+### `[f]` Task 1: GATHER the human prerequisites (blocking, not code)
 
 - **ACTION**: Collect the facts no agent can invent. Record them in
   `docs/e2e-canary.md` (created in Task 15) as you go.
@@ -495,7 +497,7 @@ Execute in order. Each task is atomic and independently verifiable.
   var names from `docs/e2e-overlay-canary-decisions.md` plus `E2E_TARGET` /
   `E2E_VIDEO`.
 
-### `[ ]` Task 2: INSTALL Playwright and CREATE `playwright.config.ts`
+### `[x]` Task 2: INSTALL Playwright and CREATE `playwright.config.ts`
 
 - **ACTION**: Add the dependency and the root config.
 - **IMPLEMENT**:
@@ -531,7 +533,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **VALIDATE**: `bunx playwright test --list` exits 0 and prints all three
   projects; `bunx tsc --noEmit` passes.
 
-### `[ ]` Task 3: UPDATE `.gitignore`
+### `[x]` Task 3: UPDATE `.gitignore`
 
 - **ACTION**: Ignore Playwright output and the persisted session.
 - **IMPLEMENT**: append a `# playwright` block with `e2e/.auth/`,
@@ -542,7 +544,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **VALIDATE**: `printf 'x' > e2e/.auth/probe.json && git status --porcelain e2e/ | wc -l`
   → `0`; then delete the probe.
 
-### `[ ]` Task 4: CREATE `e2e/support/env.ts`
+### `[x]` Task 4: CREATE `e2e/support/env.ts`
 
 - **ACTION**: Validate the e2e environment at its trust boundary.
 - **IMPLEMENT**: a zod schema over `process.env` exporting a frozen object:
@@ -570,7 +572,7 @@ Execute in order. Each task is atomic and independently verifiable.
   `E2E_LS_BASE_URL=https://x.test E2E_LS_EMAIL=a@b.test E2E_LS_PASSWORD=p bunx playwright test --list`
   exits 0 while omitting a var produces a named error.
 
-### `[ ]` Task 5: CREATE `e2e/support/auth.setup.ts`
+### `[wip]` Task 5: CREATE `e2e/support/auth.setup.ts`
 
 - **ACTION**: One login per run, persisted for the test project.
 - **IMPLEMENT**: `setup("authenticate", async ({ page }) => { … })` using
@@ -596,7 +598,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **VALIDATE**: `bunx playwright test --project=setup` passes and
   `e2e/.auth/ls.json` exists and is git-ignored.
 
-### `[ ]` Task 6: CREATE `e2e/fixtures/lessons.ts` (the default targets)
+### `[wip]` Task 6: CREATE `e2e/fixtures/lessons.ts` (the default targets)
 
 - **ACTION**: Commit the two lesson fixtures as typed constants. These are what
   runs when **no target parameter** is given — i.e. what the schedule tests.
@@ -619,7 +621,7 @@ Execute in order. Each task is atomic and independently verifiable.
   `targets.json`, never the fixtures directly, so both modes take one code path.
 - **VALIDATE**: `bunx tsc --noEmit`.
 
-### `[ ]` Task 7: CREATE `e2e/support/target.ts`
+### `[x]` Task 7: CREATE `e2e/support/target.ts`
 
 - **ACTION**: Turn the two raw parameters into one typed, validated spec.
 - **IMPLEMENT**:
@@ -653,7 +655,7 @@ Execute in order. Each task is atomic and independently verifiable.
   send the logged-in canary somewhere unexpected.
 - **VALIDATE**: `bunx tsc --noEmit && bun run lint`.
 
-### `[ ]` Task 8: CREATE `e2e/support/targets-file.ts`
+### `[x]` Task 8: CREATE `e2e/support/targets-file.ts`
 
 - **ACTION**: Define the contract between the resolve phase and the test phase,
   once, with a schema — it crosses a process boundary, so it is a trust boundary.
@@ -678,7 +680,7 @@ Execute in order. Each task is atomic and independently verifiable.
   suite reports "0 tests, all green" for a course that no longer has videos.
 - **VALIDATE**: `bunx tsc --noEmit && bun run lint`.
 
-### `[ ]` Task 9: CREATE `e2e/support/resolve.setup.ts` (the `resolve` project)
+### `[wip]` Task 9: CREATE `e2e/support/resolve.setup.ts` (the `resolve` project)
 
 - **ACTION**: Parameters in, `targets.json` out.
 - **IMPLEMENT**: `setup("resolve targets", async ({ page }) => { … })`:
@@ -717,7 +719,7 @@ Execute in order. Each task is atomic and independently verifiable.
   `E2E_TARGET=<course id>`, `E2E_TARGET=<course name> E2E_VIDEO=2`, and
   `E2E_VIDEO=999` (which must fail with the range).
 
-### `[ ]` Task 10: CREATE `scripts/e2e.ts` and wire the `e2e` script
+### `[x]` Task 10: CREATE `scripts/e2e.ts` and wire the `e2e` script
 
 - **ACTION**: One command, two phases, so nobody has to know about the phases.
 - **IMPLEMENT**: a bun script that
@@ -744,7 +746,7 @@ Execute in order. Each task is atomic and independently verifiable.
   `bun run e2e` runs the defaults; a bad course name exits non-zero with the
   candidate list.
 
-### `[ ]` Task 11: CREATE `e2e/support/runtime-source.ts`
+### `[wip]` Task 11: CREATE `e2e/support/runtime-source.ts`
 
 - **ACTION**: Decide, per run, which bundle the LS page executes.
 - **IMPLEMENT**: `export async function useRuntimeSource(page: Page): Promise<void>`
@@ -772,7 +774,7 @@ Execute in order. Each task is atomic and independently verifiable.
   the PR run does not prove the relay works.
 - **VALIDATE**: `bunx tsc --noEmit`; manual preview-mode smoke in Task 16.
 
-### `[ ]` Task 12: CREATE `e2e/support/assertions.ts`
+### `[x]` Task 12: CREATE `e2e/support/assertions.ts`
 
 - **ACTION**: The assertion vocabulary, so the spec reads as intent.
 - **IMPLEMENT** four exported helpers, each taking `{ page }`-style options:
@@ -814,7 +816,7 @@ Execute in order. Each task is atomic and independently verifiable.
   and validate the shape before use.
 - **VALIDATE**: `bunx tsc --noEmit && bun run lint`.
 
-### `[ ]` Task 13: CREATE `e2e/overlay-canary.spec.ts`
+### `[wip]` Task 13: CREATE `e2e/overlay-canary.spec.ts`
 
 - **ACTION**: The spec, generated from `targets.json` — one test per video.
 - **IMPLEMENT**: at module scope (collection time), not inside a hook:
@@ -857,7 +859,7 @@ Execute in order. Each task is atomic and independently verifiable.
   against production, and `bun run e2e --course=<exercise course>` lists one
   test group per video.
 
-### `[ ]` Task 14: CREATE `.github/workflows/e2e-canary.yml`
+### `[wip]` Task 14: CREATE `.github/workflows/e2e-canary.yml`
 
 - **ACTION**: Three triggers, one job matrix-free.
 - **IMPLEMENT**:
@@ -904,7 +906,7 @@ Execute in order. Each task is atomic and independently verifiable.
   then a real `workflow_dispatch` run must pass — once with no inputs, once with
   `target` + `video` set (Task 16).
 
-### `[ ]` Task 15: CREATE `docs/e2e-canary.md` and UPDATE `package.json`
+### `[x]` Task 15: CREATE `docs/e2e-canary.md` and UPDATE `package.json`
 
 - **ACTION**: Make it operable by someone who did not write it.
 - **IMPLEMENT**:
@@ -947,7 +949,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **VALIDATE**: `bun run e2e --list` works via the new script (forwarded to
   phase 2); `npx prettier --check docs/e2e-canary.md package.json`.
 
-### `[ ]` Task 16: VERIFY end to end, then UPDATE `docs/feature-context.md`
+### `[f]` Task 16: VERIFY end to end, then UPDATE `docs/feature-context.md`
 
 - **ACTION**: Prove all three modes and every parameter combination, then record
   the durable knowledge.
@@ -1452,3 +1454,123 @@ retries and artifacts were judged worth the extra invocation and the
 `targets.json` hand-off. The rejected alternative is recorded here so it is not
 re-proposed as a "simplification": it cannot be one, because Playwright fixes its
 test list while loading spec files.
+
+### 2026-08-07 — built (harness complete, live verification outstanding)
+
+**What was built:** Tasks 2–15. `playwright.config.ts` (three projects, Chrome
+channel, retain-on-failure artifacts), `e2e/support/{env,target,targets-file,
+auth.setup,resolve.setup,runtime-source,assertions}.ts`, `e2e/fixtures/lessons.ts`,
+`e2e/overlay-canary.spec.ts`, `scripts/e2e.ts`, `.github/workflows/e2e-canary.yml`,
+`docs/e2e-canary.md`, plus `.gitignore` / `package.json` / `vitest.config.ts`
+updates and `e2e/support/target.test.ts` (15 vitest cases).
+
+**Status markers:** `[wip]` is used for tasks whose code is complete and
+type/lint-clean but whose VALIDATE step needs live LearningSuite credentials that
+do not exist yet. Nothing marked `[wip]` is unfinished code; it is unverified
+code.
+
+**Deviations, with cause:**
+
+1. **Task 12 / AC4 — the demo status string in the plan no longer exists.**
+   `demo-overlays/index.ts` returns `"demo overlay controller active"`, not
+   `"demo: setup queued"`; the quiz/remount rewrite replaced it after this plan
+   was written. Asserted the real string.
+2. **Task 12 / AC4 — `#vp-demo-sidebar` is conditional.** It is only built when
+   the config carries coaching, science or meta content
+   (`demo-overlays/index.ts:265`). Asserting it unconditionally would redden a
+   healthy overlay-only lesson, so it is asserted-if-present and annotated
+   otherwise. The four `#vp-slot-*` nodes **are** unconditional on mount, so they
+   carry the "it actually mounted" assertion instead.
+3. **Task 11 — the loader landed after this plan.** The tenant now carries
+   `loader.js`, which forwards its own query string to every child bundle. Route
+   interception therefore matches by URL predicate rather than the planned
+   `"**/runtime/*.js"` glob (a glob does not match the `?x-vercel-protection-bypass=…`
+   the tenant's script tag carries), and `E2E_RUNTIME_BASE_URL` is normalised to
+   `…/runtime/loader.js` with the bypass secret as a query parameter. Verified
+   against `runtime-url.ts`: the override is read as a **script** URL
+   (`new URL(".", scriptUrl)`), and `loader/index.ts` only assigns
+   `__vpRuntimeBaseUrl` when unset, so the harness's value wins by design.
+4. **Task 9 — "is this a video lesson?" is decided by probing.** No icon/badge/
+   type attribute for video rows has ever been recorded, and Task 1 could not
+   record one. Rather than guess a selector, the resolver opens each candidate
+   lesson and checks for a player element, mirroring the runtime's own discovery
+   contract. Correct but one page load per lesson; `hasPlayer()` carries a
+   `TODO(Task 1)` to swap in a real locator.
+5. **Testing Strategy — the vitest `include` was extended** with
+   `e2e/**/*.test.ts`, which the plan said to avoid. The property that clause
+   protects is that vitest never collects Playwright specs; that property is
+   enforced by the `*.spec.ts` / `*.test.ts` split, which the added glob cannot
+   breach. `parseTargetSpec` / `targetSpecKey` are branchy pure logic and are now
+   covered.
+6. **`targetSpecKey` lives in `target.ts`, not `targets-file.ts`** (plan Task 8).
+   It is a pure function of `TargetSpec` and belongs with it; `targets-file.ts`
+   imports nothing from it.
+7. **`scripts/e2e.ts` uses `node:child_process.spawnSync`, not `Bun.spawn`.** The
+   `Bun` global is not in the repo's type environment, so `bunx tsc --noEmit`
+   would fail on it.
+8. **Two new optional env vars** — `E2E_LS_LOGIN_PATH` (default `/login`) and
+   `E2E_LS_COURSES_PATH` (default `/student`). These are Task 1 facts nobody has
+   recorded; making them configuration means the unknown is visible and
+   overridable rather than a guess frozen into a setup file.
+9. **`e2e/fixtures/lessons.ts` holds one fixture, not two**, and its `domShape`
+   is `"unverified"`. The one entry is the lesson every POC run in
+   `docs/learningsuite-enrichment-research.md` was verified against — the only
+   lesson URL this repo has ever recorded. Inventing a second would have looked
+   like coverage while testing nothing.
+10. **`expectsDemoOverlays` was dropped from `LessonFixture`.** Task 13 already
+    replaces it with a runtime skip, and the spec reads `targets.json`, never the
+    fixtures — the field would have had no reader.
+
+**Blocked:**
+
+- **Task 1** (`[f]`): the test-account password, the recorded login selectors, the
+  second fixture lesson, the ≥3-video exercise course and the Vercel bypass secret
+  cannot be invented. What _was_ recoverable from the repo
+  (`docs/learningsuite-enrichment-research.md`: the test account address, the
+  lesson URL pattern, the POC lesson, the bypass mechanism) is recorded in
+  `docs/e2e-canary.md`, which carries the outstanding items as a checklist.
+- **Task 16** (`[f]`): Levels 4, 4b, 5 and 6 all need a live login. Not run.
+- **Chrome is not installed on this machine.** `bunx playwright install --with-deps chrome`
+  needs sudo, which is unavailable here. `channel: "chrome"` stays pinned rather
+  than being downgraded to `chromium`, per Task 2's gotcha — a codec-related
+  playback failure would be a false diagnosis.
+
+**What _was_ verified without credentials:** `bunx tsc --noEmit` clean;
+`bun run typecheck:runtime` clean; `bun run test` 259 passing (244 before, +15
+new); lint adds no new errors and no new warnings (the 7 errors in `app/` and
+`components/` are the documented pre-existing baseline); the workflow YAML parses;
+the env boundary names each missing/invalid variable without echoing the password;
+`E2E_VIDEO` rejects `0`, `1.5` and a video index without a target; a cross-tenant
+URL is refused; and — with a synthetic `targets.json` — collection emits exactly
+`videos × 4` tests, while a missing or mismatched file refuses with the documented
+message instead of collecting zero tests.
+
+### 2026-08-07 — tenant corrected to `orbit.learningsuite.io`
+
+**Requested:** "The base url for the test is https://orbit.learningsuite.io/".
+
+The plan, the decisions doc and the research doc all name
+`vantisgo.learningsuite.io`, which is where the POC ran. The suite targets
+`orbit`.
+
+**What changed:**
+
+- `docs/e2e-canary.md` (all 8 references), `e2e/support/auth.setup.ts` (the
+  codegen hint) and `e2e/support/target.test.ts` (fixture values, including the
+  cross-tenant-refusal assertion, which a blind find/replace misses because the
+  origin is regex-escaped there).
+- `docs/e2e-overlay-canary-decisions.md`: header note plus the `E2E_LS_BASE_URL`
+  row. The decisions themselves are unchanged — none of them depend on which
+  tenant it is.
+- `docs/learningsuite-enrichment-research.md` deliberately left alone: it records
+  what was measured on `vantisgo` in the past, and rewriting it would falsify a
+  research record.
+
+**Supersedes amendment 9 of the build entry above.** `e2e/fixtures/lessons.ts` is
+now **empty**, not one-of-two. The single lesson path this repo had recorded
+(`/student/course/the-vantisgo-way-interne-akademie/…`) was observed on `vantisgo`
+and almost certainly does not exist on `orbit`; carrying it over would have
+produced a "no player element" failure that reads like a runtime regression. The
+path survives as a commented example of the URL shape. Consequence: `bun run e2e`
+with no parameters now fails with "No default lessons are configured" until Step 5
+of `docs/e2e-canary.md` is done. Parameterised runs are unaffected.

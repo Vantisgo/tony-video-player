@@ -302,3 +302,36 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   the whole file, which can bury a small change under hundreds of style lines.
 - **Follow-up**: runtime UI i18n — the quiz ships German inside an otherwise English overlay
   by design (`.claude/PRPs/plans/2026-08-04_runtime-i18n_locale-aware-overlay-strings.plan.md`).
+
+## 2026-08-07 · e2e-canary · Playwright canary against the live LearningSuite platform
+
+- **Decision**: the canary asserts only surfaces the runtime **already publishes** —
+  `__vpReskinStatus`, `__vpDemoStatus`, `window.player._diag()`, `[data-vp-reskinned="true"]`,
+  `[data-vp="…"]`, `#vp-slot-*`. No `data-testid` was added and none should be: if an
+  assertion seems to need a new hook, it is reaching past what the runtime promises.
+  `_diag().discovery` is the drift signal — a fall-through to `"capability"` means
+  LearningSuite already renamed the player, so it is a test **annotation**, not a failure.
+- **Decision**: a parameterised target needs **two Playwright invocations**, not one.
+  Playwright fixes its test list while loading spec files, so `resolve` writes
+  `e2e/.auth/targets.json` and a _separate_ `canary` invocation reads it at module scope.
+  A `dependencies: ["resolve"]` chain looks equivalent, runs without error, and collects
+  zero tests. That is why `bun run e2e` is a script; `playwright test` alone is refused
+  via a `specKey` mismatch check.
+- **Gotcha**: an absence assertion on third-party markup passes vacuously. Every
+  native-chrome check is `count === 0 || hidden` **paired** with a positive assertion that
+  our own controls are visible — without the pair, a page where the runtime never ran
+  reports green.
+- **Gotcha**: `bun test` is **not** `bun run test`. The former is Bun's own runner and
+  collects every `*.test.ts` without happy-dom (182 failures); only `bun run test`
+  (`vitest run`) is meaningful. Several plans say `bun test`.
+- **Gotcha**: the plan's quoted runtime strings had already rotted — `demo-overlays`
+  returns `"demo overlay controller active"`, not `"demo: setup queued"`, and
+  `#vp-demo-sidebar` is conditional on the config carrying coaching/science/meta content
+  (the four `#vp-slot-*` nodes are the unconditional mount proof). Read the runtime, never
+  a plan's quoted line numbers.
+- **Gotcha**: route interception must match by **URL predicate**, not a `"**/runtime/*.js"`
+  glob — the tenant's loader tag carries `?x-vercel-protection-bypass=…`, which no glob
+  matches. `__vpRuntimeBaseUrl` is read as a _script_ URL (`new URL(".", scriptUrl)`), and
+  `loader/index.ts` only assigns it when unset, so an e2e-provided value wins by design.
+- **Constraint**: `e2e/**` uses `*.spec.ts` (Playwright) and `*.test.ts` (vitest). That
+  split is load-bearing and is what makes `e2e/**/*.test.ts` safe in the vitest `include`.
