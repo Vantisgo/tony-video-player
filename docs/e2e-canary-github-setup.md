@@ -78,14 +78,14 @@ every morning.
 
 ## Checklist
 
-Work these in order. Steps 1, 2 and 5 are prerequisites for a green run; step 3
-needs someone with admin rights.
+Work these in order. Steps 1 and 2 are prerequisites for a green run; step 3
+needs someone with admin rights. Step 5 is done.
 
 - [ ] 1. Sync GitHub `main` and land the canary branch
 - [ ] 2. Update the branch Vercel builds (fixes the tenant bundle)
 - [ ] 3. Add 3 variables + 4 secrets — **needs repo admin**
 - [ ] 4. Confirm Actions is enabled — **needs repo admin**
-- [ ] 5. Fix the `deployment_status` trigger **before** the workflow reaches a public `main`
+- [x] 5. Fix the `deployment_status` trigger — **done 2026-08-27**, see below
 - [ ] 6. First run via `workflow_dispatch`, green
 - [ ] 7. Let the schedule run, and confirm it actually fired
 - [ ] 8. Verify the failure path (artifacts + webhook alert) once, deliberately
@@ -192,52 +192,81 @@ An admin should confirm, under **Settings → Actions → General**:
 - Workflow permissions are whatever the org standard is — the canary needs no
   write scope on `GITHUB_TOKEN`.
 
-### Step 5 — Fix the `deployment_status` trigger before it reaches a public `main`
+### Step 5 — `deployment_status` provenance guard ✅ implemented 2026-08-27
 
-**Do this before step 1 lands the workflow, not after.** On a public repository
-the trigger as written is a credential-exfiltration path.
+**The problem.** `deployment_status` fires for every successful deployment in the
+repository, including previews built from **fork** pull requests. The original
+guard checked only the deployment's _state_ and _environment name_ — nothing
+about where the code came from. On a public repository that meant: anyone forks,
+opens a PR, Vercel builds a preview, the event fires in the **base** repository
+with the real secrets in scope, `E2E_RUNTIME_BASE_URL` is set from the fork's
+`environment_url`, and the canary injects attacker-controlled JavaScript into the
+live tenant page while logged in as the test account. `actions/checkout` on this
+event resolves `github.sha` to the deployment's commit, so `bun install` and
+`bun run e2e` could execute fork-authored code with those secrets present.
 
-`e2e-canary.yml` guards `deployment_status` on the deployment's **state** and
-**environment name** only:
+`deployment_status` is on GitHub's own list of dangerous triggers for exactly this
+reason, alongside `pull_request_target` and `workflow_run`.
 
-```yaml
-if: >-
-  github.event_name != 'deployment_status' ||
-  (github.event.deployment_status.state == 'success' &&
-   github.event.deployment_status.environment != 'Production' &&
-   github.event.deployment_status.environment != 'production')
-```
+**What was implemented** — option 2 from the three that were on the table
+(same-repository provenance guard), in `.github/workflows/e2e-canary.yml`. Two
+independent controls, both fail-closed:
 
-Nothing there checks **provenance**. The sequence:
+1. **The job-level `if:` is now an allowlist**, not a denylist. It requires
+   `state == 'success'`, environment exactly `Preview`/`preview`, and a non-empty
+   `environment_url`. A denylist of `Production` let any _new or renamed_
+   environment through by default; an allowlist makes the failure mode "the PR
+   job stopped running", which is survivable.
+2. **A `Verify deployment provenance` step that runs before `actions/checkout`.**
+   It asks one question: _is the deployed commit reachable from a branch of this
+   repository?_ A fork PR's commit exists here only under `refs/pull/<n>/head`,
+   never on a branch — so this separates internal work from fork work while
+   depending on **no Vercel-specific payload field**. The fetch deliberately
+   requests `refs/heads/*` only; fetching `refs/pull/*` would defeat the check.
 
-1. Anyone forks the public repository and opens a pull request.
-2. Vercel builds a preview → environment `Preview`, state `success` → **the guard
-   passes**.
-3. `deployment_status` is a base-repository event, so the job runs **with the
-   real secrets** — `E2E_LS_PASSWORD` and `RUNTIME_ALERT_WEBHOOK_URL` are in the
-   environment.
-4. `E2E_RUNTIME_BASE_URL` is set from the fork's `environment_url`, so the canary
-   fetches `/runtime/*.js` from an attacker-controlled deployment and injects it
-   into the real tenant page **while logged in as the test account**.
-5. On this event `github.sha` resolves to the deployment's commit — the fork's —
-   so `actions/checkout@v4` followed by `bun install` and `bun run e2e` can
-   execute fork-authored code with those secrets in scope.
+The job also drops to `permissions: contents: read`.
 
-Steps 3 and 4 alone are enough to matter; step 5 makes it worse. `deployment_status`
-is on GitHub's own list of dangerous triggers for exactly this reason, alongside
-`pull_request_target` and `workflow_run`. There are 0 forks today, which is not a
-control.
+Ordering is load-bearing: the provenance step must stay **first**. Every step
+after it checks out or executes repository code, so it is the only place the
+check can run before untrusted code could.
 
-Three ways out, in increasing order of effort:
+**Verified locally** against the real repository, extracting the step's script
+verbatim:
 
-| Option                                                                             | Effect                                                                                                                      |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Drop the `deployment_status` trigger**                                           | Keeps `schedule` + `workflow_dispatch`, which is the drift canary the feature was justified by. Loses PR-time preview runs. |
-| **Add a same-repository provenance guard**                                         | Keeps the PR job for internal branches; requires asserting the deployment's ref/SHA belongs to this repository, not a fork. |
-| **Gate the job behind the existing `Preview` environment with required reviewers** | A human approves each preview run before secrets are exposed. Highest friction, strongest guarantee.                        |
+| Case                                                 | Expected | Result                                                                   |
+| ---------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
+| Branch tip (`118e890`)                               | pass     | ✅ pass — named the containing branch                                    |
+| Ancestor commit deep in history (`9a2fd37`)          | pass     | ✅ pass — so an internal PR whose head is not the branch tip still works |
+| Valid-format but unreachable SHA                     | refuse   | ✅ refused, exit 1                                                       |
+| Malformed SHA / command injection (`HEAD; rm -rf /`) | refuse   | ✅ refused before git saw it                                             |
+| Short SHA (`118e890`)                                | refuse   | ✅ refused                                                               |
 
-Given the PR job has never run and its flake rate is unknown, dropping the
-trigger and reinstating it deliberately is the cheapest safe path.
+> The **true** fork case could not be exercised: the repository has no forks and
+> its only PR (#1) is from an internal branch. Case 3 is a faithful proxy — the
+> guard fetches `refs/heads/*` only, so a fork commit is objectively not fetched
+> and fails at the identical `git cat-file -e`. Confirm against the first real
+> fork PR that appears.
+
+**Residual risks, deliberately accepted:**
+
+- **Internal contributors are trusted by design.** Anyone with push access can
+  still cause the canary to load their preview bundle into the tenant with a live
+  session. That is inherent to what a preview canary _is_; the guard draws the
+  line at the repository boundary, not at the individual.
+- **The guard cannot be edited by a pull request.** For non-`push` events GitHub
+  reads workflow files from the **default branch**, so a PR cannot weaken its own
+  provenance check. This is what makes an inline guard trustworthy — but it also
+  means the guard only takes effect once the workflow is on `main` (step 1).
+- **Anonymous fetch, because this repository is public.** If it is ever made
+  private the step fails and the PR job stops — fail-closed. The fix is to give
+  the fetch `${{ github.token }}`, never to delete the check.
+- **The environment allowlist is `Preview`/`preview` only.** If Vercel ever emits
+  a different environment name the PR job silently stops firing. That is the safe
+  direction, but it is the first thing to check if preview runs disappear.
+
+If the PR path later proves more trouble than it is worth, removing the
+`deployment_status:` trigger entirely remains the cheapest safe option — the
+`schedule` drift canary is what the feature was justified by.
 
 ### Step 6 — First run via `workflow_dispatch`
 

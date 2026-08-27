@@ -30,17 +30,38 @@ on:
 
 jobs:
   canary:
-    # `deployment_status` fires for every successful deployment, production
-    # included. Without this guard the "PR" path would run in preview mode
-    # against production. Non-deployment triggers pass straight through.
+    # `deployment_status` fires for every successful deployment in this
+    # repository — including previews built from **fork** pull requests. It is a
+    # dangerous trigger by nature: the job runs in the base repository's context,
+    # so it holds the LearningSuite credentials, and `E2E_RUNTIME_BASE_URL` below
+    # points the canary at the deployment's own origin. An unguarded fork preview
+    # would therefore have its JavaScript injected into the real tenant page
+    # while the browser is logged in as the test account.
+    #
+    # Two controls, both fail-closed:
+    #   1. this expression — an **allowlist** of the preview environment, never a
+    #      denylist of production. A denylist lets a new or renamed environment
+    #      through by default; an allowlist makes the mistake "the PR job stopped
+    #      running", which is the survivable direction.
+    #   2. the `Verify deployment provenance` step below, which refuses a commit
+    #      that is not reachable from a branch of this repository. It runs BEFORE
+    #      `actions/checkout`, so no fork-authored code executes on a rejected
+    #      run. **Keep it first.**
+    #
+    # Non-deployment triggers (schedule, workflow_dispatch) pass straight through.
     if: >-
       github.event_name != 'deployment_status' ||
       (github.event.deployment_status.state == 'success' &&
-       github.event.deployment_status.environment != 'Production' &&
-       github.event.deployment_status.environment != 'production')
+       (github.event.deployment_status.environment == 'Preview' ||
+        github.event.deployment_status.environment == 'preview') &&
+       github.event.deployment_status.environment_url != '')
 
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
+    # The canary only reads the repository. No write scope, no packages, no id-token.
+    permissions:
+      contents: read
 
     env:
       E2E_LS_BASE_URL: ${{ vars.E2E_LS_BASE_URL }}
@@ -58,6 +79,65 @@ jobs:
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
     steps:
+      # ── MUST REMAIN THE FIRST STEP ──────────────────────────────────────────
+      # This is what stops a fork pull request's preview from reaching the
+      # secrets in `env:` above and the live tenant session below. Every step
+      # after it either checks out or executes repository code; this one runs
+      # before any of that.
+      #
+      # The test: **is the deployed commit reachable from a branch of this
+      # repository?** A fork PR's commit exists here only under
+      # `refs/pull/<n>/head` — never on a branch — so this distinguishes an
+      # internal branch or PR from a fork without depending on any
+      # Vercel-specific payload field. The fetch asks for `refs/heads/*` only;
+      # fetching `refs/pull/*` would defeat the whole check.
+      #
+      # Anonymous fetch, because this repository is public. If it is ever made
+      # private this step fails and the PR job stops running — fail-closed, and
+      # the fix is to give the fetch `${{ github.token }}`, never to delete the
+      # check.
+      - name: Verify deployment provenance
+        if: github.event_name == 'deployment_status'
+        env:
+          SHA: ${{ github.event.deployment.sha }}
+          ENVIRONMENT: ${{ github.event.deployment_status.environment }}
+          TARGET_URL: ${{ github.event.deployment_status.environment_url }}
+        run: |
+          set -euo pipefail
+
+          echo "deployment: sha=${SHA} environment=${ENVIRONMENT}"
+          echo "preview url: ${TARGET_URL}"
+
+          # Reject anything that is not a plain object name before it reaches git.
+          if [[ ! "${SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::deployment sha '${SHA}' is not a 40-character object name — refusing."
+            exit 1
+          fi
+
+          git init -q provenance-check
+          cd provenance-check
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          # --filter=blob:none: commits and trees are all this check needs.
+          git fetch -q --filter=blob:none --no-tags origin "+refs/heads/*:refs/remotes/origin/*"
+
+          if ! git cat-file -e "${SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Deployment commit ${SHA} is not reachable from any branch of ${GITHUB_REPOSITORY}."
+            echo "::error::That is what a fork pull request's preview looks like. Refusing to run with credentials."
+            exit 1
+          fi
+
+          branches="$(git branch -r --contains "${SHA}" 2>/dev/null || true)"
+          if [ -z "${branches}" ]; then
+            echo "::error::Deployment commit ${SHA} was fetched but sits on no branch of ${GITHUB_REPOSITORY} — refusing."
+            exit 1
+          fi
+
+          echo "Provenance OK — ${SHA} is contained in:"
+          echo "${branches}" | sed 's/^/  /'
+
+      # Checks out the deployment's commit on the `deployment_status` path, which
+      # is only safe because the step above has already established that the
+      # commit came from this repository.
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install
