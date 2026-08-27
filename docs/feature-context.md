@@ -335,3 +335,23 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   `loader/index.ts` only assigns it when unset, so an e2e-provided value wins by design.
 - **Constraint**: `e2e/**` uses `*.spec.ts` (Playwright) and `*.test.ts` (vitest). That
   split is load-bearing and is what makes `e2e/**/*.test.ts` safe in the vitest `include`.
+- **Correction (2026-08-27)**: the entry above says "the tenant's loader tag". The tenant
+  does **not** load `loader.js` — `robbins.greator.com` still carries the pre-loader
+  three-tag snippet (`reskin-player.js`, `demo-overlays.js`, `admin-toggle.js`) pointing at
+  the `spike-learningsuite-e…` Vercel alias, whose deployment 404s on `loader.js`. The
+  URL-predicate reasoning still holds (each of the three tags carries the bypass query
+  param), but preview mode normalises its input to a _loader_ URL, which does not match
+  what the tenant runs. Measured, not inferred: see `docs/e2e-canary.md` § Status.
+- **Gotcha (2026-08-27)**: the deployed bundle can be **older than the assertions**. The
+  tenant's `reskin-player.js` (44.5KB) sets no `__vpReskinStatus` and its `_diag()` has no
+  `discovery`; this repo's (64.8KB) has both. The canary therefore fails on a _healthy_
+  page — the reskin and overlays visibly mount. A canary asserting on `window.__vp*` is as
+  much a deployment-freshness check as a host-compatibility check; read a failure that way
+  before assuming LearningSuite changed something.
+- **Constraint (2026-08-27)**: on `robbins.greator.com` a course page's curriculum rows are
+  React-router buttons (`data-cy="continue-lesson"`), not anchors, and modules are
+  progress-gated. Course enumeration is impossible without completing lessons, so
+  `--course` / `--video=N` are unsupported there and the canary is lesson-URL-only
+  (AC10–AC12 won't-fix). Course-**list** rows _are_ anchors, but their text is title
+  concatenated with the progress badge (`"TestNicht gestartet"`), so exact-name matching
+  cannot hit.

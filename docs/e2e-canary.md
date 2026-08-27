@@ -17,6 +17,68 @@ Decisions behind it: `docs/e2e-overlay-canary-decisions.md`.
 
 ---
 
+## Status — blocked on a stale deployed bundle (verified 2026-08-27)
+
+The harness is complete and the login works. The canary **cannot go green
+today**, and no fixture or selector change will fix it: `robbins.greator.com`
+loads a runtime bundle that predates every global the canary asserts on.
+
+Measured against the tenant on 2026-08-27:
+
+|                                          | deployed (what the tenant runs) | this repo's `public/runtime/` |
+| ---------------------------------------- | ------------------------------- | ----------------------------- |
+| `reskin-player.js`                       | 44,533 bytes                    | 64,803 bytes                  |
+| sets `__vpReskinStatus`                  | **no**                          | yes                           |
+| `_diag().discovery`                      | **absent**                      | present                       |
+| `demo-overlays.js` sets `__vpDemoStatus` | **no**                          | yes                           |
+| `loader.js`                              | **404**                         | exists                        |
+
+The tenant's global script slot still carries the **pre-loader three-tag
+snippet** pointing at the spike-branch alias
+(`…-spike-learningsuite-e-f1e7ad-vantisgo-web.vercel.app`), whose deployment is
+old enough that `loader.js` had not been written yet. `_diag().runtime.build` on
+the page reads `audio-drift-badge-passive`.
+
+> `docs/feature-context.md` claims "the tenant now loads `loader.js`". That is
+> **wrong**, and it is why preview mode (`E2E_RUNTIME_BASE_URL`) was built to
+> normalise its input to a _loader_ script URL. Preview mode has never been run.
+
+The runtime itself is healthy on the tenant — only its _observability surface_ is
+missing. On the test lesson the reskin visibly mounts (`[data-vp-reskinned]`×1,
+`.vp-shell`×1, `[data-vp="playpause"]` and `[data-vp="time"]` present), the demo
+overlays mount (`#vp-demo-sidebar` plus all four `#vp-slot-tl/tr/br/lt`), and the
+console logs `[vp] config loaded from element` and `[vp] demo overlays mounted`.
+But `__vpReskinStatus` and `__vpDemoStatus` are `null`, and `_diag()` has no
+`discovery` key.
+
+**First live run** — `bun run e2e --lesson=…/test/bksCcNnT/yPClsb9h/pgWcT1Bk`,
+2026-08-27, 4.5 min:
+
+| Test                                    | Result                                                         |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `reskin-player mounts on the live page` | ❌ `window.__vpReskinStatus was never set` (90s timeout)       |
+| `native player chrome is hidden`        | ✅ passed                                                      |
+| `pressing play advances playback`       | ❌ `_diag()` returned an unexpected shape (no `discovery`)     |
+| `demo-overlays mounts`                  | ⏭ skipped — `__vpDemoStatus` never set, so the spec bails out |
+
+That is the harness working: it detected a bundle mismatch and named it. **The
+fix is an ops change, not a code change** — redeploy the runtime and repoint the
+tenant's script slot at it.
+
+Nothing current is deployed to point at yet either:
+`tony-video-player.vercel.app/runtime/*` returns 404, and the `git-main` alias
+returns 302 (deployment protection).
+
+### The bypass secret is exposed on the tenant
+
+The three script tags in the global slot carry
+`?x-vercel-protection-bypass=<secret>` in plain sight of any logged-in learner
+who opens View Source. This is not a repo leak — the value appears only on the
+tenant — but it should be rotated when the slot is next edited (Vercel → Project
+Settings → Deployment Protection). Never paste the value into this repo.
+
+---
+
 ## The two parameters
 
 The suite takes two inputs. Both are optional; empty means the sensible default.
@@ -28,11 +90,19 @@ The suite takes two inputs. Both are optional; empty means the sensible default.
 
 ```bash
 bun run e2e                                   # default fixtures (what the schedule runs)
-bun run e2e --course="Onboarding"             # every video in that course, by name
-bun run e2e --course=abc123 --video=4         # only the 4th video, by course id/slug
+bun run e2e --course="Onboarding"             # by name        — UNSUPPORTED on this tenant
+bun run e2e --course=abc123 --video=4         # 4th video only — UNSUPPORTED on this tenant
 bun run e2e --lesson=https://…/student/course/…  # a single lesson by URL
 E2E_TARGET=abc123 E2E_VIDEO=4 bun run e2e     # the same thing via env (what CI uses)
 ```
+
+> **Course and video targets do not work on this tenant.** `--course` and
+> `--video=N` need a course page whose curriculum rows are links; LearningSuite
+> renders them as React-router buttons instead (see "Course enumeration" below).
+> Only `--lesson=<url>` and the committed default fixtures work on
+> `robbins.greator.com`. The flags are kept because the code is written and
+> another tenant may render anchors — but they are **unsupported here**, and
+> AC10–AC12 are recorded as won't-fix.
 
 The env vars are the contract; the flags are sugar over them. Anything a flag can
 express, `E2E_TARGET` / `E2E_VIDEO` express identically — which is why CI sets the
@@ -68,8 +138,9 @@ the targets file's `specKey` against the current parameters and fails with an
 actionable message rather than testing something you did not ask for.
 
 Wall-clock is `videos × 4 tests` with `workers: 1` (one shared LearningSuite
-account — do not raise it). A large course takes a while; use `--video=N` for a
-fast re-check. The schedule runs the two-lesson defaults, not a whole course.
+account — do not raise it). On this tenant a run is always one lesson or the
+committed defaults, so it is minutes, not hours — the single live run so far took
+4.5 min for one video.
 
 ---
 
@@ -112,30 +183,34 @@ downgrade it to `chromium` to make a machine without Chrome pass.
 
 ---
 
-## Outstanding prerequisites (Task 1) — step by step
+## Outstanding prerequisites — step by step
 
-The harness is complete and typechecks, but it has never run against
-LearningSuite. These facts are recorded nowhere in this repo and cannot be
-guessed: the login form's real selectors, which lessons to use as fixtures, and
-how a course page lists its lessons. Work through the steps below in order —
-each one ends with something concrete written down or committed.
+The harness is complete and typechecks. What was missing was the set of facts
+recorded nowhere in this repo: the login form's real selectors, which lessons to
+use as fixtures, and how a course page lists its lessons. Most of those were
+recorded on 2026-08-07 and 2026-08-27; what remains is listed below.
 
-Progress checklist (details in the numbered steps):
+Progress checklist:
 
-- [ ] 1. Chrome installed
-- [ ] 2. Test account confirmed (no MFA)
-- [ ] 3. Login form recorded → `auth.setup.ts` locators replaced
-- [ ] 4. Course + curriculum DOM recorded → URL shapes and paths written down
-- [ ] 5. Two fixture lessons chosen → `e2e/fixtures/lessons.ts` filled in
-- [ ] 6. A course with ≥ 3 videos picked → recorded below
-- [ ] 7. `.env.local` written → first green local run
-- [ ] 8. Vercel bypass secret (only if you want the PR job)
-- [ ] 9. CI variables and secrets added → `workflow_dispatch` run green
-- [ ] 10. Plan markers flipped to `[x]`
+- [x] **1. Chrome installed** — Chrome 151.0.7922.173, Playwright 1.62.1
+- [~] **2. Test account** — a login works, but it is a _personal admin_ account, not a dedicated one
+- [x] **3. Login form recorded** — `auth.setup.ts` locators replaced and confirmed by a live run
+- [x] **4. Course + curriculum DOM recorded** — URL shapes and locators written down below
+- [ ] **5. Two fixture lessons chosen** — `e2e/fixtures/lessons.ts` still empty (one found, one missing)
+- [n/a] **6. A course with ≥ 3 videos** — not available, and moot: course targets are unsupported here
+- [~] **7. `.env.local` written** — done; a green local run is **blocked** (see Status at the top)
+- [~] **8. Vercel bypass secret** — already enabled and in use by the tenant; not yet in CI
+- [ ] **9. CI variables and secrets added** → `workflow_dispatch` run green
+- [ ] **10. Plan markers flipped**
+
+> **Blocking everything: the stale deployed bundle** (see Status at the top of
+> this document). Steps 5 and 7 cannot complete until the tenant serves a current
+> runtime, because the canary's four primary assertions read globals that the
+> deployed bundle never publishes.
 
 ---
 
-### Step 1 — Install Chrome
+### Step 1 — Install Chrome ✅ done
 
 ```bash
 bunx playwright install --with-deps chrome
@@ -145,200 +220,130 @@ Needs sudo, so run it in a terminal that can prompt for a password (in Claude
 Code, prefix it with `!`). On WSL2 the `--with-deps` part installs system
 libraries the browser needs.
 
-Chrome is required **for running the suite** (codecs). It is _not_ required for
-Steps 3–4: recording selectors works fine with bundled Chromium, so you can start
-recording before this finishes:
+Chrome is required **for running the suite** (codecs), not for recording
+selectors — bundled Chromium records fine, and `bunx playwright install chromium`
+needs no sudo.
 
-```bash
-bunx playwright install chromium   # no sudo needed
+### Step 2 — Confirm the test account ⚠️ works, but it is the wrong account
+
+A login with the credentials in `.env.local` succeeds: `bunx playwright test
+--project=setup` passes in ~10s. MFA is not enforced.
+
+**But it is a personal admin account, not a dedicated test account.** The
+logged-in UI shows `Patrick Mereien · Admin` and an "Admin-Perspektive" control,
+and the lesson DOM carries `vp-admin-toggle-style` — `admin-toggle.js` mounts its
+annotation launcher for this session. Two consequences:
+
+- Watch progress accrues on a real person's account, on every lesson the canary
+  opens.
+- The canary asserts against a DOM **no learner ever sees**. The admin launcher
+  is extra markup inside the same host the reskin mounts into, so an
+  admin-session green run does not prove a student-session green run.
+
+Create a dedicated account (MFA off), enrol it in the fixture courses, and swap
+`E2E_LS_EMAIL` / `E2E_LS_PASSWORD`. Never commit either.
+
+### Step 3 — Login form ✅ recorded and confirmed
+
+`e2e/support/auth.setup.ts` carries locators recorded with `playwright codegen`
+against `robbins.greator.com` on 2026-08-07, with structural `.or(...)` fallbacks
+kept behind them because the form's accessible names are half German ("E-Mail")
+and half English ("Password", "Login"). Re-confirmed live on 2026-08-27.
+
+Two facts worth keeping visible:
+
+- `E2E_LS_LOGIN_PATH=/auth` — **not** the code default `/login`.
+- The session is **not a cookie**. LearningSuite keeps a refresh token in
+  `localStorage` (`auth_refresh_token_<tenantId>`). Playwright's `storageState`
+  captures it, so a stored state with zero cookies is normal here, not a failed
+  login.
+
+If the form changes, re-record with `bunx playwright codegen
+https://robbins.greator.com` and prefer `getByRole` / `getByLabel` /
+`getByPlaceholder` over anything with a generated class name. **Delete the
+password from anything codegen writes** — it must read `e2eEnv.E2E_LS_PASSWORD`.
+
+### Step 4 — Course and curriculum DOM ✅ recorded 2026-08-27
+
+| Question                                                      | Answer                                                                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Course-list path                                              | `/student/courses` (`E2E_LS_COURSES_PATH`, already set — **not** the code default `/student`)                |
+| Course URL shape                                              | `/student/course/<slug>/<id>` — **two** segments, e.g. `/student/course/test/bksCcNnT`                       |
+| Lesson URL shape                                              | `/student/course/<slug>/<id>/<module>/<lesson>`, e.g. `…/test/bksCcNnT/yPClsb9h/pgWcT1Bk`                    |
+| … and a second, different shape                               | `/student/course/<slug>/<id>/t/<id>` for non-video ("topic") lessons, e.g. `…/test/bksCcNnT/t/CV1Bklhy`      |
+| Are courses on the list page anchors?                         | **Yes** — `a[href]` with the course path. Name resolution is feasible in principle (but see defects below)   |
+| Are curriculum rows on the _course_ page anchors?             | **No.** The only deeper anchors are `/info` and `/bookmarks`                                                 |
+| Are curriculum sections collapsed by default?                 | On the course page, no `[aria-expanded]` at all. On a _lesson_ page, two `[aria-expanded="false"]`           |
+| Is the lesson list paginated / behind "load more"?            | No — it is progress-gated instead ("Schließe zuerst das vorherige Modul ab")                                 |
+| How is a **video** lesson distinguished from a non-video one? | Not on the course page. The `/t/` URL segment marks topic lessons, but that is only visible after navigating |
+| Useful `data-cy` values                                       | `continue-lesson` (the course page's start/resume control), `notification-icon`, `paragraph-element`, `leaf` |
+
+The account sees two courses: `Robbins Greator Coaching Practitioner`
+(`/student/course/robbins-greator-coaching-practitioner/k5GFQsnw`) and `Test`
+(`/student/course/test/bksCcNnT`).
+
+#### Course enumeration cannot work on this tenant
+
+Curriculum rows are React-router buttons, not links, and modules are
+progress-gated so later ones are unreachable until earlier ones are completed.
+`lessonLinksBelow()` in `e2e/support/resolve.setup.ts` therefore finds nothing on
+a course page, and a click-driven walk would have to _complete lessons_ to
+enumerate them.
+
+**Decision (2026-08-27): `--course` and `--video=N` are unsupported on this
+tenant.** The canary ships lesson-URL-only: committed default fixtures for the
+schedule, `--lesson=<url>` for ad-hoc runs. AC10–AC12 are won't-fix. The code
+stays in place — it is written, tested at the unit level, and another tenant may
+render anchors — but nothing here depends on it.
+
+One lead if this is ever revisited: a **lesson** page does expose a sibling-lesson
+anchor plus two collapsible sections. Enumerating from a lesson URL rather than a
+course URL may be tractable where enumerating from the course root is not.
+
+#### Resolver defects found while recording Step 4
+
+These are latent — nothing exercises them while course targets are unsupported —
+but they would each bite the moment someone re-enables `--course`:
+
+1. **Bare-id course URLs are built wrong.** `COURSE_PATH_PREFIX` +
+   `/<id>` yields `/student/course/bksCcNnT`, but this tenant needs
+   `/student/course/<slug>/<id>`. `--course=<bare-id>` cannot resolve.
+2. **`findCourseByName` can never match.** It compares the anchor's text
+   _exactly_, but the course-list anchor text is title **concatenated with the
+   progress badge**: `"TestNicht gestartet"`,
+   `"Robbins Greator Coaching PractitionerNicht gestartet"`. `--course="Test"`
+   always fails with "No course matches".
+3. **`/student/courses` is offered as a course.** The prefix test is
+   `path.startsWith("/student/course")`, which also matches the course-list path
+   itself, so the "Dashboard" link appears in the candidate list.
+4. **The documented lesson URL shape was wrong.** The research doc's
+   `<m>/<l>/<t>` (three segments below the course) does not match either real
+   shape recorded above.
+
+### Step 5 — Choose the two fixture lessons ⬜ one found, one missing
+
+`e2e/fixtures/lessons.ts` is still empty, so `bun run e2e` with no parameters
+fails with "No default lessons are configured". Filling it in is **blocked on the
+stale bundle**: committing a fixture now would commit a permanently-red canary.
+
+**Confirmed good (2026-08-27):**
+
+```
+name:     Test Video Player   (course "Test")
+path:     /student/course/test/bksCcNnT/yPClsb9h/pgWcT1Bk
+domShape: shadow-dom          # <hls-video> with a <video> in its shadowRoot
+config:   <pre data-vp-config>, 5627 chars ✓
+duration: 5937s (~99 min), readyState 4
 ```
 
-### Step 2 — Confirm the test account
+**Still missing: a `light-dom-slotted` lesson** (a `<video>` slotted into
+`<slot name="media">`). Not found on this tenant — the one lesson inspected is
+shadow-DOM, and the `Test` course holds only that single video. The shape is
+LearningSuite's choice, not an authoring option, so it has to be _found_, never
+assumed. Do not invent a URL for it: an absent fixture is visible, a wrong one
+looks like a runtime failure.
 
-You need a dedicated LearningSuite account, **not** a real person's — it will
-accumulate watch progress on everything the canary opens.
-
-`docs/learningsuite-enrichment-research.md` used `test@cgoebel.net` on
-`robbins.greator.com`. Either recover that password or create a fresh
-account, then check by hand, in a normal browser:
-
-- Logging in needs **only** email + password. If it sends a code or asks for an
-  authenticator, stop — this suite cannot answer an MFA prompt, and the account
-  needs MFA disabled before anything else here will work.
-- The account can open the lessons you intend to use as fixtures.
-
-Write the address into `.env.local` in Step 7. Never commit it.
-
-### Step 3 — Record the login form with codegen
-
-**Why:** `e2e/support/auth.setup.ts` currently uses resilient _guesses_ —
-`getByLabel(/e-?mail/i).or(input[type="email"])` and similar, marked
-`TODO(Task 1)`. They may well work, but nobody has watched them work. Codegen
-replaces the guess with what the tenant actually renders.
-
-#### 3a. Check you can open a browser window
-
-Codegen is interactive: it opens a real browser window plus the Playwright
-Inspector. On WSL2 that needs a display.
-
-**On this dev machine it already works — nothing to install or configure.**
-WSLg is active and a headed Chromium was verified to launch (2026-08-07):
-`DISPLAY=:0`, `WAYLAND_DISPLAY=wayland-0`, `/mnt/wslg` mounted. Skip to 3b.
-
-WSLg ships with WSL 2 on Windows 11 (and Windows 10 22H2 with a current WSL); it
-is not a package you install inside the distro, which is why there is nothing to
-do here. To re-check on another machine:
-
-```bash
-echo $DISPLAY                       # expect :0 — empty means no display
-ls -d /mnt/wslg && ls /tmp/.X11-unix # WSLg mount + X socket
-```
-
-If it is missing, `wsl --update` from PowerShell then `wsl --shutdown` gets it on
-a supported Windows. Failing that: run codegen from a terminal on the Windows
-host instead, start an X server (VcXsrv/X410) and export `DISPLAY`, or skip
-codegen entirely and use the DevTools route in 3d below.
-
-> Codegen does not need Chrome — bundled Chromium records selectors perfectly
-> well, and codecs are irrelevant while recording. So Step 3 and Step 4 can be
-> done before Step 1 finishes.
-
-#### 3b. Record
-
-```bash
-bunx playwright codegen https://robbins.greator.com
-```
-
-Two windows open: the browser, and the **Playwright Inspector** showing generated
-code as you click. The output language defaults to `playwright-test` (TypeScript
-in the `@playwright/test` style), which is what this codebase uses — no change
-needed. The Inspector's toolbar has a picker if you ever want another, and
-`--target=<language>` sets it from the command line.
-
-In the browser window, do exactly the login journey and nothing else:
-
-1. Navigate to the login page if the start URL did not land there. **Write down
-   the path** — that is `E2E_LS_LOGIN_PATH` (the code defaults to `/login`).
-2. Dismiss the cookie/consent banner, if one appears.
-3. Click the email field, type the address.
-4. Click the password field, type the password.
-5. Click the submit button.
-6. Wait for the page you land on, then click one element that only exists when
-   logged in (a course tile, an avatar menu). That click is how you capture a
-   reliable "logged in" signal.
-7. Note the URL you landed on and the path of the course list — that is
-   `E2E_LS_COURSES_PATH` (the code defaults to `/student`).
-
-Then stop the recorder and copy the generated code out of the Inspector.
-
-#### 3c. Transfer it into `auth.setup.ts`
-
-Open `e2e/support/auth.setup.ts` and replace the three `.or(...)` chains with the
-recorded locators.
-
-> **Delete the password from the pasted code.** Codegen writes what you typed as
-> a plain string literal. It must become `e2eEnv.E2E_LS_PASSWORD` — a committed
-> credential is the one mistake here that cannot be undone by an edit.
-
-```ts
-// before (a guess)
-const email = page
-  .getByLabel(/e-?mail/i)
-  .or(page.locator('input[type="email"]'))
-  .or(page.locator('input[name="email" i]'))
-  .first();
-
-// after (recorded) — an example of the shape, not the answer
-const email = page.getByRole("textbox", { name: "E-Mail" });
-```
-
-Do the same for `password` and `submit`, and for `consent` if a banner appeared.
-Then delete the `TODO(Task 1)` comment at the top of the file.
-
-Two rules when choosing among what codegen offers:
-
-- **Prefer `getByRole` / `getByLabel` / `getByPlaceholder`** over anything with a
-  generated class name. LearningSuite's class names churn; roles and labels are
-  tied to what a user sees.
-- **Reject anything with `.nth(3)`, a long `div > div > div` chain, or a hashed
-  class** (`.css-1x2y3z`). If codegen only offers that, keep the structural
-  fallback that is already in the file — it is more honest than a brittle
-  recording.
-
-You do **not** need to copy the post-login navigation. `auth.setup.ts` already
-verifies the session by requesting an authenticated page and checking it is not
-bounced back to login, which is more robust than asserting one specific element.
-
-#### 3d. If codegen cannot open a window
-
-Log in manually in a normal browser, open DevTools, and read the same three
-controls off the Elements panel: the accessible name (what a label or
-`aria-label` says) and the input `type`/`name`. Write the locators by hand using
-`getByLabel(...)` / `getByRole("textbox", { name: ... })`. Slower, same result.
-
-### Step 4 — Record the course and curriculum DOM
-
-**Why:** name-based targets (`--course="Onboarding"`) scrape the course list, and
-course targets enumerate the curriculum. Both need to know what those pages look
-like.
-
-Record with a logged-in session so you do not log in twice:
-
-```bash
-# save a session (log in once in the window that opens, then close it)
-bunx playwright codegen --save-storage=e2e/.auth/codegen.json https://robbins.greator.com
-
-# reuse it for every later recording — opens already logged in
-bunx playwright codegen --load-storage=e2e/.auth/codegen.json https://robbins.greator.com
-```
-
-`e2e/.auth/` is gitignored, so that file never leaves your machine. It is a live
-session — treat it like the password.
-
-With the Inspector open, use **Pick locator** in its toolbar and hover the page
-elements. Write the answers down here:
-
-| Question                                                               | Your answer |
-| ---------------------------------------------------------------------- | ----------- |
-| Course-list path (the page listing all courses)                        |             |
-| Course URL shape (e.g. `/student/course/<slug>`)                       |             |
-| Lesson URL shape (research says `/student/course/<slug>/<m>/<l>/<t>`)  |             |
-| Are curriculum sections collapsed by default?                          |             |
-| Is the lesson list paginated / behind "load more"?                     |             |
-| How is a **video** lesson visually distinguished from a non-video one? |             |
-
-The first three go into `.env.local` (`E2E_LS_COURSES_PATH`) and into
-`COURSE_PATH_PREFIX` in `e2e/support/resolve.setup.ts` if the shape differs from
-`/student/course`.
-
-The last three matter for correctness, not convenience:
-
-- **Collapsed or paginated** → `expandEverything()` in `resolve.setup.ts` clicks
-  everything with `aria-expanded="false"` plus common "load more" buttons. If
-  LearningSuite uses neither, add the real control there. A half-rendered
-  curriculum silently renumbers every video, which changes what `--video=N` means.
-- **A video badge/icon exists** → this is the one optional win. `resolve.setup.ts`
-  currently decides "is this a video lesson?" by opening each candidate lesson and
-  probing for a player element (`hasPlayer()`, marked `TODO(Task 1)`). That is
-  correct but costs one page load per lesson. If video rows are marked on the
-  course page, replace `hasPlayer()` with that locator and the resolve phase
-  becomes a single query.
-
-### Step 5 — Choose the two fixture lessons
-
-These are the default targets — what the scheduled canary tests when nobody
-passes a parameter. **`e2e/fixtures/lessons.ts` is currently empty**, so until
-this step is done `bun run e2e` with no parameters fails with "No default lessons
-are configured". Parameterised runs (`--course=…`, `--lesson=…`) work regardless.
-
-It is empty rather than pre-filled because the only lesson URL this repo has ever
-recorded is on the **old** tenant (`vantisgo.learningsuite.io`, from the POC in
-`docs/learningsuite-enrichment-research.md`), and the suite now targets
-`robbins.greator.com`. That path is kept in the file as a commented example of
-the shape; pointing the canary at it would produce a "no player element" failure
-that reads like a runtime regression.
-
-Open a candidate lesson while logged in and run this in the DevTools console:
+To vet a candidate, open it while logged in and run this in the DevTools console:
 
 ```js
 // 1. Does the lesson carry the config the runtime gates on?
@@ -365,125 +370,113 @@ console.log(
 console.log(window.player?._diag());
 ```
 
-Pick two lessons that between them cover **both** shapes — `light-dom-slotted`
-(a `<video>` slotted into `<slot name="media">`) and `shadow-dom` (a `<video>`
-inside the host's shadow root). The shape is LearningSuite's choice, not an
-authoring option, so both must be _found_.
-
-Then edit `e2e/fixtures/lessons.ts` and add two entries, uncommenting the example
-as a starting point. Each needs `name`, `path` (a path under the base URL, not a
-full URL), the `domShape` you measured, and `why` it was chosen.
-
-> If only one shape exists on this tenant, commit two fixtures anyway (two
-> different lessons) and note the gap here. Do not invent a URL for the missing
-> shape — an absent fixture is visible, a wrong one looks like a runtime failure.
+If step 3 prints `undefined undefined undefined`, you are looking at the stale
+bundle, not a broken lesson.
 
 Prefer hidden/internal lessons: the test account really watches this video, and
 LearningSuite records the progress.
 
-### Step 6 — Pick a course with ≥ 3 video lessons
+### Step 6 — A course with ≥ 3 video lessons 🚫 not applicable
 
-Needed to exercise `--video=N` and the all-videos path in Step 7. Record it here
-so the next person does not have to hunt:
+Needed only to exercise `--video=N` and the all-videos path, both of which are
+unsupported here (Step 4). Recorded for completeness:
 
-|                                                                                |     |
-| ------------------------------------------------------------------------------ | --- |
-| Exercise course name                                                           |     |
-| Exercise course id/slug                                                        |     |
-| Number of video lessons                                                        |     |
-| Is the order stable? (does LearningSuite reorder, or personalise per learner?) |     |
+|                         |                                                |
+| ----------------------- | ---------------------------------------------- |
+| Exercise course name    | `Test`                                         |
+| Exercise course id/slug | `/student/course/test/bksCcNnT`                |
+| Number of video lessons | **1** (plus one `/t/` topic lesson)            |
+| Is the order stable?    | Unknown, and moot — no enumeration path exists |
 
-The last row changes what the docs can promise: `--video=N` is a position in
-_today's_ curriculum. If the order moves, say so — anyone needing stability
-passes the lesson URL instead.
+### Step 7 — `.env.local` and the first green run ⬜ blocked
 
-### Step 7 — Write `.env.local` and run it
+`.env.local` is written and correct:
 
 ```bash
-cat > .env.local <<'ENV'
 E2E_LS_BASE_URL=https://robbins.greator.com
 E2E_LS_EMAIL=…
 E2E_LS_PASSWORD=…
-# only if Step 3/4 found different paths:
-# E2E_LS_LOGIN_PATH=/login
-# E2E_LS_COURSES_PATH=/student
-ENV
-
-bun run e2e                                  # the default fixtures
+E2E_LS_LOGIN_PATH=/auth
+E2E_LS_COURSES_PATH=/student/courses
 ```
 
-Then walk the parameter matrix, using the course from Step 6:
+`bun run e2e --lesson=<url>` runs end to end and fails on the stale bundle — see
+the run table in Status. Once the tenant serves a current runtime, re-run it,
+then commit the fixtures (Step 5) and confirm `bun run e2e` with no parameters is
+green.
+
+The parameter matrix in the original plan is reduced to what this tenant
+supports:
 
 ```bash
-bun run e2e --course=<id>              # one test group per video, numbered 1..total
-bun run e2e --course=<id> --video=2    # exactly one — cross-check it is the lesson
-                                       # the run above labelled "2/total"
-bun run e2e --course="<name>"          # same course, resolved by name
 bun run e2e --lesson=<lesson-url>      # a single lesson
-bun run e2e --course=<id> --video=999  # must exit non-zero, naming the valid range
-bun run e2e --course="<nonsense>"      # must exit non-zero, listing candidates
-bun run e2e --video=2                  # must exit non-zero: --video needs --course
+bun run e2e                            # the committed default fixtures
 bunx playwright test --project=canary  # must refuse with the specKey mismatch message
 ```
 
-The `--video=2` cross-check is the one that actually proves the index semantics —
-it is what catches an off-by-one or a non-video row sneaking into the count.
+Failures: `bun run e2e:report` opens the HTML report with trace, video,
+screenshot and the attached `diag.json`. The decision table at the bottom of this
+document maps symptoms to causes.
 
-Failures: `bun run e2e:report` opens the HTML report with trace, video, screenshot
-and the attached `diag.json`. The decision table at the bottom of this document
-maps symptoms to causes.
+### Step 8 — Vercel bypass secret ⚠️ already live, not yet in CI
 
-### Step 8 — Vercel bypass secret (only for the PR job)
+Protection Bypass for Automation is **already enabled** — the tenant's script
+tags carry the secret as a query parameter today. Two things follow:
 
-Skip this if you only want the scheduled canary.
+1. Nothing needs enabling. Read the current value off the tenant's page source,
+   or regenerate it from Vercel → Project Settings → Deployment Protection.
+2. It is exposed to any logged-in learner (see the note in Status). Rotating it
+   means editing the tenant's script slot in the same pass.
 
-1. Vercel → Project Settings → **Deployment Protection** → enable **Protection
-   Bypass for Automation**, copy the generated secret.
-2. Store it as the `VERCEL_AUTOMATION_BYPASS_SECRET` repository secret.
-3. Verify locally against a real preview deployment:
+Store it as the `VERCEL_AUTOMATION_BYPASS_SECRET` repository secret for the PR
+job, then verify locally against a real preview deployment:
 
-   ```bash
-   E2E_RUNTIME_BASE_URL=https://<preview>.vercel.app \
-   VERCEL_AUTOMATION_BYPASS_SECRET=… \
-   bun run e2e
-   ```
+```bash
+E2E_RUNTIME_BASE_URL=https://<preview>.vercel.app \
+VERCEL_AUTOMATION_BYPASS_SECRET=… \
+bun run e2e --lesson=<url>
+```
 
-   Confirm the preview bundle actually executed — check `window.__vpRuntimeInfo.build`
-   in the trace, or that the run annotates `preview bundle: …`. A 401 fails with a
-   labelled error rather than letting Vercel's HTML run as JavaScript.
+Confirm the preview bundle actually executed — check `window.__vpRuntimeInfo.build`
+in the trace, or that the run annotates `preview bundle: …`. A 401 fails with a
+labelled error rather than letting Vercel's HTML run as JavaScript.
 
-### Step 9 — CI
+> Preview mode normalises its input to a **`loader.js`** URL. That is correct for
+> the current runtime but does **not** match what the tenant loads today (three
+> direct tags, no loader). Preview mode has never been exercised; expect to debug
+> it on first use.
+
+### Step 9 — CI ⬜ open
 
 Add these in the repository settings:
 
-| Kind         | Name                                               |
-| ------------ | -------------------------------------------------- |
-| **Variable** | `E2E_LS_BASE_URL`                                  |
-| Variable     | `E2E_LS_LOGIN_PATH` (if not `/login`)              |
-| Variable     | `E2E_LS_COURSES_PATH` (if not `/student`)          |
-| **Secret**   | `E2E_LS_EMAIL`                                     |
-| Secret       | `E2E_LS_PASSWORD`                                  |
-| Secret       | `VERCEL_AUTOMATION_BYPASS_SECRET` (Step 8)         |
-| Secret       | `RUNTIME_ALERT_WEBHOOK_URL` (probably already set) |
+| Kind         | Name                                                  |
+| ------------ | ----------------------------------------------------- |
+| **Variable** | `E2E_LS_BASE_URL` — `https://robbins.greator.com`     |
+| Variable     | `E2E_LS_LOGIN_PATH` — `/auth` (required, not default) |
+| Variable     | `E2E_LS_COURSES_PATH` — `/student/courses` (required) |
+| **Secret**   | `E2E_LS_EMAIL`                                        |
+| Secret       | `E2E_LS_PASSWORD`                                     |
+| Secret       | `VERCEL_AUTOMATION_BYPASS_SECRET` (Step 8)            |
+| Secret       | `RUNTIME_ALERT_WEBHOOK_URL` (probably already set)    |
 
 Then:
 
 ```bash
-gh workflow run e2e-canary.yml && gh run watch                      # defaults
-gh workflow run e2e-canary.yml -f target=<id> -f video=2 && gh run watch
+gh workflow run e2e-canary.yml && gh run watch
 ```
 
 Finally, break one assertion locally on purpose and confirm the artifacts and the
 webhook alert behave — then revert. **Tell whoever watches the alert sink first**:
 a deliberate failure fires a real webhook POST.
 
-### Step 10 — Close out Task 1
+### Step 10 — Close out ⬜ open
 
-Mark the plan's Task 1 and Task 16 `[x]` in
-`.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md`,
-along with Tasks 5, 6, 9, 11, 13 and 14 (currently `[wip]` — their code is
-complete, only their live validation was outstanding). Then the plan can be
-archived to `plans/completed/`.
+In `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md`:
+flip Tasks 5, 6, 9, 11, 13 and 14 from `[wip]` to `[x]` once a live run is green,
+mark Task 1 `[x]` with the Step 4/6 gaps noted, and record AC10–AC12 as won't-fix
+with the enumeration decision above. Only then archive the plan to
+`plans/completed/`.
 
 ---
 
@@ -572,7 +565,8 @@ Two things to know:
 
 ```bash
 gh workflow run e2e-canary.yml && gh run watch
-gh workflow run e2e-canary.yml -f target=<id> -f video=2 && gh run watch
+gh workflow run e2e-canary.yml -f target=<lesson-url> && gh run watch
+# `-f video=N` and course targets are unsupported on this tenant — see "The two parameters"
 ```
 
 ---
@@ -586,19 +580,20 @@ bun run e2e:report     # opens the HTML report: trace, video, screenshot, diag.j
 `diag.json` is attached to **every** test, passing or failing — it is the record
 of what the runtime saw.
 
-| Symptom                                            | Likely cause                                                                                  |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `"reskin disabled by kill-switch"`                 | Someone flipped Edge Config `runtimeConfig.enabled`. Not a breakage                           |
-| `discovery === "none"` / no `[data-vp-reskinned]`  | LearningSuite renamed or removed the player element                                           |
-| `discovery` fell back to the capability sweep      | LS renamed the tag but a `<video>` is still reachable — fix it before it degrades further     |
-| Our controls visible **and** native chrome visible | The chrome-hiding CSS selectors no longer match LS markup                                     |
-| No `.vp-shell` but the native player is fine       | `attach()` rolled back — the safety net worked; read the telemetry beacon                     |
-| `__vpReskinStatus` never set                       | The bundle never loaded: CSP, a 404, or the loader's gate never passing                       |
-| Reskin **and** demo both fail on one lesson        | The lesson's `[data-vp-config]` was removed by an editor. One cause, two red tests — expected |
-| Login setup fails                                  | Test account locked, password rotated, or MFA newly enforced                                  |
-| `no resolved targets` / `specKey` mismatch         | `playwright test` was run directly — use `bun run e2e`                                        |
-| `course not found`, candidates listed              | The name changed or is ambiguous — pass the id or the URL instead                             |
-| `--video=N out of range (1..T)`                    | The course was reordered or a video removed; indices are positional, not stable ids           |
-| One video red, the rest green                      | Lesson-specific: config removed by an editor, or a broken/expired source for that lesson      |
-| Preview bundle fetch failed: 401                   | `VERCEL_AUTOMATION_BYPASS_SECRET` missing, wrong, or rotated                                  |
-| Playback never advances, `readyState < 2`          | The media never loaded: expired signed manifest, CDN, or a missing codec (bundled Chromium?)  |
+| Symptom                                            | Likely cause                                                                                                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"reskin disabled by kill-switch"`                 | Someone flipped Edge Config `runtimeConfig.enabled`. Not a breakage                                                                                |
+| `discovery === "none"` / no `[data-vp-reskinned]`  | LearningSuite renamed or removed the player element                                                                                                |
+| `discovery` fell back to the capability sweep      | LS renamed the tag but a `<video>` is still reachable — fix it before it degrades further                                                          |
+| Our controls visible **and** native chrome visible | The chrome-hiding CSS selectors no longer match LS markup                                                                                          |
+| No `.vp-shell` but the native player is fine       | `attach()` rolled back — the safety net worked; read the telemetry beacon                                                                          |
+| `__vpReskinStatus` never set                       | **A deployed bundle older than the global** (the live cause — see Status), or the bundle never loaded: CSP, a 404, the loader's gate never passing |
+| Reskin **and** demo both fail on one lesson        | The lesson's `[data-vp-config]` was removed by an editor. One cause, two red tests — expected                                                      |
+| Login setup fails                                  | Test account locked, password rotated, or MFA newly enforced                                                                                       |
+| `_diag() returned an unexpected shape`             | Same stale-bundle cause: the deployed `_diag()` predates the field the schema requires (e.g. `discovery`)                                          |
+| `no resolved targets` / `specKey` mismatch         | `playwright test` was run directly — use `bun run e2e`                                                                                             |
+| `course not found`, candidates listed              | The name changed or is ambiguous — pass the id or the URL instead                                                                                  |
+| `--video=N out of range (1..T)`                    | Cannot occur on this tenant (course targets unsupported). Elsewhere: reordered or shortened course — indices are positional, not stable ids        |
+| One video red, the rest green                      | Lesson-specific: config removed by an editor, or a broken/expired source for that lesson                                                           |
+| Preview bundle fetch failed: 401                   | `VERCEL_AUTOMATION_BYPASS_SECRET` missing, wrong, or rotated                                                                                       |
+| Playback never advances, `readyState < 2`          | The media never loaded: expired signed manifest, CDN, or a missing codec (bundled Chromium?)                                                       |
