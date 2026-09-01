@@ -85,9 +85,41 @@ export function parseVpConfig(raw: unknown): Partial<VpConfig> {
     sciences: section<Science>("sciences"),
     audios: section<Audio>("audios"),
     metaSteps: section<MetaStep>("metaSteps"),
+    assets: normalizeAssets(obj.assets),
     demo: obj.demo === true,
     quiz: normalizeQuizConfig(obj.quiz),
   };
+}
+
+// ─── Asset table normalisation ───
+// `assets` is the one section shaped as an object rather than an array, so it
+// cannot go through `section<T>()`. Same tolerance as everywhere else: keep the
+// usable entries, drop the rest, and say which — a typo'd value must not take
+// the whole table (and every voice-over with it) down. Values stay unvalidated
+// strings here; `resolveAssetUrl` in ./assets owns the https / placeholder
+// checks, because only it knows the failure taxonomy the caller reports on.
+function normalizeAssets(raw: unknown): Record<string, string> | undefined {
+  if (raw === undefined) return undefined;
+  const table = record(raw);
+  if (!table) {
+    console.warn("[vp] config.assets is not an object; ignoring it", raw);
+    return undefined;
+  }
+  const assets: Record<string, string> = {};
+  let dropped = false;
+  for (const [key, value] of Object.entries(table)) {
+    const url = text(value);
+    if (!key.trim() || !url) {
+      dropped = true;
+      continue;
+    }
+    assets[key] = url;
+  }
+  if (dropped)
+    console.warn(
+      "[vp] dropped config.assets entries with an empty key or value",
+    );
+  return assets;
 }
 
 // ─── Quiz normalisation ───

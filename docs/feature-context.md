@@ -186,13 +186,15 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
 
 ## 2026-07-27 · audio-attach · Voice-over audio from LearningSuite attachments
 
-- **Decision**: Voice-over audio lives **in LearningSuite as a lesson attachment**, never on our
-  infrastructure. `audios[].audioFile` holds the attachment's exact filename; `common/attachments.ts`
-  `resolveAttachmentUrl()` resolves it **lazily at cue time** from the rendered DOM
-  (`a[href*="/courses/steps/"]` whose trimmed text is that filename) and returns only `https:`
-  hrefs. The signed GCS URL is re-minted on every page load, so it is never cached, stored, or put
-  in config — and no LearningSuite auth token is ever touched. GraphQL/`StepFileQuery` resolution
-  and CUID-based matching were both rejected (needs persisted-query hashes / worse authoring UX).
+> **SUPERSEDED 2026-09-01** by _audio-assets_ below — the attachment path and
+> `common/attachments.ts` are deleted. The `AudioController` / no-`crossorigin` /
+> test entries below still hold.
+
+- **Decision (obsolete)**: Voice-over audio lived **in LearningSuite as a lesson attachment**.
+  `audios[].audioFile` held the attachment's exact filename and `resolveAttachmentUrl()` resolved
+  it lazily at cue time from `a[href*="/courses/steps/"]`. GraphQL/`StepFileQuery` resolution and
+  CUID-based matching were both rejected then and remain rejected (persisted-query hashes / worse
+  authoring UX).
 - **Decision**: `AudioController` is **mode-aware** (`"file" | "tts"`) and TTS is the universal
   fallback — unset/unmatched/non-https filename, a rejected `play()`, or a media `error` all
   degrade to the pre-existing `SpeechSynthesis` path with the banner unchanged. Any new cue
@@ -239,6 +241,11 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   assignable; and fake timers must be installed **before** the loader arms its `window.player` poll.
 
 ## 2026-07-28 · (no ticket) · Hiding voice-over attachments while the reskin is active
+
+> **SUPERSEDED 2026-09-01** by _audio-assets_ below. `hideAudioAttachments()` /
+> `restoreAudioAttachments()` and the reskin's `syncAudioAttachmentVisibility()` are
+> deleted: block assets never render in the lesson's "Anhänge" list, so there is nothing
+> left to hide. Kept for the reasoning if attachment-hiding is ever needed again.
 
 - **Decision**: the audio/voice-over attachments a lesson carries are **hidden while a player is
   re-skinned** — `hideAudioAttachments()` / `restoreAudioAttachments()` in `common/attachments.ts`,
@@ -355,3 +362,54 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   (AC10–AC12 won't-fix). Course-**list** rows _are_ anchors, but their text is title
   concatenated with the progress badge (`"TestNicht gestartet"`), so exact-name matching
   cannot hit.
+
+## 2026-09-01 · audio-assets · Voice-over audio from custom-code-block assets
+
+- **Decision**: voice-over audio is an **asset of the LearningSuite "Code einbetten" block**, not a
+  lesson attachment. The admin uploads the file in the code editor and copies the placeholder token
+  it hands out (`{{asset:<slug>}}`); LearningSuite expands it **at page render, per request**, into a
+  freshly signed GCS URL. Confirmed with the user, and it is what preserves the original
+  never-persist-a-signature property: the URL in `[data-vp-config]` is only ever as old as the
+  current page load. `common/attachments.ts` and its `.mp3`-anchor hiding are **deleted**, not kept
+  as a fallback (user's call) — an old config using `audioFile` now falls back to TTS.
+- **Decision**: `audios[].asset` accepts **two shapes**, disambiguated by prefix with no overlap:
+  an expanded/absolute `https://…` URL (the normal case — the placeholder inline on the cue), or a
+  bare key into an optional top-level `assets` table. The table exists for one asset cued twice and
+  to keep a stored config free of host-specific tokens (the future content service stores
+  `"asset":"intro"` and lets the host supply the table). **Inline is the documented path** — an
+  `assets` table was the first design and was rejected once we knew the token is copyable directly:
+  it forces the admin to keep two things in sync, and the 400-char expansion they never see was the
+  only argument for it. `common/assets.ts` `resolveAssetUrl()` owns this; it is pure and returns a
+  reason code, never logging or reporting itself.
+- **Decision — failure policy**: **graceful for the learner, loud for the operator.** No diagnostic
+  ever reaches the overlay; every failure degrades to TTS, which is why `script` stays mandatory on
+  every cue. Each failure gets a named `console.warn` carrying the cue id plus one deduped beacon,
+  under **three separate errorTypes** (`audio-asset-unexpanded` / `-missing` / `-insecure`) because
+  they have different fixes and a single type would force reading the beacon's config back to tell
+  them apart. `unexpanded` is the highest-signal one: it means the whole block is mis-configured,
+  so no cue on the page will find its audio. An admin-visible surface was considered and rejected as
+  scope — `admin-toggle` does a config _presence_ check only (`index.ts:38`) and has no validation UI.
+- **Decision — authoring split**: the **LLM prompt** carries the schema; the **admin dialog**
+  carries the human workflow. The prompt takes the asset tokens as a **second labelled input
+  section** ("Verfügbare Audio-Assets", symmetric with the existing transcript section) and emits
+  JSON with the tokens already in place, so the pasted block needs **no manual editing at all**.
+  The dialog's steps were reordered to match: upload assets (2) _before_ running the prompt (3).
+- **Decision**: the prompt stays **one-shot** — it does NOT interview the admin for a token per
+  timestamp. `admin-toggle`'s dialog is a read-only textarea plus a "Prompt kopieren" button: it
+  hands over one prompt and expects one answer, with no affordance for a conversation, and the
+  requirement "Antworte NUR mit dem `<pre>`-Block" is what makes the answer paste-able. A
+  multi-turn variant also makes the model re-emit the whole JSON per turn, where the tokens are
+  what it must copy verbatim.
+- **Decision (superseded within the same day)**: the first cut had the model emit
+  `"asset":"TODO-ASSET-EINFUEGEN"` for the admin to find-and-replace. Rejected once the requirement
+  "ready to paste, no manual replacement" was stated. `resolveAssetUrl` still reports that marker as
+  `audio-asset-missing` (regression cover for configs authored that way), and the model is now told
+  to copy tokens character-exact, use each at most once, and derive placement from the slug.
+- **Gotcha**: `assets` is the only config section shaped as an **object**, so it cannot use
+  `config.ts`'s `section<T>()` array helper — it gets its own `normalizeAssets()` narrowing pass
+  that drops unusable entries individually. One typo'd entry must not take the whole table (and
+  every voice-over on the page) down with it.
+- **Gotcha**: `resolveAssetUrl` checks `isAbsoluteUrl` **before** the table lookup, so an `http:` or
+  `javascript:` value reports `insecure` rather than falling through and mislabelling itself
+  `missing`. It also re-runs the placeholder and https checks on _table values_, since a table can
+  hold unexpanded placeholders too.

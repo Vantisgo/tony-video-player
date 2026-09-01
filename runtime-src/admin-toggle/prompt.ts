@@ -37,10 +37,13 @@ sciences[]:  (Wissenschafts-Pop-Ups, je 5s sichtbar bei jedem Timestamp)
 
 audios[]:    (Voice-Over-Einschübe; pausieren das Video)
   id, t (Trigger), dur (Dauer in Sek), title, voice (Sprecher-Name), script (gesprochener Text)
-  audioFile — (optional) exakter Dateiname des als "Anhang" der Lektion hochgeladenen
-              Voice-Over-.mp3 (z.B. "Intro.mp3"). VOM ADMIN einzutragen — das LLM kennt
-              den Dateinamen nicht. Weglassen, wenn kein Anhang existiert; dann wird
-              script per Text-to-Speech vorgelesen.
+  asset  — Asset-Verweis auf die Audio-Datei, ZEICHENGENAU aus der Liste unter
+           "Verfügbare Audio-Assets" übernommen (Form: {{asset:datei-name}}).
+           Erfinde NIE ein Token und verändere kein Zeichen — ein falsches Token
+           bedeutet: keine Audio-Datei. Ist die Liste leer oder passt zu einem
+           Einschub kein Asset, lass asset bei diesem Eintrag komplett weg.
+  script — MUSS immer gefüllt sein, auch wenn eine Audio-Datei existiert: er ist der
+           Text-to-Speech-Fallback und die Textfassung des Einschubs.
 
 quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
   feedbackDurationSec — Dauer der Antwort-Rückmeldung; Standard 3
@@ -74,7 +77,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
     { "id":"s1", "name":"...", "description":"...", "timestampsSec":[22] }
   ],
   "audios": [
-    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "script":"...", "audioFile":"DATEINAME.mp3" }
+    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "script":"...", "asset":"{{asset:datei-name-aus-der-liste}}" }
   ],
   "metaSteps": [
     { "id":"m1", "n":1, "title":"...", "t":4 }
@@ -112,9 +115,25 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
 - Jede Quizfrage braucht 1–4 Antworten; correctOptionId muss auf genau eine option.id verweisen
 - timeoutSec nur verwenden, wenn Zeitdruck didaktisch sinnvoll ist; empfohlen sind mindestens 15 Sekunden
 - Sprache des Materials beibehalten
-- audioFile nur setzen, wenn eine gleichnamige Datei als Anhang der Lektion existiert (sonst weglassen)
+- Für JEDES gelistete Audio-Asset genau einen audios[]-Eintrag anlegen — die Liste ist
+  die Vorgabe, wie viele Voice-Over-Einschübe es gibt
+- asset-Token zeichengenau kopieren; jedes Token höchstens einmal verwenden
+- Zuordnung Asset → Zeitpunkt aus dem Datei-Namen und der Beschreibung ableiten
+  (z.B. "…-intro" an den Anfang, "…-phase-1" in Phase 1); title so formulieren, dass die
+  Zuordnung beim Drüberlesen prüfbar ist
+- Passt zu einem Einschub kein Asset, asset weglassen (dann greift Text-to-Speech)
 - Antworte NUR mit dem <pre>-Block (keine Einleitung, keine Schluss-Erklärung)
 - Der Block wird 1:1 in den LearningSuite "Code einbetten"-Block eingefügt
+
+═══ Verfügbare Audio-Assets ═══
+
+Ein Asset pro Zeile, Format: {{asset:datei-name}} — optional " — " und eine kurze Notiz,
+wohin es gehört. Leer lassen, wenn es keine Voice-Over-Dateien gibt (dann enthält kein
+audios[]-Eintrag ein asset-Feld und alles wird per Text-to-Speech vorgelesen).
+
+[FÜGE HIER DIE ASSET-VERWEISE AUS DEM "CODE EINBETTEN"-EDITOR EIN, Z.B.:
+{{asset:2025-12-22-at-00-22-27-intro}} — Intro, ganz an den Anfang
+{{asset:2025-12-22-at-00-50-40-voiceover-phase-1}} — Phase 1]
 
 ═══ Lektions-Material ═══
 

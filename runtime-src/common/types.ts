@@ -36,10 +36,13 @@ export interface Audio {
   title: string;
   voice: string;
   script: string;
-  // Exact filename of the voice-over attached to the LearningSuite lesson.
-  // Optional: without it (or when no matching attachment is on the page) the
-  // overlay falls back to speaking `script` via SpeechSynthesis.
-  audioFile?: string;
+  // Reference to the voice-over uploaded as an asset of the LearningSuite
+  // custom-code block. Either the `{{asset:…}}` placeholder the code editor
+  // hands out (the platform expands it to a signed URL at render time) or a key
+  // into the config's top-level `assets` table. Optional: without it — or when
+  // it cannot be resolved — the overlay falls back to speaking `script` via
+  // SpeechSynthesis. See ./assets.
+  asset?: string;
 }
 
 export interface MetaStep {
@@ -109,6 +112,10 @@ export interface VpConfig {
   sciences: Science[];
   audios: Audio[];
   metaSteps: MetaStep[];
+  // Optional lookup table for `Audio.asset` keys. Only needed when one asset is
+  // cued more than once, or to keep a stored config free of host-specific
+  // `{{asset:…}}` tokens; a cue may hold its placeholder inline instead.
+  assets?: Record<string, string>;
   // Opt-in for the built-in DEFAULT_* sample data. Without it an absent config
   // section renders nothing rather than the demo arc.
   demo?: boolean;

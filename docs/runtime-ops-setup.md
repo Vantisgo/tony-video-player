@@ -133,13 +133,16 @@ for an allowlisted origin.
 
 Each fires **at most once per (errorType, videoId) per page session**.
 
-| `errorType`                          | Meaning                                                                                                                        |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `reskin-attach-error`                | The reskin threw while attaching; it rolled back (native player intact).                                                       |
-| `reskin-overlay-verification-failed` | Reskin mounted but the overlay layer had a zero box over a visible player; torn down.                                          |
-| `reskin-no-player-after-deadline`    | `[data-vp-config]` present but no player was discovered within ~10s (LearningSuite likely renamed/removed the player element). |
-| `demo-setup-error`                   | The overlay/sidebar setup threw; the host DOM was restored.                                                                    |
-| `demo-context-timeout`               | Config present but the player/context never became ready within ~10s.                                                          |
+| `errorType`                          | Meaning                                                                                                                                                                                                   |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reskin-attach-error`                | The reskin threw while attaching; it rolled back (native player intact).                                                                                                                                  |
+| `reskin-overlay-verification-failed` | Reskin mounted but the overlay layer had a zero box over a visible player; torn down.                                                                                                                     |
+| `reskin-no-player-after-deadline`    | `[data-vp-config]` present but no player was discovered within ~10s (LearningSuite likely renamed/removed the player element).                                                                            |
+| `demo-setup-error`                   | The overlay/sidebar setup threw; the host DOM was restored.                                                                                                                                               |
+| `demo-context-timeout`               | Config present but the player/context never became ready within ~10s.                                                                                                                                     |
+| `audio-asset-unexpanded`             | A cue's `{{asset:…}}` placeholder reached the runtime unexpanded — the embed block is on "In Pop-Up anzeigen", or the asset was renamed/deleted. Affects every cue on the page; the cue fell back to TTS. |
+| `audio-asset-missing`                | A cue's `asset` key has no entry in `config.assets` (or is a leftover authoring marker from an older prompt version); the cue fell back to TTS.                                                           |
+| `audio-asset-insecure`               | A cue's `asset` resolved to a non-https URL and was refused; the cue fell back to TTS.                                                                                                                    |
 
 ### Smoke test
 

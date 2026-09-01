@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadVpConfig, parseVpConfig } from "../../common/config";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   document.body.innerHTML = "";
 });
 
@@ -95,6 +96,49 @@ describe("parseVpConfig", () => {
     });
     expect(parsed.quiz?.quizzes).toHaveLength(1);
     expect(parsed.quiz?.feedbackDurationSec).toBe(3);
+  });
+});
+
+describe("parseVpConfig: assets table", () => {
+  it("passes a string table through untouched", () => {
+    const assets = { intro: "https://cdn.test/intro.mp3" };
+    expect(parseVpConfig({ assets }).assets).toEqual(assets);
+  });
+
+  it("leaves assets undefined when the section is absent", () => {
+    expect(parseVpConfig({ audios: [] }).assets).toBeUndefined();
+  });
+
+  it("ignores a non-object assets section", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(
+      parseVpConfig({ assets: ["https://cdn.test/a.mp3"] }).assets,
+    ).toBeUndefined();
+    expect(parseVpConfig({ assets: "nope" }).assets).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops unusable entries but keeps the rest of the table", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const parsed = parseVpConfig({
+      assets: {
+        intro: "https://cdn.test/intro.mp3",
+        broken: 42,
+        empty: "   ",
+        "   ": "https://cdn.test/blank-key.mp3",
+      },
+    });
+
+    // One typo'd entry must not take every voice-over on the page down with it.
+    expect(parsed.assets).toEqual({ intro: "https://cdn.test/intro.mp3" });
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("trims values so a table entry survives pretty-printed config", () => {
+    expect(
+      parseVpConfig({ assets: { intro: "  https://cdn.test/intro.mp3  " } })
+        .assets,
+    ).toEqual({ intro: "https://cdn.test/intro.mp3" });
   });
 });
 

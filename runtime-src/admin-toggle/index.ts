@@ -63,8 +63,13 @@ function main(): string {
           <p>Stelle den Block auf <strong>"In Seite anzeigen"</strong> (Standard).</p>
         </section>
         <section>
-          <h3><span class="vp-step-num">2</span>Prompt an LLM, dann Antwort einfügen</h3>
-          <p>Kopiere den folgenden Prompt, gib ihn an dein LLM (ChatGPT, Claude, …) zusammen mit dem Lektions-Transkript / Drehbuch. Die Antwort des LLMs ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.</p>
+          <h3><span class="vp-step-num">2</span>Voice-Over-Dateien hochladen</h3>
+          <p>Lade im <strong>"Code einbetten"</strong>-Editor die Audio-Dateien als <strong>Assets</strong> hoch und kopiere jeden Verweis (Form <code>{{asset:datei-name}}</code>) — du gibst sie im nächsten Schritt mit in den Prompt.</p>
+          <p>Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen.</p>
+        </section>
+        <section>
+          <h3><span class="vp-step-num">3</span>Prompt an LLM, dann Antwort einfügen</h3>
+          <p>Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.</p>
           <div class="vp-prompt-wrap">
             <textarea class="vp-prompt" readonly></textarea>
             <button class="vp-copy-btn">Prompt kopieren</button>

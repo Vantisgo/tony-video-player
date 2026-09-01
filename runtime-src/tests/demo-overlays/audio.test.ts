@@ -48,15 +48,9 @@ function setupConfigDom(config: unknown): HTMLVideoElement {
   return video;
 }
 
+// What the platform renders in place of `{{asset:…}}`: a freshly signed GCS URL.
 const SIGNED_HREF =
   "https://storage.googleapis.com/ls-prod/courses/steps/cmrz0mmse1i4xbu01ps23bygk?X-Goog-Expires=604800";
-
-function addAttachment(text: string, href: string = SIGNED_HREF): void {
-  const a = document.createElement("a");
-  a.setAttribute("href", href);
-  a.textContent = text;
-  document.body.appendChild(a);
-}
 
 const nextFrames = (): Promise<void> =>
   new Promise((resolve) =>
@@ -73,7 +67,10 @@ interface AudioCtrlProbe {
 const ctrl = (): AudioCtrlProbe =>
   (window as unknown as { __audioCtrl?: AudioCtrlProbe }).__audioCtrl!;
 
-const audioConfig = (audio: Record<string, unknown>) => ({
+const audioConfig = (
+  audio: Record<string, unknown>,
+  assets?: Record<string, string>,
+) => ({
   phases: [
     {
       id: "p1",
@@ -87,6 +84,7 @@ const audioConfig = (audio: Record<string, unknown>) => ({
   sciences: [],
   audios: [audio],
   metaSteps: [],
+  ...(assets ? { assets } : {}),
 });
 
 const CUE = {
@@ -153,10 +151,9 @@ afterEach(() => {
 });
 
 describe("audio cue: file mode", () => {
-  it("plays the resolved attachment, pauses the video, and shows the banner", async () => {
-    addAttachment("Intro.mp3");
+  it("plays the inline expanded placeholder, pauses the video, and shows the banner", async () => {
     const { video, audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
 
     expect(audio).not.toBeNull();
@@ -170,9 +167,8 @@ describe("audio cue: file mode", () => {
   });
 
   it("drives the progress clock from the element's real playback time", async () => {
-    addAttachment("Intro.mp3");
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
 
     audio.currentTime = 7;
@@ -184,9 +180,8 @@ describe("audio cue: file mode", () => {
   });
 
   it("caps the progress clock at the configured duration", async () => {
-    addAttachment("Intro.mp3");
     const { audio } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
 
     audio.currentTime = 99;
@@ -196,9 +191,8 @@ describe("audio cue: file mode", () => {
   });
 
   it("ends the cue and resumes the video when the file finishes", async () => {
-    addAttachment("Intro.mp3");
     const { video, audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
 
     audio.dispatchEvent(new Event("ended"));
@@ -213,9 +207,8 @@ describe("audio cue: file mode", () => {
   });
 
   it("seeks the real audio element from the ±10s controls", async () => {
-    addAttachment("Intro.mp3");
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
 
     audio.currentTime = 1;
@@ -227,9 +220,8 @@ describe("audio cue: file mode", () => {
   });
 
   it("re-arms the cue after a rewind past its trigger", async () => {
-    addAttachment("Intro.mp3");
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
     audio.dispatchEvent(new Event("ended"));
     expect(audio.hasAttribute("src")).toBe(false);
@@ -244,9 +236,8 @@ describe("audio cue: file mode", () => {
   });
 
   it("pauses and resumes the real audio element from the play/pause control", async () => {
-    addAttachment("Intro.mp3");
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
     const playPause = slot.querySelector(
       '[data-action="audio-playpause"]',
@@ -261,9 +252,41 @@ describe("audio cue: file mode", () => {
     expect(audio.paused).toBe(false);
   });
 
+  it("resolves an asset key through the config's assets table", async () => {
+    const { audio, video } = await mountAndTrigger(
+      audioConfig({ ...CUE, asset: "intro" }, { intro: SIGNED_HREF }),
+    );
+
+    expect(audio.getAttribute("src")).toBe(SIGNED_HREF);
+    expect(ctrl().mode).toBe("file");
+    expect(video.paused).toBe(true);
+  });
+
+  it("plays the same asset for two cues that share one table key", async () => {
+    const config = {
+      phases: [],
+      sciences: [],
+      metaSteps: [],
+      assets: { sting: SIGNED_HREF },
+      audios: [
+        { ...CUE, id: "a1", t: 2, asset: "sting" },
+        { ...CUE, id: "a2", t: 40, asset: "sting" },
+      ],
+    };
+    const { audio, slot } = await mountAndTrigger(config);
+    expect(audio.getAttribute("src")).toBe(SIGNED_HREF);
+
+    // First cue ends, second cue fires later and resolves the same key again.
+    audio.dispatchEvent(new Event("ended"));
+    expect(audio.hasAttribute("src")).toBe(false);
+    emitTime(40);
+
+    expect(audio.getAttribute("src")).toBe(SIGNED_HREF);
+    expect(slot.dataset.activeAudio).toBe("a2");
+  });
+
   it("keeps a single <audio> element and listener set across re-injection", async () => {
-    addAttachment("Intro.mp3");
-    await mountAndTrigger(audioConfig({ ...CUE, audioFile: "Intro.mp3" }));
+    await mountAndTrigger(audioConfig({ ...CUE, asset: SIGNED_HREF }));
 
     vi.resetModules();
     await import("../../demo-overlays/index");
@@ -274,10 +297,9 @@ describe("audio cue: file mode", () => {
 });
 
 describe("audio cue: TTS fallback", () => {
-  it("stays in TTS mode when no attachment matches, banner still shown", async () => {
-    addAttachment("Outro.mp3");
+  it("stays in TTS mode when the asset key is not in the table, banner still shown", async () => {
     const { video, audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: "intro" }, { outro: SIGNED_HREF }),
     );
 
     expect(audio.hasAttribute("src")).toBe(false);
@@ -287,8 +309,7 @@ describe("audio cue: TTS fallback", () => {
     expect(slot.dataset.kind).toBe("audio");
   });
 
-  it("stays in TTS mode for a cue without audioFile (existing configs)", async () => {
-    addAttachment("Intro.mp3");
+  it("stays in TTS mode for a cue with no asset at all (TTS by design)", async () => {
     const { audio, slot } = await mountAndTrigger(audioConfig(CUE));
 
     expect(audio.hasAttribute("src")).toBe(false);
@@ -296,23 +317,49 @@ describe("audio cue: TTS fallback", () => {
     expect(slot.dataset.kind).toBe("audio");
   });
 
-  it("skips a matching attachment whose href is not https", async () => {
-    addAttachment("Intro.mp3", "javascript:alert('/courses/steps/x')");
+  it("refuses a non-https asset rather than assigning it to the media src", async () => {
     const { audio } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: "javascript:alert(1)" }),
     );
 
     expect(audio.hasAttribute("src")).toBe(false);
     expect(ctrl().mode).toBe("tts");
   });
 
+  it("falls back — loudly — when the placeholder was never expanded", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { audio, video, slot } = await mountAndTrigger(
+      audioConfig({ ...CUE, asset: "{{asset:2025-12-22-at-00-22-27-intro}}" }),
+    );
+
+    // Graceful for the learner: the cue still runs, spoken from `script`.
+    expect(audio.hasAttribute("src")).toBe(false);
+    expect(ctrl().mode).toBe("tts");
+    expect(ctrl().state).toBe("playing");
+    expect(video.paused).toBe(true);
+    expect(slot.dataset.kind).toBe("audio");
+    // Loud for the operator: the cue id and the actionable hint are both named.
+    expect(warn).toHaveBeenCalled();
+    const message = warn.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(message).toContain('audio cue "a1"');
+    expect(message).toContain("In Seite anzeigen");
+  });
+
+  it("names the cue in the warning when an asset key is missing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await mountAndTrigger(audioConfig({ ...CUE, asset: "intro" }));
+
+    const message = warn.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(message).toContain('audio cue "a1"');
+    expect(message).toContain("config.assets");
+  });
+
   it("falls back when play() is rejected by the autoplay policy", async () => {
     vi.spyOn(window.HTMLMediaElement.prototype, "play").mockImplementation(() =>
       Promise.reject(new Error("blocked")),
     );
-    addAttachment("Intro.mp3");
     installPlayerStub();
-    setupConfigDom(audioConfig({ ...CUE, audioFile: "Intro.mp3" }));
+    setupConfigDom(audioConfig({ ...CUE, asset: SIGNED_HREF }));
     await import("../../demo-overlays/index");
     await nextFrames();
     emitTime(2);
@@ -323,9 +370,8 @@ describe("audio cue: TTS fallback", () => {
   });
 
   it("falls back when the element reports a load error", async () => {
-    addAttachment("Intro.mp3");
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
     expect(ctrl().mode).toBe("file");
 
@@ -338,9 +384,8 @@ describe("audio cue: TTS fallback", () => {
   });
 
   it("ignores an audio 'ended' event once the cue fell back to TTS", async () => {
-    addAttachment("Intro.mp3");
     const { audio } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
     audio.dispatchEvent(new Event("error"));
 
@@ -350,9 +395,8 @@ describe("audio cue: TTS fallback", () => {
   });
 
   it("clears the audio src when a cue that fell back to TTS ends", async () => {
-    addAttachment("Intro.mp3");
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
     audio.dispatchEvent(new Event("error"));
 
@@ -363,9 +407,8 @@ describe("audio cue: TTS fallback", () => {
   });
 
   it("does not let an ended file cue leave the simulated clock running", async () => {
-    addAttachment("Intro.mp3");
     const { audio } = await mountAndTrigger(
-      audioConfig({ ...CUE, audioFile: "Intro.mp3" }),
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
     );
 
     vi.useFakeTimers();

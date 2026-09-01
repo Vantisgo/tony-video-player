@@ -1,4 +1,4 @@
-import { resolveAttachmentUrl } from "../common/attachments";
+import { type AssetFailure, resolveAssetUrl } from "../common/assets";
 import { resetCleanup, pushCleanup } from "../common/cleanup";
 import { esc } from "../common/escape";
 import { formatTime as fmt } from "../common/format";
@@ -37,9 +37,32 @@ function reportFailure(errorType: string): void {
   });
 }
 
+// One entry per `resolveAssetUrl` failure. Separate errorTypes on purpose: the
+// three have different fixes (fix the embed block / fix the key / fix the URL),
+// and a single `audio-asset-error` would force reading the beacon's config back
+// to tell them apart. `unexpanded` is the highest-signal one — it means the whole
+// block is mis-configured, so no cue on the page will find its audio.
+const ASSET_FAILURES: Record<
+  AssetFailure,
+  { errorType: string; hint: string }
+> = {
+  unexpanded: {
+    errorType: "audio-asset-unexpanded",
+    hint: 'the {{asset:…}} placeholder was not expanded — check that the "Code einbetten" block uses "In Seite anzeigen" (not "In Pop-Up anzeigen") and that the asset still exists',
+  },
+  missing: {
+    errorType: "audio-asset-missing",
+    hint: "no matching key in config.assets",
+  },
+  insecure: {
+    errorType: "audio-asset-insecure",
+    hint: "resolved to a non-https URL; refused",
+  },
+};
+
 interface AudioController {
   state: "idle" | "playing" | "paused";
-  // "file" plays the real attachment audio and takes its clock from the
+  // "file" plays the cue's uploaded asset and takes its clock from the
   // element's timeupdate; "tts" speaks `script` on a simulated clock.
   mode: "tts" | "file";
   active: Audio | null;
@@ -256,6 +279,7 @@ function main(): string {
     const sciences = parsed.sciences ?? (isDemo ? DEFAULT_SCIENCES : []);
     const audios = parsed.audios ?? (isDemo ? DEFAULT_AUDIOS : []);
     const metaSteps = parsed.metaSteps ?? (isDemo ? DEFAULT_META_STEPS : []);
+    const assets = parsed.assets ?? {};
     const quiz = parsed.quiz ?? null;
 
     const showSectionOverlay = phases.length > 1; // one phase: Coaching tab is enough
@@ -268,7 +292,7 @@ function main(): string {
 
     w.__vpConfig = {
       source: cfgHit.source,
-      data: { phases, sciences, audios, metaSteps, demo: isDemo, quiz },
+      data: { phases, sciences, audios, metaSteps, assets, demo: isDemo, quiz },
     };
 
     // ─── Animation keyframes (inject once) ───
@@ -547,8 +571,29 @@ function main(): string {
     audioEl.style.display = "none";
     document.body.appendChild(audioEl);
 
-    // Play the real file when the cue names an attachment we can find on the
-    // page; otherwise (and on any playback failure) speak the script instead.
+    // Failure policy for a cue's `asset` reference: **graceful for the learner,
+    // loud for the operator.** A learner never sees a diagnostic — every failure
+    // degrades to the TTS path, which is why `script` is mandatory on every cue.
+    // The operator gets a named console warning plus one deduped beacon.
+    //
+    // Resolve at cue time rather than at mount: the reference is cheap to
+    // resolve and a late-arriving config revision is then picked up for free.
+    // Nothing is cached — the signed URL the platform rendered into the config is
+    // only ever as old as this page load.
+    function resolveAudioUrl(a: Audio): string {
+      const { url, failure } = resolveAssetUrl(a.asset, assets);
+      if (!failure) return url;
+      const { errorType, hint } = ASSET_FAILURES[failure];
+      console.warn(
+        `[vp] audio cue "${a.id}": ${hint} — speaking the script instead`,
+        a.asset,
+      );
+      reportFailure(errorType);
+      return "";
+    }
+
+    // Play the real file when the cue's asset resolves; otherwise (and on any
+    // playback failure) speak the script instead.
     function startFile(a: Audio, url: string): void {
       audioCtrl.mode = "file";
       audioEl.src = url;
@@ -595,9 +640,7 @@ function main(): string {
         } catch {
           /* ignore */
         }
-        // Resolve lazily: the anchor may render late, and its signed URL is
-        // re-minted on every page load, so it is never cached.
-        const url = resolveAttachmentUrl(a.audioFile);
+        const url = resolveAudioUrl(a);
         if (url) {
           startFile(a, url);
           audioCtrl._render();
