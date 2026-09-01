@@ -14,6 +14,9 @@ declare global {
     // injection order.
     __vpLoaderStatus?: string;
     __vpLoaded?: string[];
+    // Which origin the bundles were taken from: "local" when a dev server
+    // answered the handshake probe (loader/local-runtime.ts), else "deployed".
+    __vpLocalRuntime?: "local" | "deployed";
   }
 }
 

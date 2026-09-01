@@ -56,11 +56,14 @@
   // runtime-src/common/killswitch.ts
   var FLAG_PATH = "/api/runtime-config";
   var TIMEOUT_MS = 3e3;
-  async function shouldRun(baseUrl2) {
-    if (typeof window.__vpRuntimeGate === "boolean")
-      return window.__vpRuntimeGate;
+  var FAIL_OPEN = { enabled: true, devProbe: true };
+  var readFlags = (data) => {
+    const o = data && typeof data === "object" ? data : {};
+    return { enabled: o.enabled !== false, devProbe: o.devProbe !== false };
+  };
+  async function fetchRuntimeFlags(baseUrl2) {
     const url = runtimeApiUrl(baseUrl2, FLAG_PATH);
-    if (!url) return true;
+    if (!url) return FAIL_OPEN;
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), TIMEOUT_MS) : null;
     try {
@@ -68,17 +71,13 @@
         credentials: "omit",
         signal: controller == null ? void 0 : controller.signal
       });
-      if (!res.ok) return true;
-      const data = await res.json();
-      return !isDisabled(data);
+      if (!res.ok) return FAIL_OPEN;
+      return readFlags(await res.json());
     } catch {
-      return true;
+      return FAIL_OPEN;
     } finally {
       if (timer) clearTimeout(timer);
     }
-  }
-  function isDisabled(data) {
-    return !!data && typeof data === "object" && data.enabled === false;
   }
 
   // runtime-src/common/config.ts
@@ -145,6 +144,31 @@
     }
   }
 
+  // runtime-src/loader/local-runtime.ts
+  var LOCAL_LOADER = "http://localhost:3000/runtime/loader.js";
+  var HANDSHAKE = "http://localhost:3000/runtime/dev-handshake.json";
+  var MARKER = "vpDevRuntime";
+  var PROBE_TIMEOUT_MS = 400;
+  var LOCAL_LOADER_URL = LOCAL_LOADER;
+  async function probeLocalRuntime() {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS) : null;
+    try {
+      const res = await fetch(HANDSHAKE, {
+        cache: "no-store",
+        credentials: "omit",
+        signal: controller == null ? void 0 : controller.signal
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      return !!data && typeof data === "object" && data[MARKER] === true;
+    } catch {
+      return false;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   // runtime-src/loader/index.ts
   var CLEANUP_KEY = "__vpLoaderCleanup";
   var PLAYER_WAIT_MS = 3e3;
@@ -157,10 +181,10 @@
     var _a;
     return (_a = window.__vpLoaded) != null ? _a : window.__vpLoaded = [];
   }
-  function inject(entry) {
+  function inject(entry, base) {
     const done = loaded();
     if (done.indexOf(entry) !== -1) return Promise.resolve();
-    const src = childUrl(scriptUrl, entry);
+    const src = childUrl(base || scriptUrl, entry);
     if (!src) {
       console.warn("[vp loader] cannot resolve a URL for", entry);
       return Promise.resolve();
@@ -169,6 +193,7 @@
     return new Promise((resolve) => {
       const el = document.createElement("script");
       el.src = src;
+      if (src.startsWith("http://")) el.crossOrigin = "anonymous";
       el.async = false;
       el.onload = () => resolve();
       el.onerror = () => {
@@ -200,14 +225,28 @@
       pushCleanup(CLEANUP_KEY, () => clearInterval(id));
     });
   }
-  function main() {
+  function main(probeAllowed) {
     resetCleanup(CLEANUP_KEY);
     let reskinChainStarted = false;
+    let basePromise = null;
+    function runtimeBase() {
+      if (!probeAllowed) return Promise.resolve("");
+      return basePromise != null ? basePromise : basePromise = probeLocalRuntime().then((local) => {
+        window.__vpLocalRuntime = local ? "local" : "deployed";
+        if (!local) return "";
+        console.info("[vp loader] local dev runtime detected; using it");
+        window.__vpRuntimeBaseUrl = LOCAL_LOADER_URL;
+        return LOCAL_LOADER_URL;
+      });
+    }
     function applyGates() {
-      if (isAdminEditMode(location)) void inject("admin-toggle");
+      if (isAdminEditMode(location))
+        void runtimeBase().then((base) => inject("admin-toggle", base));
       if (reskinChainStarted || !hasVpConfig()) return;
       reskinChainStarted = true;
-      void inject("reskin-player").then(() => waitForPlayer(PLAYER_WAIT_MS)).then(() => inject("demo-overlays"));
+      void runtimeBase().then(
+        (base) => inject("reskin-player", base).then(() => waitForPlayer(PLAYER_WAIT_MS)).then(() => inject("demo-overlays", base))
+      );
     }
     let scanPending = 0;
     function scheduleApply() {
@@ -245,10 +284,13 @@
     return "loader armed";
   }
   void (async () => {
-    const allowed = await shouldRun(baseUrl);
-    window.__vpRuntimeGate = allowed;
+    const basePinned = !!window.__vpRuntimeBaseUrl;
+    const gate = window.__vpRuntimeGate;
+    const flags = typeof gate === "boolean" ? { enabled: gate, devProbe: false } : await fetchRuntimeFlags(baseUrl);
+    const probeAllowed = flags.devProbe && !basePinned;
+    window.__vpRuntimeGate = flags.enabled;
     if (!window.__vpRuntimeBaseUrl && baseUrl)
       window.__vpRuntimeBaseUrl = baseUrl;
-    window.__vpLoaderStatus = allowed ? main() : "loader: disabled by kill-switch";
+    window.__vpLoaderStatus = flags.enabled ? main(probeAllowed) : "loader: disabled by kill-switch";
   })();
 })();

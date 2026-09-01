@@ -7,10 +7,11 @@
 // The three bundles keep their own gates and their own idempotency, so they stay
 // injectable on their own (debugging, e2e) — this loader is additive.
 import { pushCleanup, resetCleanup } from "../common/cleanup";
-import { shouldRun } from "../common/killswitch";
+import { fetchRuntimeFlags } from "../common/killswitch";
 import { getRuntimeBaseUrl, getRuntimeScriptUrl } from "../common/runtime-url";
 import { childUrl, ENTRIES, hasVpConfig, isAdminEditMode } from "./gates";
 import type { Entry } from "./gates";
+import { LOCAL_LOADER_URL, probeLocalRuntime } from "./local-runtime";
 
 const CLEANUP_KEY = "__vpLoaderCleanup";
 const PLAYER_WAIT_MS = 3000;
@@ -31,11 +32,15 @@ function loaded(): string[] {
 
 // Inject a bundle at most once. Never rejects — a child that fails to load must
 // not stop the others.
-function inject(entry: Entry): Promise<void> {
+// `base` is the local loader URL when a dev server answered, "" otherwise. It is
+// passed to childUrl() in place of our own script URL, so the deployed path and
+// the local path share one construction (and the local one carries no bypass
+// query, which it does not need).
+function inject(entry: Entry, base: string): Promise<void> {
   const done = loaded();
   if (done.indexOf(entry) !== -1) return Promise.resolve();
 
-  const src = childUrl(scriptUrl, entry);
+  const src = childUrl(base || scriptUrl, entry);
   if (!src) {
     console.warn("[vp loader] cannot resolve a URL for", entry);
     return Promise.resolve();
@@ -45,6 +50,11 @@ function inject(entry: Entry): Promise<void> {
   return new Promise<void>((resolve) => {
     const el = document.createElement("script");
     el.src = src;
+    // MANDATORY for a loopback origin: Chrome fetches a no-CORS script from
+    // http://localhost, discards the response and fires NEITHER load NOR error,
+    // which would leave this promise unsettled forever and stall the chain below
+    // with nothing in the console. Production is https and unaffected.
+    if (src.startsWith("http://")) el.crossOrigin = "anonymous";
     // Preserves execution order relative to other dynamically inserted scripts.
     el.async = false;
     el.onload = () => resolve();
@@ -82,21 +92,44 @@ function waitForPlayer(timeoutMs: number): Promise<void> {
   });
 }
 
-function main(): string {
+function main(probeAllowed: boolean): string {
   // Idempotency: disarm a previous run's observers and timers before arming new
   // ones. window.__vpLoaded is deliberately NOT reset — a bundle already
   // executing must not be injected a second time.
   resetCleanup(CLEANUP_KEY);
 
   let reskinChainStarted = false;
+  let basePromise: Promise<string> | null = null;
+
+  // Resolved once per page, on first use, and only from inside a passing gate —
+  // so a page that loads no bundle never touches the local network. All three
+  // children then share one verdict: a local reskin-player against a deployed
+  // demo-overlays would be version skew that reads like a runtime bug.
+  function runtimeBase(): Promise<string> {
+    if (!probeAllowed) return Promise.resolve("");
+    return (basePromise ??= probeLocalRuntime().then((local) => {
+      window.__vpLocalRuntime = local ? "local" : "deployed";
+      if (!local) return "";
+      console.info("[vp loader] local dev runtime detected; using it");
+      // Point the children's kill-switch and telemetry at the dev server too:
+      // the same `bun dev` serves /api/runtime-config and /api/runtime-telemetry,
+      // so a developer's beacons stay out of production. Read as a *script* URL
+      // (see common/runtime-url.ts), hence the loader URL rather than a bare dir.
+      window.__vpRuntimeBaseUrl = LOCAL_LOADER_URL;
+      return LOCAL_LOADER_URL;
+    }));
+  }
 
   function applyGates(): void {
-    if (isAdminEditMode(location)) void inject("admin-toggle");
+    if (isAdminEditMode(location))
+      void runtimeBase().then((base) => inject("admin-toggle", base));
     if (reskinChainStarted || !hasVpConfig()) return;
     reskinChainStarted = true;
-    void inject("reskin-player")
-      .then(() => waitForPlayer(PLAYER_WAIT_MS))
-      .then(() => inject("demo-overlays"));
+    void runtimeBase().then((base) =>
+      inject("reskin-player", base)
+        .then(() => waitForPlayer(PLAYER_WAIT_MS))
+        .then(() => inject("demo-overlays", base)),
+    );
   }
 
   // Gates are re-evaluated on DOM and URL changes, not just once: LearningSuite
@@ -147,13 +180,26 @@ function main(): string {
 // common/killswitch.ts). Fails open, so a fetch failure never disables a working
 // runtime — only an explicit `{ enabled: false }` does.
 void (async () => {
-  const allowed = await shouldRun(baseUrl);
-  window.__vpRuntimeGate = allowed;
+  // The two override signals mean different things and must not be merged:
+  // a pre-set __vpRuntimeGate is a verdict already fetched (skip the request),
+  // while a pre-set __vpRuntimeBaseUrl only pins where bundles come from — the
+  // e2e preview harness sets it and still wants the real kill-switch.
+  const basePinned = !!window.__vpRuntimeBaseUrl;
+  const gate = window.__vpRuntimeGate;
+  const flags =
+    typeof gate === "boolean"
+      ? { enabled: gate, devProbe: false }
+      : await fetchRuntimeFlags(baseUrl);
+
+  // Never probe over a harness's explicit choice of origin.
+  const probeAllowed = flags.devProbe && !basePinned;
+
+  window.__vpRuntimeGate = flags.enabled;
   // Set before the first child is injected, otherwise children race the loader
   // and fetch the flag themselves. An existing value (e2e harness) wins.
   if (!window.__vpRuntimeBaseUrl && baseUrl)
     window.__vpRuntimeBaseUrl = baseUrl;
-  window.__vpLoaderStatus = allowed
-    ? main()
+  window.__vpLoaderStatus = flags.enabled
+    ? main(probeAllowed)
     : "loader: disabled by kill-switch";
 })();

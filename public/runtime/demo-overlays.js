@@ -399,11 +399,14 @@
   // runtime-src/common/killswitch.ts
   var FLAG_PATH = "/api/runtime-config";
   var TIMEOUT_MS = 3e3;
-  async function shouldRun(baseUrl) {
-    if (typeof window.__vpRuntimeGate === "boolean")
-      return window.__vpRuntimeGate;
+  var FAIL_OPEN = { enabled: true, devProbe: true };
+  var readFlags = (data) => {
+    const o = data && typeof data === "object" ? data : {};
+    return { enabled: o.enabled !== false, devProbe: o.devProbe !== false };
+  };
+  async function fetchRuntimeFlags(baseUrl) {
     const url = runtimeApiUrl(baseUrl, FLAG_PATH);
-    if (!url) return true;
+    if (!url) return FAIL_OPEN;
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), TIMEOUT_MS) : null;
     try {
@@ -411,17 +414,18 @@
         credentials: "omit",
         signal: controller == null ? void 0 : controller.signal
       });
-      if (!res.ok) return true;
-      const data = await res.json();
-      return !isDisabled(data);
+      if (!res.ok) return FAIL_OPEN;
+      return readFlags(await res.json());
     } catch {
-      return true;
+      return FAIL_OPEN;
     } finally {
       if (timer) clearTimeout(timer);
     }
   }
-  function isDisabled(data) {
-    return !!data && typeof data === "object" && data.enabled === false;
+  async function shouldRun(baseUrl) {
+    if (typeof window.__vpRuntimeGate === "boolean")
+      return window.__vpRuntimeGate;
+    return (await fetchRuntimeFlags(baseUrl)).enabled;
   }
 
   // runtime-src/common/beacon.ts

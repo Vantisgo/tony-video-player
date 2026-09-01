@@ -5,6 +5,11 @@
 export interface RuntimeFlag {
   enabled: boolean;
   minHostVersion: string | null;
+  // Whether loader.js may probe http://localhost for a developer's dev server
+  // (runtime-src/loader/local-runtime.ts). That probe makes learners' browsers
+  // issue a local-network request, so it needs an off-switch that does not
+  // require a redeploy — same rationale as `enabled`, same fail-open rule.
+  devProbe: boolean;
 }
 
 export function resolveFlag(raw: unknown): RuntimeFlag {
@@ -14,9 +19,10 @@ export function resolveFlag(raw: unknown): RuntimeFlag {
       enabled: o.enabled !== false,
       minHostVersion:
         typeof o.minHostVersion === "string" ? o.minHostVersion : null,
+      devProbe: o.devProbe !== false,
     };
   }
-  return { enabled: true, minHostVersion: null };
+  return { enabled: true, minHostVersion: null, devProbe: true };
 }
 
 // Build the Edge Config Read-API URL for a single item from the `EDGE_CONFIG`

@@ -18,8 +18,9 @@ alerts yet.
 ## Part 1 — Vercel Edge Config (kill-switch) setup
 
 Backs `GET /api/runtime-config`, which returns
-`{ "enabled": boolean, "minHostVersion": string | null }`. The runtime only
-disables on an explicit `enabled: false`; anything else → enabled (fail-open).
+`{ "enabled": boolean, "minHostVersion": string | null, "devProbe": boolean }`.
+The runtime only disables on an explicit `false`; anything else → enabled
+(fail-open). Both booleans follow that same rule.
 
 ### To-do
 
@@ -53,6 +54,13 @@ disables on an explicit `enabled: false`; anything else → enabled (fail-open).
 - **Re-enable:** set it back to `true`.
 - `minHostVersion` is carried through but **not yet enforced** (reserved for a
   future version-pin); leave it `null`.
+- **Stop the local-dev probe:** set `runtimeConfig.devProbe = false`. On a lesson
+  page `loader.js` otherwise makes one request to `http://localhost:3000` to see
+  whether a developer's `bun dev` is serving the bundles (see
+  `runtime-src/loader/local-runtime.ts`). That request is what this flag turns
+  off, without a redeploy — `enabled` stays untouched, so the runtime keeps
+  working from the deployed origin. Reach for it if the local-network request
+  ever trips a customer's browser policy or a security review.
 - **Fail-open guarantees:** if Edge Config is unreachable, `EDGE_CONFIG` is
   unset, or the fetch is blocked/times out (3s), the runtime runs normally. The
   switch can only ever _disable_ via an explicit `false`.

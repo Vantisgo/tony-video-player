@@ -11,16 +11,30 @@ import { runtimeApiUrl } from "./runtime-url";
 const FLAG_PATH = "/api/runtime-config";
 const TIMEOUT_MS = 3000;
 
-export async function shouldRun(baseUrl: string): Promise<boolean> {
-  // loader.js asks once per page load and publishes the verdict, so the bundles
-  // it injects skip this request. `typeof` — not truthiness — so an explicit
-  // `false` is honoured, and an absent flag still fetches: a bundle injected on
-  // its own (debugging, e2e) keeps its own kill-switch.
-  if (typeof window.__vpRuntimeGate === "boolean")
-    return window.__vpRuntimeGate;
+// Everything the endpoint tells the runtime, from ONE request. `devProbe` gates
+// the local-dev probe in loader/local-runtime.ts: that probe makes learners'
+// browsers issue a local-network request, so it needs an off-switch that does
+// not require a redeploy — the same reason `enabled` exists.
+export interface RuntimeFlags {
+  enabled: boolean;
+  devProbe: boolean;
+}
 
+// Both flags fail OPEN, for the same reason and by the same rule: only an
+// explicit `false` turns something off.
+const FAIL_OPEN: RuntimeFlags = { enabled: true, devProbe: true };
+
+const readFlags = (data: unknown): RuntimeFlags => {
+  const o =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  return { enabled: o.enabled !== false, devProbe: o.devProbe !== false };
+};
+
+export async function fetchRuntimeFlags(
+  baseUrl: string,
+): Promise<RuntimeFlags> {
   const url = runtimeApiUrl(baseUrl, FLAG_PATH);
-  if (!url) return true; // unknown origin → can't ask → run
+  if (!url) return FAIL_OPEN; // unknown origin → can't ask → run
 
   const controller =
     typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -32,20 +46,22 @@ export async function shouldRun(baseUrl: string): Promise<boolean> {
       credentials: "omit",
       signal: controller?.signal,
     });
-    if (!res.ok) return true; // fail open
-    const data: unknown = await res.json();
-    return !isDisabled(data);
+    if (!res.ok) return FAIL_OPEN;
+    return readFlags(await res.json());
   } catch {
-    return true; // network / timeout / CSP block → fail open
+    return FAIL_OPEN; // network / timeout / CSP block → fail open
   } finally {
     if (timer) clearTimeout(timer);
   }
 }
 
-function isDisabled(data: unknown): boolean {
-  return (
-    !!data &&
-    typeof data === "object" &&
-    (data as { enabled?: unknown }).enabled === false
-  );
+export async function shouldRun(baseUrl: string): Promise<boolean> {
+  // loader.js asks once per page load and publishes the verdict, so the bundles
+  // it injects skip this request. `typeof` — not truthiness — so an explicit
+  // `false` is honoured, and an absent flag still fetches: a bundle injected on
+  // its own (debugging, e2e) keeps its own kill-switch.
+  if (typeof window.__vpRuntimeGate === "boolean")
+    return window.__vpRuntimeGate;
+
+  return (await fetchRuntimeFlags(baseUrl)).enabled;
 }

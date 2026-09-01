@@ -413,3 +413,51 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   `javascript:` value reports `insecure` rather than falling through and mislabelling itself
   `missing`. It also re-runs the placeholder and https checks on _table values_, since a table can
   hold unexpanded placeholders too.
+
+## 2026-09-01 · local-first-runtime · loader.js prefers a developer's dev server
+
+- **Decision**: one global `<script>` tag serves both audiences. `loader.js` still comes from the
+  deployed origin, but before it injects a child bundle it asks — once — whether a local dev server
+  is answering, and if so takes **all three** children from there. Content authors keep the deployed
+  player; whoever is optimising runs `bun dev` and reloads. No per-lesson config, and (after the tag
+  URL is fixed once, see below) **no further platform edits ever**.
+- **Decision**: **all-or-nothing**, never per file. A local `reskin-player` against a deployed
+  `demo-overlays` is version skew that presents as a runtime bug.
+- **Decision**: the probe resolves **lazily, from inside a passing gate**, and is memoized for the
+  page. A page that injects no bundle never touches the local network — that is the property that
+  keeps a learner's browser off localhost on ordinary page views. It could instead run concurrently
+  with the kill-switch fetch and be latency-free, but that would probe on _every_ page.
+- **Decision**: the local URL is a **constant** (`http://localhost:3000/runtime/loader.js`), never
+  read from the page. A query-param or storage-driven override was designed first and rejected: it
+  would let anyone hand a learner a link that runs their JavaScript inside a logged-in lesson.
+- **Decision**: the probe target is a 25-byte `public/runtime/dev-handshake.json` carrying
+  `{"vpDevRuntime":true}`, and the marker must be `=== true`. Port 3000 is a very common dev port,
+  so "something answered" is not evidence — without the marker, a learner running an unrelated
+  server that happens to serve `/runtime/*` would get its code executed on a lesson page.
+- **Decision**: unlike the kill-switch, the probe **fails CLOSED** — timeout, refused connection,
+  CORS/LNA block, wrong marker and foreign server all mean "use the deployed runtime". `devProbe` in
+  `/api/runtime-config` can disable the probe with no redeploy (`docs/runtime-ops-setup.md`).
+- **Gotcha (measured, Chrome 152)**: this is **not** mixed content — Chrome treats `http://localhost`
+  as potentially trustworthy. It is **Local Network Access**, and its gate is **CORS**. A no-CORS
+  `<script src>` to a loopback origin IS fetched and served, then the response is **silently
+  discarded with neither `load` nor `error`** — which would leave `inject()`'s promise unsettled
+  forever and stall the reskin→overlays chain with nothing in the console. Hence
+  `el.crossOrigin = "anonymous"` for `http:` children. `next.config.ts` already sends
+  `Access-Control-Allow-Origin: *` on `/runtime/:path*`, in dev too.
+- **Gotcha (measured)**: probe with `fetch`, never by watching a `<script>` fail. Dead port: fetch
+  rejects in **245 ms**, script `onerror` takes **2350 ms**. Live port: **4 ms**.
+- **Gotcha**: `__vpRuntimeGate` and `__vpRuntimeBaseUrl` mean different things and must not be
+  merged. A pre-set gate is a verdict already fetched (skip the request); a pre-set base only pins
+  where bundles come from — the e2e preview harness sets it and still wants the real kill-switch.
+  Conflating them made the loader skip the flag fetch and arm while disabled.
+- **Gotcha (tests)**: `loader.test.ts`'s `beforeEach` used to **delete** `__vpLoaderCleanup` instead
+  of running it, orphaning the previous instance's MutationObserver and URL poll. Those kept firing
+  against the next test's DOM and injected children with their own stale origin verdict. Real
+  re-injection is safe (`main()` calls `resetCleanup()` first) — only the harness leaked.
+- **Constraint (unverified, gates the local half)**: the tenant's **CSP**. Verified against a
+  CSP-less page only. A `script-src` on `robbins.greator.com` would not list `http://localhost:3000`,
+  and that is LearningSuite's config, not ours. Already open at `docs/runtime-ops-setup.md` §CSP.
+- **Constraint**: the tenant's tag points at `tony-video-player-cx7os0up2-…`, a Vercel **deployment**
+  URL (no `-git-<branch>-` segment) serving exactly commit `a388bb8` — measured byte-for-byte. It is
+  immutable, so nothing new reaches authors until that tag points at an alias that moves. The
+  production domain 404s on `/runtime/*` and the spike alias still serves the stale 44.5 KB reskin.
