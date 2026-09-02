@@ -26,30 +26,41 @@ export type LessonFixture = {
   readonly why: string;
 };
 
-// EMPTY ON PURPOSE — see Step 5 of docs/e2e-canary.md.
+// The fallback target: what runs when nothing else says otherwise.
+//
+// Precedence in CI is `workflow_dispatch` input → the `E2E_CANARY_TARGET`
+// repository variable → this file. So while that variable is set, the schedule
+// watches *it*, not these entries, and this list is what the canary reverts to
+// when the variable is cleared. Keep it pointing at something real for that
+// reason — it is the floor, not dead code.
 //
 // The tenant under test is `robbins.greator.com` (a white-labelled LearningSuite
-// instance). The only lesson URL this repo had recorded lives on a *different*
+// instance). Only lessons on *this* tenant belong here: a path from another
 // tenant (`vantisgo.learningsuite.io`, see
-// docs/learningsuite-enrichment-research.md), so it was dropped rather than
-// repointed — a path from another tenant would fail as "no player element",
-// which reads like a runtime regression.
+// docs/learningsuite-enrichment-research.md) would fail as "no player element",
+// which reads like a runtime regression rather than a bad fixture.
 //
-// A real lesson on this tenant, confirmed to hold an <hls-video> on 2026-08-07:
-//   /student/course/robbins-greator-coaching-practitioner/k5GFQsnw/7JxvNDk2/vFcQCZsH
-// It is NOT committed as a fixture because it carries no [data-vp-config], so
-// the runtime deliberately does nothing there and every assertion would fail.
-// See Step 5 of docs/e2e-canary.md.
+// A lesson only qualifies if it carries a `[data-vp-config]` element. Without
+// one the runtime deliberately does nothing, so every assertion would fail and
+// the canary would report a runtime outage that is really an authoring gap.
 //
-// Until two orbit lessons are chosen, `bun run e2e` with no parameters fails
-// with "No default lessons are configured" — an accurate statement about what we
-// know, rather than a misleading red test. Parameterised runs
-// (`--course=…` / `--lesson=…`) work regardless.
+// Still missing: a `light-dom-slotted` lesson (a `<video>` slotted into
+// `<slot name="media">`). No such lesson has been found on this tenant — the
+// shape is LearningSuite's choice, not an authoring option, so it has to be
+// *found*, never assumed. An absent fixture is visible; an invented one looks
+// like a runtime failure. See Step 5 of docs/e2e-canary.md.
 export const DEFAULT_LESSONS: readonly LessonFixture[] = [
-  // {
-  //   name: "…",
-  //   path: "/student/course/<slug>/<module>/<lesson>/<topic>",
-  //   domShape: "light-dom-slotted",
-  //   why: "…",
-  // },
+  {
+    name: "Test Video Player",
+    path: "/student/course/test/bksCcNnT/yPClsb9h/pgWcT1Bk",
+    // Verified live 2026-09-02: <hls-video> with a <video> in its shadowRoot,
+    // readyState 4, duration 5937s, and a 5,628-char [data-vp-config].
+    domShape: "shadow-dom",
+    why:
+      "The only video lesson on this tenant that carries a [data-vp-config], " +
+      "and it lives in the throwaway `Test` course rather than a real learner " +
+      "course — so the watch progress the canary accrues every morning lands " +
+      "nowhere that matters. Replacing it means finding another configured " +
+      "lesson first; deleting it leaves the schedule with nothing to test.",
+  },
 ];

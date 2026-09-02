@@ -53,6 +53,52 @@ describe("parseTargetSpec", () => {
     });
   });
 
+  // A path is the form the fixture file uses and the form a person copies out of
+  // the address bar, so the `E2E_CANARY_TARGET` repository variable has to accept
+  // it. Without this it would fall through to the name branch and fail with
+  // "No course matches the name /student/course/…", which names the wrong problem.
+  it("resolves a leading-slash path against the configured tenant", () => {
+    const path = "/student/course/test/bksCcNnT/yPClsb9h/pgWcT1Bk";
+    expect(parseTargetSpec(env({ E2E_TARGET: path })).ref).toEqual({
+      kind: "url",
+      url: `https://robbins.greator.com${path}`,
+    });
+  });
+
+  it("resolves a path even when the base URL carries a trailing slash", () => {
+    const spec = parseTargetSpec(
+      env({
+        E2E_LS_BASE_URL: "https://robbins.greator.com/",
+        E2E_TARGET: "/student/course/test/bksCcNnT/yPClsb9h/pgWcT1Bk",
+      }),
+    );
+    expect(spec.ref).toEqual({
+      kind: "url",
+      url: "https://robbins.greator.com/student/course/test/bksCcNnT/yPClsb9h/pgWcT1Bk",
+    });
+  });
+
+  // The two phases must agree on the spec key or phase 2 refuses the targets
+  // file, so a path and its absolute form have to key identically.
+  it("keys a path identically to the same lesson given as a full URL", () => {
+    const path = "/student/course/test/bksCcNnT/yPClsb9h/pgWcT1Bk";
+    expect(targetSpecKey(parseTargetSpec(env({ E2E_TARGET: path })))).toBe(
+      targetSpecKey(
+        parseTargetSpec(
+          env({ E2E_TARGET: `https://robbins.greator.com${path}` }),
+        ),
+      ),
+    );
+  });
+
+  // "//host/path" looks like a path but `new URL()` resolves it to a different
+  // origin, which would send a logged-in browser off-tenant with a live session.
+  it("refuses a protocol-relative target that only looks like a path", () => {
+    expect(() =>
+      parseTargetSpec(env({ E2E_TARGET: "//evil.example/student/course/x" })),
+    ).toThrow(/evil\.example/);
+  });
+
   it("classifies a URL-safe token as an id or slug", () => {
     expect(parseTargetSpec(env({ E2E_TARGET: "mx2QDgyH" })).ref).toEqual({
       kind: "id",

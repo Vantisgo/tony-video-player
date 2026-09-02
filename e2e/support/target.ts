@@ -42,6 +42,23 @@ export function parseTargetSpec(env: E2eEnv): TargetSpec {
     return { ref: { kind: "url", url: assertSameTenant(raw, env) }, video };
   }
 
+  // A path on the configured tenant. This is the form `e2e/fixtures/lessons.ts`
+  // uses and the form a person copies out of the address bar, so the
+  // `E2E_CANARY_TARGET` repository variable accepts it too. Without this branch a
+  // path falls through to `name` and fails as "No course matches the name
+  // /student/course/…", which names the wrong problem.
+  //
+  // Still checked against the tenant afterwards, because `new URL()` resolves a
+  // **protocol-relative** "//host/path" to a different origin entirely — a value
+  // that looks like a path but sends a logged-in browser off-tenant.
+  if (raw.startsWith("/")) {
+    const resolved = new URL(raw, env.E2E_LS_BASE_URL).href;
+    return {
+      ref: { kind: "url", url: assertSameTenant(resolved, env) },
+      video,
+    };
+  }
+
   if (ID_SHAPE.test(raw)) return { ref: { kind: "id", id: raw }, video };
 
   return { ref: { kind: "name", name: raw }, video };
