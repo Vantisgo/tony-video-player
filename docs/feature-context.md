@@ -527,12 +527,13 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   **cannot** be loaded by vitest (the import hangs). Testable rules belong in a
   Playwright-free module beside it — `target.ts` and now `diag.ts` — which is the same
   split the app routes use (`relay.ts` / `config-flag.ts` vs `route.ts`).
-- **Open**: on the fixture lesson CI sees `readyState 0` / `duration NaN`, where a hand
-  check the same day saw `readyState 4` / `duration 5937s`. Codecs are ruled out
-  (`channel: "chrome"`, real Chrome installed in CI). Untested hypotheses: the media
-  simply needs longer than the pre-assertion wait allows (the 45s post-click wait had
-  never been reached), or the signed Bunny manifest is IP/geo-restricted from Azure-hosted
-  runners.
+- **Resolved (2026-09-02, run 33626831576 — 4/4 green)**: the `readyState 0` / `duration
+NaN` CI reading was **only** the schema sampling the media before it had loaded, not a
+  delivery problem. With the NaN fix in place, playback advanced in 7.6s on the first try.
+  There is no manifest, CDN, codec or geo issue on this tenant — do not go looking for one
+  on the strength of that old reading. The lesson here is about sampling, not networking:
+  an assertion that reads a media element the instant the runtime mounts will legitimately
+  see `readyState 0`, and must tolerate it rather than treat it as a broken payload.
 - **Gotcha**: `E2E_TARGET` did not accept a bare `/path` — it failed `ID_SHAPE` (which requires
   an alphanumeric first character) and fell through to the _name_ branch, failing as "No course
   matches the name /student/course/…". `parseTargetSpec` now resolves a leading-slash path
