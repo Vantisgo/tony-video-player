@@ -407,7 +407,7 @@ der Leitung stehen nur SHA-Hashes).
 
 **Noch nicht committet (untracked im Working Tree):**
 
-- `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md` —
+- `.claude/PRPs/plans/completed/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md` —
   Playwright-Suite, die sich in die echte, auth-gated LearningSuite-Instanz einloggt und
   prüft, dass die Runtime dort noch mountet und spielt. _Motivation:_ Kein existierender
   Check führt die Runtime auf einer `learningsuite.io`-Seite aus — Vitest testet gegen

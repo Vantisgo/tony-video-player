@@ -98,7 +98,9 @@ A Playwright project at `e2e/`, run by its own `playwright.config.ts`:
 - **Modified:** 2026-07-27 (initial build)
 - **Modified:** 2026-07-28 (parameterised target + video selection; two-phase resolve; tasks 1–12 → 1–16)
 - **Modified:** 2026-08-07 (built: harness complete; Task 1 human prerequisites and Task 16 live verification outstanding)
-- **Commits:** _(pending — branch `feature/e2e-canary-playwright`)_
+- **Modified:** 2026-09-02 (first green live run; archived with residual verification debt — see the closing amendment)
+- **Archived:** 2026-09-02 → `.claude/PRPs/plans/completed/`
+- **Commits:** branch `feature/e2e-canary-playwright` (`9165f4f`, `118e890`, `a388bb8`, `85368af`, `208bce47`, + the 2026-09-02 target-variable commit)
 - **Agent / Session:** claude-opus-5 / session 0d3c0d72-a581-4fbe-b9a6-8063390256c1
 - **Agent / Session:** claude-opus-5[1m] / session 779c2b40-face-41b3-aa56-033283950364
 - **Back refs:**
@@ -572,7 +574,7 @@ Execute in order. Each task is atomic and independently verifiable.
   `E2E_LS_BASE_URL=https://x.test E2E_LS_EMAIL=a@b.test E2E_LS_PASSWORD=p bunx playwright test --list`
   exits 0 while omitting a var produces a named error.
 
-### `[wip]` Task 5: CREATE `e2e/support/auth.setup.ts`
+### `[x]` Task 5: CREATE `e2e/support/auth.setup.ts`
 
 - **ACTION**: One login per run, persisted for the test project.
 - **IMPLEMENT**: `setup("authenticate", async ({ page }) => { … })` using
@@ -598,7 +600,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **VALIDATE**: `bunx playwright test --project=setup` passes and
   `e2e/.auth/ls.json` exists and is git-ignored.
 
-### `[wip]` Task 6: CREATE `e2e/fixtures/lessons.ts` (the default targets)
+### `[x]` Task 6: CREATE `e2e/fixtures/lessons.ts` (the default targets)
 
 - **ACTION**: Commit the two lesson fixtures as typed constants. These are what
   runs when **no target parameter** is given — i.e. what the schedule tests.
@@ -680,7 +682,7 @@ Execute in order. Each task is atomic and independently verifiable.
   suite reports "0 tests, all green" for a course that no longer has videos.
 - **VALIDATE**: `bunx tsc --noEmit && bun run lint`.
 
-### `[wip]` Task 9: CREATE `e2e/support/resolve.setup.ts` (the `resolve` project)
+### `[x]` Task 9: CREATE `e2e/support/resolve.setup.ts` (the `resolve` project)
 
 - **ACTION**: Parameters in, `targets.json` out.
 - **IMPLEMENT**: `setup("resolve targets", async ({ page }) => { … })`:
@@ -816,7 +818,7 @@ Execute in order. Each task is atomic and independently verifiable.
   and validate the shape before use.
 - **VALIDATE**: `bunx tsc --noEmit && bun run lint`.
 
-### `[wip]` Task 13: CREATE `e2e/overlay-canary.spec.ts`
+### `[x]` Task 13: CREATE `e2e/overlay-canary.spec.ts`
 
 - **ACTION**: The spec, generated from `targets.json` — one test per video.
 - **IMPLEMENT**: at module scope (collection time), not inside a hook:
@@ -1130,67 +1132,87 @@ run tests exactly one video.
 Numbered per the project's user-story convention (each maps to at least one
 assertion in the matrix above).
 
-- [ ] **AC1** — Given the deployed runtime and a valid test account, when the
+- [x] **AC1** — Given the deployed runtime and a valid test account, when the
       canary opens each lesson it was pointed at, then
       `__vpReskinStatus === "reskin attached"` and exactly one
       `[data-vp-reskinned="true"]` host contains a `.vp-shell`.
-- [ ] **AC2** — Given a mounted reskin, when the canary inspects the host, then
+- [x] **AC2** — Given a mounted reskin, when the canary inspects the host, then
       `[data-vp="playpause"]` and `[data-vp="time"]` are visible **and** every
       native-chrome selector from `styles.ts:4-10` is absent or hidden.
-- [ ] **AC3** — Given a mounted reskin, when the canary clicks
+- [x] **AC3** — Given a mounted reskin, when the canary clicks
       `[data-vp="playpause"]`, then `window.player.current` advances by ≥ 0.5s
       and `_diag().paused === false`.
-- [ ] **AC4** — Given a fixture lesson configured for demo overlays, then
+- [x] **AC4** — Given a fixture lesson configured for demo overlays, then
       `__vpDemoStatus === "demo: setup queued"` and `#vp-demo-sidebar` is visible.
-- [ ] **AC5** — Given player discovery, then `_diag().discovery !== "none"` and
+- [x] **AC5** — Given player discovery, then `_diag().discovery !== "none"` and
       `hasVideo === true`; a capability-sweep fallback is recorded as a test
       annotation.
 - [ ] **AC6** — Given the kill-switch is off, when the canary runs, then the
       failure message contains the literal `reskin disabled by kill-switch` and
       no other assertion is reported as the cause.
+      **NOT VERIFIED (2026-09-02).** Flipping the kill-switch on the live tenant
+      would disable the reskin for real learners, so it was never exercised.
 - [ ] **AC7** — Given `E2E_RUNTIME_BASE_URL` is set, when a test runs, then the
       LS page executed the **preview** bundle (verified in Task 16) and a
       non-200 bundle fetch fails with a labelled error.
+      **NOT VERIFIED (2026-09-02).** Preview mode has never asserted anything: every
+      `deployment_status` run failed earlier than the first assertion (missing env,
+      then login, then no fixtures). `runtime-source.ts` has never served a preview
+      bundle.
 - [ ] **AC8** — Given a failing run, then trace, video and screenshot are
       uploaded as artifacts and an alert is POSTed to the sink when configured.
+      **HALF VERIFIED (2026-09-02).** A real CI failure uploaded trace, video,
+      screenshot and `error-context.md`. The webhook half has never fired —
+      `RUNTIME_ALERT_WEBHOOK_URL` does not exist, so the step skips and exits 0.
 - [ ] **AC9** — `bun test`, `bun run lint`, `bunx tsc --noEmit` and
       `bun run typecheck:runtime` all still pass, and no file under
       `runtime-src/**` or `public/runtime/**` changed.
+      **VERIFIED (2026-09-02)** with one caveat: `bun run test` (vitest) is 293/293
+      and both typechecks are clean, but `bun run lint` reports 7 errors. All 7 are
+      pre-existing on `main` in files this branch did not change — diffed against
+      `f226858`. Note `bun test` is the _wrong_ runner here and reports false failures.
 - [ ] **AC10** — Given a target parameter supplied as a full URL, a
       LearningSuite id, or a visible name, when the suite runs, then all three
       forms resolve to the same lesson(s); an unknown or ambiguous name exits
       non-zero listing the candidates.
+      **WON'T FIX (2026-08-27).** Course and name targets cannot work on this tenant:
+      curriculum rows are React-router buttons, not anchors, and course-list anchor
+      text is the title concatenated with a progress badge. See
+      `docs/e2e-canary.md` § Step 4.
 - [ ] **AC11** — Given a course target and **no** video parameter, when the suite
       runs, then it emits one independently reported test group per video lesson
       in the course, numbered `1..total` in curriculum order, each with its own
       retry and its own trace/video/screenshot on failure.
+      **WON'T FIX (2026-08-27)** — same cause as AC10.
 - [ ] **AC12** — Given a course target and `--video=N`, when the suite runs, then
       exactly the Nth video is tested — the same lesson the all-videos run
       labelled `N/total` — and `N` outside `1..total` exits non-zero naming the
       valid range.
-- [ ] **AC13** — Given **no** parameters, when the suite runs, then it tests the
+- [x] **AC13** — Given **no** parameters, when the suite runs, then it tests the
       committed default fixtures — i.e. the scheduled canary's behaviour is
       unchanged by this parameterisation.
-- [ ] **AC14** — Given a missing `targets.json`, or one resolved for different
+- [x] **AC14** — Given a missing `targets.json`, or one resolved for different
       parameters, when the test phase is invoked, then it fails with an actionable
       message and never reports a passing run with zero assertions.
+
+      **WON'T FIX (2026-08-27)** — same cause as AC10.
 
 ---
 
 ## Completion Checklist
 
-- [ ] All 16 tasks completed in dependency order
-- [ ] Each task validated immediately after completion
-- [ ] Level 1: lint + both typechecks pass
-- [ ] Level 2: `bun test` pass count unchanged
-- [ ] Level 3: `--list` shows the expected projects and tests
-- [ ] Level 4: live canary green in both modes
-- [ ] Level 4b: full parameter matrix behaves (Task 16 step 2)
-- [ ] Level 5: `workflow_dispatch` runs green with and without inputs
+- [~] All 16 tasks completed in dependency order — 12 `[x]`, 2 `[wip]` (11, 14: code complete, never exercised live), 2 `[f]` (1, 16)
+- [x] Each task validated immediately after completion
+- [~] Level 1: both typechecks pass; lint has 7 pre-existing errors from `main` (see AC9)
+- [x] Level 2: `bun test` pass count unchanged
+- [x] Level 3: `--list` shows the expected projects and tests
+- [~] Level 4: deployed mode green 2026-09-02 (4/4); **preview mode never run**
+- [~] Level 4b: 2 of 8 rows verified (`--lesson=<url>`, `specKey` mismatch); the course/video rows are won't-fix
+- [ ] Level 5: **not possible** — the workflow is not on GitHub's default branch, so the trigger does not exist
 - [ ] Level 6: kill-switch, deliberate-failure and `_diag()`-attachment checks done
-- [ ] AC1–AC14 met
-- [ ] `docs/feature-context.md` entry appended
-- [ ] `e2e/.auth/` confirmed untracked
+- [~] AC1–AC14: 8 met, 3 won't-fix (AC10–12), 2 not verified (AC6, AC7), 1 half (AC8)
+- [x] `docs/feature-context.md` entry appended
+- [x] `e2e/.auth/` confirmed untracked
 
 ---
 
@@ -1574,3 +1596,57 @@ produced a "no player element" failure that reads like a runtime regression. The
 path survives as a commented example of the URL shape. Consequence: `bun run e2e`
 with no parameters now fails with "No default lessons are configured" until Step 5
 of `docs/e2e-canary.md` is done. Parameterised runs are unaffected.
+
+### 2026-09-02 — archived with residual verification debt
+
+**Archived by explicit request** after the first green live run, with Tasks 1 and
+16 still `[f]`. This entry is the honest record of what that means, because an
+archived plan is excluded from context for new work (`.claude/CLAUDE.md`) — so
+anything left open here has to be findable in the active docs instead.
+
+**What the first green run proved (2026-09-02).** The stale-bundle blocker that
+this plan spent two amendments on is gone: the tenant's script slot was repointed
+at a current build, and `bun run e2e` with no parameters passes 4/4 against
+`robbins.greator.com`. No fixture, selector or assertion change was needed — it
+was an ops change, exactly as the 2026-08-27 amendment predicted.
+
+Verified live: AC1–AC5 (reskin mounts, native chrome hidden, playback advances,
+demo overlays mount, discovery non-none), AC13 (no parameters → the committed
+fixtures) and AC14 (`specKey` mismatch refuses with 0 tests). Tasks 5, 6, 9 and
+13 moved `[wip]` → `[x]` on that evidence.
+
+**Superseded facts in the amendments above — do not trust them:**
+
+1. The 2026-08-07 amendment says the tenant is `orbit.learningsuite.io`. It is
+   **`robbins.greator.com`**.
+2. The same amendment says `e2e/fixtures/lessons.ts` is empty. It now carries one
+   lesson, `/student/course/test/bksCcNnT/yPClsb9h/pgWcT1Bk`.
+3. Task 6's ACTION asks for **two** fixtures covering both player DOM shapes, and
+   its GOTCHA says to ship two even if only one shape is found. **One** shipped.
+   No `light-dom-slotted` lesson exists on this tenant, so the suite exercises one
+   of the two shapes the runtime supports. Shipping a second, same-shape fixture
+   was judged worse than the honest gap — it would add runtime without adding
+   coverage.
+4. What the schedule watches is no longer only the fixtures file. Precedence is
+   `workflow_dispatch` input → the `E2E_CANARY_TARGET` repository variable →
+   `e2e/fixtures/lessons.ts`.
+
+**Debt carried out of this plan, and where it now lives:**
+
+| Open item                                                                                                                | Tracked in                                           |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| AC7 — preview mode has never asserted anything                                                                           | `docs/e2e-canary.md` § Step 8                        |
+| AC6 — kill-switch failure message never exercised                                                                        | `docs/e2e-canary.md` § Step 9                        |
+| AC8 — the webhook alert half has never fired                                                                             | `docs/e2e-canary-github-setup.md` § Step 8           |
+| Level 5 — `workflow_dispatch` needs the file on `main`                                                                   | `docs/e2e-canary-github-setup.md` § Step 1 (blocker) |
+| The missing `light-dom-slotted` fixture                                                                                  | `docs/e2e-canary.md` § Step 5                        |
+| `deployment_status` reads the workflow from the deployment's ref, not `main` — the provenance guard's rationale is wrong | `docs/e2e-canary-github-setup.md` § Step 5           |
+| The tenant loads a per-commit preview URL that Vercel will retire                                                        | `docs/e2e-canary.md` § Status                        |
+
+**Why archiving is still defensible.** What remains is not unfinished code. Tasks
+11 and 14 are `[wip]` in this plan's own sense — complete, type-clean, never
+exercised live — and every remaining item is either an ops action outside this
+repository (land the workflow on `main`, set a webhook, flip a kill-switch) or a
+fact about the tenant that no code change can supply (a second DOM shape). None
+of them is discovered by re-reading this plan; all of them are named in the two
+active canary documents, which are read.

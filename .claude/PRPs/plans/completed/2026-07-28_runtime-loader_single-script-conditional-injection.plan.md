@@ -102,7 +102,7 @@ A fourth esbuild entry, `runtime-src/loader/index.ts` → `public/runtime/loader
 - **Commits:** `97ad07d`
 - **Agent / Session:** claude-opus-5 / session 90414b1b-b5ee-4aee-a4c9-5437f467702f (plan + implementation)
 - **Back refs:**
-  - `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md` — its `page.route("**/runtime/*.js")` interception and `__vpReskinStatus` / `__vpDemoStatus` assertions must keep working through the loader
+  - `.claude/PRPs/plans/completed/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md` — its `page.route("**/runtime/*.js")` interception and `__vpReskinStatus` / `__vpDemoStatus` assertions must keep working through the loader
   - `.claude/PRPs/plans/completed/2026-07-24_resilience_ops-telemetry.plan.md` — the kill-switch this plan calls once instead of twice
   - `.claude/PRPs/plans/completed/2026-07-24_resilience_adaptability.plan.md` — player discovery + the no-player deadline telemetry the gates must not suppress
   - `.claude/PRPs/plans/completed/2026-07-24_refactor_runtime-ts-module-migration.plan.md` — the `runtime-src/` + esbuild entry structure this adds a fourth entry to
@@ -537,7 +537,7 @@ Execute in order. Each task is atomic and independently verifiable.
     is gitignored per existing convention — verify with `git status`).
   - Run every command in **Validation Commands** below.
   - Add a `Forward refs` entry to
-    `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md`
+    `.claude/PRPs/plans/completed/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md`
     pointing at this plan (bidirectional-reference rule), and note there that the
     canary's `page.route("**/runtime/*.js")` glob already matches `loader.js`,
     while its "no changes to `runtime-src/**`" scope limit predates this plan.

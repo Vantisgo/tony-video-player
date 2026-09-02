@@ -141,7 +141,7 @@ Port in dependency order, bottom-up through the module graph:
   - `.claude/PRPs/plans/completed/2026-07-24_security_runtime-augment-hardening.plan.md` — the `esc()` discipline every ported template string must keep
   - `.claude/PRPs/plans/completed/2026-07-28_runtime-loader_single-script-conditional-injection.plan.md` — loader gates; `hasVpConfig()` already admits quiz-only configs, no gate change needed
 - **Forward refs:**
-  - `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md` — the canary suite should gain quiz + remount scenarios once this lands
+  - `.claude/PRPs/plans/completed/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md` — the canary suite should gain quiz + remount scenarios once this lands
   - `.claude/PRPs/plans/2026-08-04_runtime-i18n_locale-aware-overlay-strings.plan.md` — externalises the German quiz strings and the English overlay strings this plan ships hardcoded
 
 > **Append-only:** `Created` is set once; every other field is a list you only ever add to.

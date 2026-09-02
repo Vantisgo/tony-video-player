@@ -1,6 +1,6 @@
 # Implementation Report
 
-**Plan**: `.claude/PRPs/plans/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md`
+**Plan**: `.claude/PRPs/plans/completed/2026-07-27_e2e-canary_learningsuite-overlay-playwright.plan.md`
 **Branch**: `feature/e2e-canary-playwright` (off `feature/mm-refactoring`)
 **Date**: 2026-08-07
 **Status**: PARTIAL — harness complete and statically verified; live verification blocked on credentials

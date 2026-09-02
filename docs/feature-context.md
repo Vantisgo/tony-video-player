@@ -480,6 +480,46 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   immutable, so nothing new reaches authors until that tag points at an alias that moves. The
   production domain 404s on `/runtime/*` and the spike alias still serves the stale 44.5 KB reskin.
 
+## 2026-09-02 · e2e-canary · the stale-bundle blocker cleared, and what replaced it
+
+- **Correction (2026-09-02)**: the 2026-08-27 entry "the tenant does **not** load `loader.js`"
+  is no longer true. Measured from a logged-in browser: the slot carries three tags —
+  `reskin-player.js`, `demo-overlays.js` **and** `loader.js` — all served from
+  `tony-video-player-e8f8y6983-…`, the preview of `208bce47`. `__vpLoaderStatus`,
+  `__vpReskinStatus`, `__vpDemoStatus` and `_diag().discovery` all exist, and
+  `bun run e2e` passes 4/4. The URL-predicate reasoning is unchanged.
+- **Constraint (reinforced)**: the tenant's tag has now moved twice by hand
+  (`cx7os0up2`→`a388bb8`, then `e8f8y6983`→`208bce47`). Each is an immutable per-commit
+  deployment URL, so every runtime change needs a manual tenant edit, and Vercel retiring an
+  old preview turns the tenant into a 404 with no commit to blame. Until the tag points at
+  something that moves, "the canary went red" and "nobody bumped the tag" are the same event.
+- **Gotcha**: a **new** LearningSuite account cannot complete its first login unattended — a
+  "Nutzungsbedingungen" gate (checkbox + a disabled `Akzeptieren` button) holds it on the login
+  URL, which surfaces as `auth.setup.ts`'s "still on the login page" error and reads like bad
+  credentials. Log a new test account in through a real browser once first.
+- **Gotcha**: GitHub masks secrets in **logs**, not in **uploaded artifacts**. A failing login's
+  `error-context.md` carried the test account's email verbatim into a public repository's
+  artifact. Never interpolate a secret into an assertion or error message.
+- **Constraint**: `deployment_status` runs the workflow file from the **deployment's ref**, not
+  from the default branch — measured: run `33528114866` executed `.github/workflows/e2e-canary.yml`
+  from a feature branch while `main` had no `.github/` at all. The provenance guard in that
+  workflow was justified partly by the opposite assumption; see
+  `docs/e2e-canary-github-setup.md` § Step 5 before relying on it against a fork PR.
+- **Decision (2026-09-02)**: what the canary watches is a repository **variable**,
+  `E2E_CANARY_TARGET`, not only the committed fixtures — the lesson under test is expected to
+  move. Precedence: `workflow_dispatch` input → variable → `e2e/fixtures/lessons.ts`. The
+  fixtures file stays as the floor so clearing the variable is a safe revert. Accepted
+  trade-off: a variable is an unreviewed change with no history, which the fixtures file
+  deliberately was not.
+- **Gotcha**: `E2E_TARGET` did not accept a bare `/path` — it failed `ID_SHAPE` (which requires
+  an alphanumeric first character) and fell through to the _name_ branch, failing as "No course
+  matches the name /student/course/…". `parseTargetSpec` now resolves a leading-slash path
+  against `E2E_LS_BASE_URL` **and re-runs `assertSameTenant` on the result**, because
+  `new URL("//other.example/x", base)` is protocol-relative and resolves off-tenant.
+- **Correction (2026-09-02)**: creating a repository **variable** needs only `maintain`, not
+  `admin` — `mm-vanver` created `E2E_CANARY_TARGET`. The earlier blanket "variables and secrets
+  need admin" was wrong for variables; the secret half is untested from that account.
+
 ## 2026-09-02 · runtime-i18n · Locale-aware UI strings for the injected runtime
 
 - **Decision**: All user-facing copy in the three augment bundles lives in
