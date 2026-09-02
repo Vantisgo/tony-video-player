@@ -17,6 +17,11 @@ declare global {
     // Which origin the bundles were taken from: "local" when a dev server
     // answered the handshake probe (loader/local-runtime.ts), else "deployed".
     __vpLocalRuntime?: "local" | "deployed";
+    // Host override for the UI locale, honoured ahead of
+    // document.documentElement.lang and navigator.languages (see
+    // common/i18n/core.ts). Typed `string`, not `Locale`, because a host can set
+    // anything — resolveLocale() validates it and ignores what it cannot use.
+    __vpLocale?: string;
   }
 }
 
