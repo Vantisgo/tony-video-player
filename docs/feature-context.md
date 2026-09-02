@@ -511,6 +511,28 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   fixtures file stays as the floor so clearing the variable is a safe revert. Accepted
   trade-off: a variable is an unreviewed change with no history, which the fixtures file
   deliberately was not.
+- **Gotcha (`_diag()` validation must not double as a readiness check)**: `z.number()`
+  **rejects `NaN`**, and `HTMLMediaElement.duration` legitimately IS `NaN` until metadata
+  loads (`currentTime` too, with no media). Playwright's protocol transports `NaN`
+  faithfully where JSON flattens it to `null`, so `diagSchema` classified an ordinary
+  not-yet-loaded player as an "unexpected shape" — failing the run for the wrong reason
+  **and** pre-empting the `readyState < 2` diagnostic in `expectPlaybackAdvances` that
+  actually explains a stalled media element. Numeric diag fields now use
+  `z.number().or(z.nan())`.
+- **Gotcha (never `JSON.stringify` a diag payload)**: it renders `NaN` and `±Infinity` as
+  `null` — a value the schema _accepts_ — so the failure message printed
+  `"duration":null` and contradicted itself. Use `describeDiag()` from
+  `e2e/support/diag.ts`, which spells non-finite numbers out.
+- **Constraint**: `e2e/support/assertions.ts` value-imports `@playwright/test` and therefore
+  **cannot** be loaded by vitest (the import hangs). Testable rules belong in a
+  Playwright-free module beside it — `target.ts` and now `diag.ts` — which is the same
+  split the app routes use (`relay.ts` / `config-flag.ts` vs `route.ts`).
+- **Open**: on the fixture lesson CI sees `readyState 0` / `duration NaN`, where a hand
+  check the same day saw `readyState 4` / `duration 5937s`. Codecs are ruled out
+  (`channel: "chrome"`, real Chrome installed in CI). Untested hypotheses: the media
+  simply needs longer than the pre-assertion wait allows (the 45s post-click wait had
+  never been reached), or the signed Bunny manifest is IP/geo-restricted from Azure-hosted
+  runners.
 - **Gotcha**: `E2E_TARGET` did not accept a bare `/path` — it failed `ID_SHAPE` (which requires
   an alphanumeric first character) and fell through to the _name_ branch, failing as "No course
   matches the name /student/course/…". `parseTargetSpec` now resolves a leading-slash path

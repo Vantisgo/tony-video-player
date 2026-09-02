@@ -8,7 +8,7 @@
 // more likely reading is that it is reaching past what the runtime promises.
 import { expect } from "@playwright/test";
 import type { Locator, Page, TestInfo } from "@playwright/test";
-import { z } from "zod";
+import { describeDiag, diagSchema, type Diag } from "./diag";
 
 // --- the runtime's published surface ---------------------------------------
 
@@ -52,17 +52,10 @@ const DEMO_SLOTS: readonly string[] = [
 // --- diagnostics ------------------------------------------------------------
 
 // `_diag()` crosses out of a page we do not control, so it is validated rather
-// than asserted into a type.
-const diagSchema = z.object({
-  hasVideo: z.boolean(),
-  discovery: z.string(),
-  paused: z.boolean().nullable().optional(),
-  currentTime: z.number().nullable().optional(),
-  duration: z.number().nullable().optional(),
-  readyState: z.number().nullable().optional(),
-});
-
-export type Diag = z.infer<typeof diagSchema>;
+// than asserted into a type. The schema and the failure-message renderer live in
+// `./diag` because that module is Playwright-free and therefore unit-testable —
+// see `e2e/support/assertions.test.ts`.
+export type { Diag } from "./diag";
 
 type RawDiag = {
   readonly ok: boolean;
@@ -99,11 +92,7 @@ export async function attachDiag(
 ): Promise<Diag | null> {
   const raw = await rawDiag(page);
   await testInfo.attach("diag.json", {
-    body: JSON.stringify(
-      raw.ok ? raw.value : { unavailable: raw.reason },
-      null,
-      2,
-    ),
+    body: describeDiag(raw.ok ? raw.value : { unavailable: raw.reason }),
     contentType: "application/json",
   });
   if (!raw.ok) return null;
@@ -114,18 +103,14 @@ export async function attachDiag(
 async function requireDiag(page: Page, testInfo: TestInfo): Promise<Diag> {
   const raw = await rawDiag(page);
   await testInfo.attach("diag.json", {
-    body: JSON.stringify(
-      raw.ok ? raw.value : { unavailable: raw.reason },
-      null,
-      2,
-    ),
+    body: describeDiag(raw.ok ? raw.value : { unavailable: raw.reason }),
     contentType: "application/json",
   });
   expect(raw.ok, `window.player._diag() unavailable: ${raw.reason}`).toBe(true);
   const parsed = diagSchema.safeParse(raw.value);
   expect(
     parsed.success,
-    `window.player._diag() returned an unexpected shape: ${JSON.stringify(raw.value)}`,
+    `window.player._diag() returned an unexpected shape: ${describeDiag(raw.value)}`,
   ).toBe(true);
   if (!parsed.success) throw new Error("unreachable: asserted above");
   return parsed.data;
@@ -333,7 +318,7 @@ export async function expectPlaybackAdvances(
     throw new Error(
       `Playback did not advance: window.player.current stayed at ~${before}s for 45s after ` +
         "clicking our play button.\n" +
-        `_diag(): ${JSON.stringify(diag)}\n` +
+        `_diag(): ${describeDiag(diag)}\n` +
         "readyState < 2 points at the media never loading (expired signed manifest, CDN, or a " +
         "codec the browser lacks); a moving readyState with a frozen currentTime points at our " +
         "play button no longer being wired to the media element.",
