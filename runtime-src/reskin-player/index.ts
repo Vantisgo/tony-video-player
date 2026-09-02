@@ -1,6 +1,9 @@
 import { createBus } from "../common/bus";
 import { pushCleanup, resetCleanup } from "../common/cleanup";
 import { listToArray } from "../common/dom";
+import { esc } from "../common/escape";
+// Aliased to `tr`: `t` is this file's name for the current playback time.
+import { t as tr } from "../common/i18n/player";
 import { getTrustedOrigins } from "../common/origins";
 import { getBunnyVideoId, getHlsApi, trackLabel } from "../common/tracks";
 import {
@@ -253,19 +256,19 @@ function main(): string {
       <div class="vp-subtitle-layer" data-vp-subtitles hidden></div>
       <div class="vp-sync-badge" data-vp-sync-drift hidden></div>
       <div class="vp-controls">
-        <button data-vp="playpause" aria-label="Play/Pause">Play</button>
+        <button data-vp="playpause" aria-label="${esc(tr("player.aria.playPause"))}">${esc(tr("player.label.play"))}</button>
         <input  data-vp="seek" class="vp-seek" type="range" min="0" max="0" step="0.1" value="0" />
         <span   data-vp="time" class="vp-time">0:00 / 0:00</span>
         <div class="vp-menu-wrap" data-vp-track-menu="audio">
-          <button data-vp="audio" aria-label="Audio tracks" aria-haspopup="menu" aria-expanded="false" disabled>Audio</button>
+          <button data-vp="audio" aria-label="${esc(tr("player.tracks.audio"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(tr("player.label.audio"))}</button>
           <div data-vp-menu="audio" class="vp-menu" role="menu" hidden></div>
         </div>
         <div class="vp-menu-wrap" data-vp-track-menu="captions">
-          <button data-vp="captions" aria-label="Subtitles" aria-haspopup="menu" aria-expanded="false" disabled>CC</button>
+          <button data-vp="captions" aria-label="${esc(tr("player.tracks.subtitles"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(tr("player.label.captions"))}</button>
           <div data-vp-menu="captions" class="vp-menu" role="menu" hidden></div>
         </div>
-        <button data-vp="mute" aria-label="Mute">Sound</button>
-        <button data-vp="fs" aria-label="Fullscreen">Full</button>
+        <button data-vp="mute" aria-label="${esc(tr("player.aria.mute"))}">${esc(tr("player.label.sound"))}</button>
+        <button data-vp="fs" aria-label="${esc(tr("player.aria.fullscreen"))}">${esc(tr("player.label.fullscreen"))}</button>
       </div>
     `;
     host.appendChild(shell);
@@ -370,7 +373,7 @@ function main(): string {
         if (option.selected) {
           const current = document.createElement("span");
           current.className = "vp-menu-current";
-          current.textContent = "Current";
+          current.textContent = tr("player.label.current");
           btn.appendChild(current);
         }
 
@@ -390,7 +393,7 @@ function main(): string {
       if (tracks.length <= 1) return null;
       return tracks.map((track, index) => ({
         value: index,
-        label: trackLabel(track, index, "Audio"),
+        label: trackLabel(track, index, tr("player.track.audio")),
         selected: !!track.enabled,
       }));
     }
@@ -403,7 +406,7 @@ function main(): string {
         typeof hls?.audioTrack === "number" ? hls.audioTrack : -1;
       return tracks.map((track, index) => ({
         value: index,
-        label: trackLabel(track, index, "Audio"),
+        label: trackLabel(track, index, tr("player.track.audio")),
         selected:
           selectedIndex === index || (selectedIndex < 0 && !!track.default),
       }));
@@ -414,7 +417,7 @@ function main(): string {
       if (renditions.length <= 1) return null;
       return renditions.map((track, index) => ({
         value: index,
-        label: trackLabel(track, index, "Audio"),
+        label: trackLabel(track, index, tr("player.track.audio")),
         selected: !!track.selected || !!track.enabled,
       }));
     }
@@ -426,7 +429,7 @@ function main(): string {
       if (tracks.length <= 1) return null;
       return tracks.map((track, index) => ({
         value: index,
-        label: trackLabel(track, index, "Audio"),
+        label: trackLabel(track, index, tr("player.track.audio")),
         selected: track.useNative
           ? externalAudioIndex < 0
           : externalAudioIndex === index,
@@ -488,11 +491,12 @@ function main(): string {
         return;
       }
       const sign = driftSeconds > 0 ? "+" : "-";
-      syncDriftBadge.textContent = `Audio ${sign}${Math.abs(driftSeconds).toFixed(1)}s`;
-      syncDriftBadge.title =
-        driftSeconds > 0
-          ? "External audio is ahead of the video timeline"
-          : "External audio is behind the video timeline";
+      syncDriftBadge.textContent = tr("player.drift.badge", {
+        offset: `${sign}${Math.abs(driftSeconds).toFixed(1)}`,
+      });
+      syncDriftBadge.title = tr(
+        driftSeconds > 0 ? "player.drift.ahead" : "player.drift.behind",
+      );
       syncDriftBadge.hidden = false;
     }
 
@@ -514,7 +518,9 @@ function main(): string {
       externalAudio.load();
       externalAudioIndex = -1;
       mediaEl.muted = audibleMuted;
-      muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+      muteBtn.textContent = tr(
+        audibleMuted ? "player.label.muted" : "player.label.sound",
+      );
       shell.dataset.vpAudioSource = "native";
       shell.dataset.vpAudioTrack = "native";
       updateExternalAudioDriftBadge(0);
@@ -542,7 +548,9 @@ function main(): string {
       externalAudio.playbackRate = mediaEl.playbackRate || 1;
       externalAudio.muted = audibleMuted;
       mediaEl.muted = true;
-      muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+      muteBtn.textContent = tr(
+        audibleMuted ? "player.label.muted" : "player.label.sound",
+      );
 
       if (mediaEl.paused || mediaEl.ended) {
         externalAudio.pause();
@@ -626,14 +634,14 @@ function main(): string {
       const options: TrackOption[] = [
         {
           value: "off",
-          label: "Off",
+          label: tr("player.label.off"),
           selected: !tracks.some((track) => track.mode === "showing"),
         },
       ];
       tracks.forEach((track, index) => {
         options.push({
           value: index,
-          label: trackLabel(track, index, "Subtitle"),
+          label: trackLabel(track, index, tr("player.track.subtitle")),
           selected: track.mode === "showing",
         });
       });
@@ -652,14 +660,14 @@ function main(): string {
       const options: TrackOption[] = [
         {
           value: "off",
-          label: "Off",
+          label: tr("player.label.off"),
           selected: selectedIndex < 0 || !display,
         },
       ];
       tracks.forEach((track, index) => {
         options.push({
           value: index,
-          label: trackLabel(track, index, "Subtitle"),
+          label: trackLabel(track, index, tr("player.track.subtitle")),
           selected: display && selectedIndex === index,
         });
       });
@@ -674,14 +682,14 @@ function main(): string {
       const options: TrackOption[] = [
         {
           value: "off",
-          label: "Off",
+          label: tr("player.label.off"),
           selected: learningSuiteSubtitleIndex < 0,
         },
       ];
       tracks.forEach((track, index) => {
         options.push({
           value: index,
-          label: trackLabel(track, index, "Subtitle"),
+          label: trackLabel(track, index, tr("player.track.subtitle")),
           selected: learningSuiteSubtitleIndex === index,
         });
       });
@@ -695,12 +703,16 @@ function main(): string {
       if (!tracks.length) return null;
       if (externalSubtitleIndex >= tracks.length) externalSubtitleIndex = -1;
       const options: TrackOption[] = [
-        { value: "off", label: "Off", selected: externalSubtitleIndex < 0 },
+        {
+          value: "off",
+          label: tr("player.label.off"),
+          selected: externalSubtitleIndex < 0,
+        },
       ];
       tracks.forEach((track, index) => {
         options.push({
           value: index,
-          label: trackLabel(track, index, "Subtitle"),
+          label: trackLabel(track, index, tr("player.track.subtitle")),
           selected: externalSubtitleIndex === index,
         });
       });
@@ -882,20 +894,36 @@ function main(): string {
       const audioState = getAudioMenuState();
       audioBtn.disabled = audioState.options.length <= 1;
       audioBtn.title = audioBtn.disabled
-        ? "No alternate audio tracks available"
-        : `Audio: ${(audioState.options.find((o) => o.selected) || audioState.options[0]).label}`;
-      renderMenu(audioMenu, "Audio tracks", audioState.options, (value) =>
-        setAudioTrack(audioState.source, value),
+        ? tr("player.title.noAudio")
+        : tr("player.title.audio", {
+            track: (
+              audioState.options.find((o) => o.selected) ||
+              audioState.options[0]
+            ).label,
+          });
+      renderMenu(
+        audioMenu,
+        tr("player.tracks.audio"),
+        audioState.options,
+        (value) => setAudioTrack(audioState.source, value),
       );
       if (audioBtn.disabled) audioMenu.hidden = true;
 
       const subtitleState = getSubtitleMenuState();
       captionsBtn.disabled = subtitleState.options.length <= 1;
       captionsBtn.title = captionsBtn.disabled
-        ? "No subtitles available"
-        : `Subtitles: ${(subtitleState.options.find((o) => o.selected) || subtitleState.options[0]).label}`;
-      renderMenu(captionsMenu, "Subtitles", subtitleState.options, (value) =>
-        setSubtitleTrack(subtitleState.source, value),
+        ? tr("player.title.noSubtitles")
+        : tr("player.title.subtitles", {
+            track: (
+              subtitleState.options.find((o) => o.selected) ||
+              subtitleState.options[0]
+            ).label,
+          });
+      renderMenu(
+        captionsMenu,
+        tr("player.tracks.subtitles"),
+        subtitleState.options,
+        (value) => setSubtitleTrack(subtitleState.source, value),
       );
       if (captionsBtn.disabled) captionsMenu.hidden = true;
     }
@@ -979,7 +1007,9 @@ function main(): string {
       } else {
         mediaEl.muted = audibleMuted;
       }
-      muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+      muteBtn.textContent = tr(
+        audibleMuted ? "player.label.muted" : "player.label.sound",
+      );
     };
     fsBtn.onclick = () => {
       setActive();
@@ -1017,12 +1047,12 @@ function main(): string {
     };
     const onPlay = () => {
       setActive();
-      playPauseBtn.textContent = "Pause";
+      playPauseBtn.textContent = tr("player.label.pause");
       syncExternalAudio();
       bus.emit("any", { type: "play", time: mediaEl.currentTime });
     };
     const onPause = () => {
-      playPauseBtn.textContent = "Play";
+      playPauseBtn.textContent = tr("player.label.play");
       externalAudio.pause();
       clearExternalAudioSyncTimer();
       bus.emit("any", { type: "pause", time: mediaEl.currentTime });
@@ -1046,7 +1076,9 @@ function main(): string {
         return;
       }
       audibleMuted = !!mediaEl.muted;
-      muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+      muteBtn.textContent = tr(
+        audibleMuted ? "player.label.muted" : "player.label.sound",
+      );
     };
     const onDocumentClick = (e: MouseEvent) => {
       if (!shell.contains(e.target as Node)) closeTrackMenus();

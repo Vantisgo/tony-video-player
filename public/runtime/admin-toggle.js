@@ -26,6 +26,103 @@
     ((_a = store[key]) != null ? _a : store[key] = []).push(fn);
   }
 
+  // runtime-src/common/escape.ts
+  var ENTITIES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  };
+  var esc = (v) => String(v != null ? v : "").replace(/[&<>"']/g, (c) => {
+    var _a;
+    return (_a = ENTITIES[c]) != null ? _a : c;
+  });
+
+  // runtime-src/common/i18n/core.ts
+  var LOCALES = ["en", "de"];
+  var DEFAULT_LOCALE = "en";
+  var isLocale = (value) => typeof value === "string" && LOCALES.includes(value);
+  var primarySubtag = (tag) => typeof tag === "string" ? tag.trim().toLowerCase().split(/[-_]/)[0] : "";
+  function resolveLocale() {
+    var _a, _b;
+    const override = primarySubtag(window.__vpLocale);
+    if (isLocale(override)) return override;
+    const declared = primarySubtag((_a = document.documentElement) == null ? void 0 : _a.lang);
+    if (isLocale(declared)) return declared;
+    const preferences = ((_b = navigator.languages) == null ? void 0 : _b.length) ? navigator.languages : [navigator.language];
+    for (const tag of preferences) {
+      const preferred = primarySubtag(tag);
+      if (isLocale(preferred)) return preferred;
+    }
+    return DEFAULT_LOCALE;
+  }
+  var cachedLocale = null;
+  function activeLocale() {
+    if (cachedLocale === null) cachedLocale = resolveLocale();
+    return cachedLocale;
+  }
+  var warned = /* @__PURE__ */ new Set();
+  function createT(messages) {
+    return (key, vars) => {
+      var _a;
+      let message = (_a = messages[activeLocale()][key]) != null ? _a : messages[DEFAULT_LOCALE][key];
+      if (message === void 0) {
+        if (!warned.has(key)) {
+          warned.add(key);
+          console.warn("[vp] missing message", key);
+        }
+        message = key;
+      }
+      if (!vars) return message;
+      return message.replace(/\{(\w+)\}/g, (match, name) => {
+        const value = vars[name];
+        return value === void 0 ? match : String(value);
+      });
+    };
+  }
+
+  // runtime-src/common/i18n/admin.ts
+  var EN = {
+    "admin.launch.enable": "enable Annotation",
+    "admin.launch.edit": "edit Annotation",
+    "admin.dialog.title": "Enable Advanced Video Modus",
+    "admin.dialog.close": "Close",
+    "admin.copy.button": "Copy prompt",
+    "admin.copy.done": "✓ Copied",
+    "admin.step1.heading": "Add a code block",
+    "admin.step1.bodyHtml": 'Add a <strong>"Code einbetten"</strong> block below the video — in the block sidebar on the left, under <em>Code-Elemente → Code einbetten</em>.',
+    "admin.step1.noteHtml": 'Set the block to <strong>"In Seite anzeigen"</strong> (the default).',
+    "admin.step2.heading": "Upload the voice-over files",
+    "admin.step2.bodyHtml": 'In the <strong>"Code einbetten"</strong> editor, upload the audio files as <strong>Assets</strong> and copy each reference (of the form <code>{{asset:file-name}}</code>) — you pass them into the prompt in the next step.',
+    "admin.step2.noteHtml": "No audio files? Just skip this step: the inserts are then read aloud from <code>script</code> via text-to-speech.",
+    "admin.step3.heading": "Prompt your LLM, then paste the answer",
+    "admin.step3.bodyHtml": 'Copy the prompt below and hand it to your LLM (ChatGPT, Claude, …) — together with the lesson transcript / script <em>and</em> the asset references from step 2. The answer is a ready-made <code>&lt;pre data-vp-config&gt;</code> block with the references already filled in — paste it verbatim into the "Code einbetten" modal, click <strong>Speichern</strong>, then <strong>Vorschau</strong> at the top to test it.',
+    "admin.footer.tipHtml": "💡 In the editor, LearningSuite shows the saved code as a raw string. Only <em>Vorschau</em> renders it live — and that is exactly when the Advanced Video Editor appears (re-skin + sidebar + overlays)."
+  };
+  var DE = {
+    "admin.launch.enable": "Annotation aktivieren",
+    "admin.launch.edit": "Annotation bearbeiten",
+    "admin.dialog.title": "Advanced Video Modus aktivieren",
+    "admin.dialog.close": "Schließen",
+    "admin.copy.button": "Prompt kopieren",
+    "admin.copy.done": "✓ Kopiert",
+    "admin.step1.heading": "Code-Block hinzufügen",
+    "admin.step1.bodyHtml": 'Füge unter dem Video einen <strong>"Code einbetten"</strong>-Block hinzu — links in der Block-Sidebar unter <em>Code-Elemente → Code einbetten</em>.',
+    "admin.step1.noteHtml": 'Stelle den Block auf <strong>"In Seite anzeigen"</strong> (Standard).',
+    "admin.step2.heading": "Voice-Over-Dateien hochladen",
+    "admin.step2.bodyHtml": 'Lade im <strong>"Code einbetten"</strong>-Editor die Audio-Dateien als <strong>Assets</strong> hoch und kopiere jeden Verweis (Form <code>{{asset:datei-name}}</code>) — du gibst sie im nächsten Schritt mit in den Prompt.',
+    "admin.step2.noteHtml": "Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen.",
+    "admin.step3.heading": "Prompt an LLM, dann Antwort einfügen",
+    "admin.step3.bodyHtml": 'Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.',
+    "admin.footer.tipHtml": "💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays)."
+  };
+  var MESSAGES = {
+    en: EN,
+    de: DE
+  };
+  var t = createT(MESSAGES);
+
   // runtime-src/admin-toggle/prompt.ts
   var PROMPT_TEXT = `Du erstellst eine JSON-Konfiguration für einen erweiterten Video-Player auf einer LearningSuite-Coaching-Lektion.
 
@@ -275,29 +372,29 @@ audios[]-Eintrag ein asset-Feld und alles wird per Text-to-Speech vorgelesen).
       <div class="vp-admin-dialog" role="dialog" aria-modal="true">
         <header>
           <span class="vp-icon" style="font-size:22px">⚡</span>
-          <h2>Advanced Video Modus aktivieren</h2>
-          <button class="vp-close" aria-label="Schließen">×</button>
+          <h2>${esc(t("admin.dialog.title"))}</h2>
+          <button class="vp-close" aria-label="${esc(t("admin.dialog.close"))}">×</button>
         </header>
         <section>
-          <h3><span class="vp-step-num">1</span>Code-Block hinzufügen</h3>
-          <p>Füge unter dem Video einen <strong>"Code einbetten"</strong>-Block hinzu — links in der Block-Sidebar unter <em>Code-Elemente → Code einbetten</em>.</p>
-          <p>Stelle den Block auf <strong>"In Seite anzeigen"</strong> (Standard).</p>
+          <h3><span class="vp-step-num">1</span>${esc(t("admin.step1.heading"))}</h3>
+          <p>${t("admin.step1.bodyHtml")}</p>
+          <p>${t("admin.step1.noteHtml")}</p>
         </section>
         <section>
-          <h3><span class="vp-step-num">2</span>Voice-Over-Dateien hochladen</h3>
-          <p>Lade im <strong>"Code einbetten"</strong>-Editor die Audio-Dateien als <strong>Assets</strong> hoch und kopiere jeden Verweis (Form <code>{{asset:datei-name}}</code>) — du gibst sie im nächsten Schritt mit in den Prompt.</p>
-          <p>Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen.</p>
+          <h3><span class="vp-step-num">2</span>${esc(t("admin.step2.heading"))}</h3>
+          <p>${t("admin.step2.bodyHtml")}</p>
+          <p>${t("admin.step2.noteHtml")}</p>
         </section>
         <section>
-          <h3><span class="vp-step-num">3</span>Prompt an LLM, dann Antwort einfügen</h3>
-          <p>Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.</p>
+          <h3><span class="vp-step-num">3</span>${esc(t("admin.step3.heading"))}</h3>
+          <p>${t("admin.step3.bodyHtml")}</p>
           <div class="vp-prompt-wrap">
             <textarea class="vp-prompt" readonly></textarea>
-            <button class="vp-copy-btn">Prompt kopieren</button>
+            <button class="vp-copy-btn">${esc(t("admin.copy.button"))}</button>
           </div>
         </section>
         <footer>
-          <span class="vp-tip">💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays).</span>
+          <span class="vp-tip">${t("admin.footer.tipHtml")}</span>
         </footer>
       </div>
     `;
@@ -332,10 +429,10 @@ audios[]-Eintrag ein asset-Feld und alles wird per Text-to-Speech vorgelesen).
           } catch {
           }
         }
-        copyBtn.textContent = "✓ Kopiert";
+        copyBtn.textContent = t("admin.copy.done");
         copyBtn.dataset.copied = "1";
         setTimeout(() => {
-          copyBtn.textContent = "Prompt kopieren";
+          copyBtn.textContent = t("admin.copy.button");
           copyBtn.dataset.copied = "0";
         }, 1800);
       };
@@ -357,7 +454,7 @@ audios[]-Eintrag ein asset-Feld und alles wird per Text-to-Speech vorgelesen).
       button.type = "button";
       button.className = "vp-admin-launch";
       function labelButton() {
-        button.textContent = hasVpConfigOnPage() ? "edit Annotation" : "enable Annotation";
+        button.textContent = hasVpConfigOnPage() ? t("admin.launch.edit") : t("admin.launch.enable");
       }
       labelButton();
       button.onclick = (e) => {

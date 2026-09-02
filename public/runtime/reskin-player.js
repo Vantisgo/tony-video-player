@@ -67,6 +67,125 @@
     }
   }
 
+  // runtime-src/common/escape.ts
+  var ENTITIES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  };
+  var esc = (v) => String(v != null ? v : "").replace(/[&<>"']/g, (c) => {
+    var _a;
+    return (_a = ENTITIES[c]) != null ? _a : c;
+  });
+
+  // runtime-src/common/i18n/core.ts
+  var LOCALES = ["en", "de"];
+  var DEFAULT_LOCALE = "en";
+  var isLocale = (value) => typeof value === "string" && LOCALES.includes(value);
+  var primarySubtag = (tag) => typeof tag === "string" ? tag.trim().toLowerCase().split(/[-_]/)[0] : "";
+  function resolveLocale() {
+    var _a, _b;
+    const override = primarySubtag(window.__vpLocale);
+    if (isLocale(override)) return override;
+    const declared = primarySubtag((_a = document.documentElement) == null ? void 0 : _a.lang);
+    if (isLocale(declared)) return declared;
+    const preferences = ((_b = navigator.languages) == null ? void 0 : _b.length) ? navigator.languages : [navigator.language];
+    for (const tag of preferences) {
+      const preferred = primarySubtag(tag);
+      if (isLocale(preferred)) return preferred;
+    }
+    return DEFAULT_LOCALE;
+  }
+  var cachedLocale = null;
+  function activeLocale() {
+    if (cachedLocale === null) cachedLocale = resolveLocale();
+    return cachedLocale;
+  }
+  var warned = /* @__PURE__ */ new Set();
+  function createT(messages) {
+    return (key, vars) => {
+      var _a;
+      let message = (_a = messages[activeLocale()][key]) != null ? _a : messages[DEFAULT_LOCALE][key];
+      if (message === void 0) {
+        if (!warned.has(key)) {
+          warned.add(key);
+          console.warn("[vp] missing message", key);
+        }
+        message = key;
+      }
+      if (!vars) return message;
+      return message.replace(/\{(\w+)\}/g, (match, name) => {
+        const value = vars[name];
+        return value === void 0 ? match : String(value);
+      });
+    };
+  }
+
+  // runtime-src/common/i18n/player.ts
+  var EN = {
+    // Control aria-labels — the accessibility surface
+    "player.aria.playPause": "Play/Pause",
+    "player.aria.mute": "Mute",
+    "player.aria.fullscreen": "Fullscreen",
+    // Track menus: used for both the button's aria-label and the menu heading
+    "player.tracks.audio": "Audio tracks",
+    "player.tracks.subtitles": "Subtitles",
+    // Visible control labels
+    "player.label.play": "Play",
+    "player.label.pause": "Pause",
+    "player.label.audio": "Audio",
+    "player.label.captions": "CC",
+    "player.label.sound": "Sound",
+    "player.label.muted": "Muted",
+    "player.label.fullscreen": "Full",
+    "player.label.current": "Current",
+    "player.label.off": "Off",
+    // Fallback names for unlabelled tracks
+    "player.track.audio": "Audio",
+    "player.track.subtitle": "Subtitle",
+    // Track-button tooltips
+    "player.title.audio": "Audio: {track}",
+    "player.title.noAudio": "No alternate audio tracks available",
+    "player.title.subtitles": "Subtitles: {track}",
+    "player.title.noSubtitles": "No subtitles available",
+    // External-audio drift badge
+    "player.drift.badge": "Audio {offset}s",
+    "player.drift.ahead": "External audio is ahead of the video timeline",
+    "player.drift.behind": "External audio is behind the video timeline"
+  };
+  var DE = {
+    "player.aria.playPause": "Wiedergabe/Pause",
+    "player.aria.mute": "Stumm schalten",
+    "player.aria.fullscreen": "Vollbild",
+    "player.tracks.audio": "Tonspuren",
+    "player.tracks.subtitles": "Untertitel",
+    "player.label.play": "Start",
+    "player.label.pause": "Pause",
+    "player.label.audio": "Audio",
+    "player.label.captions": "CC",
+    "player.label.sound": "Ton",
+    "player.label.muted": "Stumm",
+    "player.label.fullscreen": "Voll",
+    "player.label.current": "Aktuell",
+    "player.label.off": "Aus",
+    "player.track.audio": "Tonspur",
+    "player.track.subtitle": "Untertitel",
+    "player.title.audio": "Tonspur: {track}",
+    "player.title.noAudio": "Keine alternativen Tonspuren verfügbar",
+    "player.title.subtitles": "Untertitel: {track}",
+    "player.title.noSubtitles": "Keine Untertitel verfügbar",
+    "player.drift.badge": "Audio {offset}s",
+    "player.drift.ahead": "Externes Audio läuft dem Video voraus",
+    "player.drift.behind": "Externes Audio läuft dem Video nach"
+  };
+  var MESSAGES = {
+    en: EN,
+    de: DE
+  };
+  var t = createT(MESSAGES);
+
   // runtime-src/common/origins.ts
   function getTrustedOrigins() {
     const extra = window.__vpTrustedOrigins;
@@ -675,8 +794,8 @@
       pause() {
         videoEl == null ? void 0 : videoEl.pause();
       },
-      seek(t) {
-        if (videoEl) videoEl.currentTime = t;
+      seek(t2) {
+        if (videoEl) videoEl.currentTime = t2;
       },
       on: bus.on,
       setOverlays: (next) => {
@@ -764,19 +883,19 @@
       <div class="vp-subtitle-layer" data-vp-subtitles hidden></div>
       <div class="vp-sync-badge" data-vp-sync-drift hidden></div>
       <div class="vp-controls">
-        <button data-vp="playpause" aria-label="Play/Pause">Play</button>
+        <button data-vp="playpause" aria-label="${esc(t("player.aria.playPause"))}">${esc(t("player.label.play"))}</button>
         <input  data-vp="seek" class="vp-seek" type="range" min="0" max="0" step="0.1" value="0" />
         <span   data-vp="time" class="vp-time">0:00 / 0:00</span>
         <div class="vp-menu-wrap" data-vp-track-menu="audio">
-          <button data-vp="audio" aria-label="Audio tracks" aria-haspopup="menu" aria-expanded="false" disabled>Audio</button>
+          <button data-vp="audio" aria-label="${esc(t("player.tracks.audio"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(t("player.label.audio"))}</button>
           <div data-vp-menu="audio" class="vp-menu" role="menu" hidden></div>
         </div>
         <div class="vp-menu-wrap" data-vp-track-menu="captions">
-          <button data-vp="captions" aria-label="Subtitles" aria-haspopup="menu" aria-expanded="false" disabled>CC</button>
+          <button data-vp="captions" aria-label="${esc(t("player.tracks.subtitles"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(t("player.label.captions"))}</button>
           <div data-vp-menu="captions" class="vp-menu" role="menu" hidden></div>
         </div>
-        <button data-vp="mute" aria-label="Mute">Sound</button>
-        <button data-vp="fs" aria-label="Fullscreen">Full</button>
+        <button data-vp="mute" aria-label="${esc(t("player.aria.mute"))}">${esc(t("player.label.sound"))}</button>
+        <button data-vp="fs" aria-label="${esc(t("player.aria.fullscreen"))}">${esc(t("player.label.fullscreen"))}</button>
       </div>
     `;
       host.appendChild(shell);
@@ -864,7 +983,7 @@
           if (option.selected) {
             const current = document.createElement("span");
             current.className = "vp-menu-current";
-            current.textContent = "Current";
+            current.textContent = t("player.label.current");
             btn.appendChild(current);
           }
           btn.onclick = (e) => {
@@ -882,7 +1001,7 @@
         if (tracks.length <= 1) return null;
         return tracks.map((track, index) => ({
           value: index,
-          label: trackLabel(track, index, "Audio"),
+          label: trackLabel(track, index, t("player.track.audio")),
           selected: !!track.enabled
         }));
       }
@@ -893,7 +1012,7 @@
         const selectedIndex = typeof (hls == null ? void 0 : hls.audioTrack) === "number" ? hls.audioTrack : -1;
         return tracks.map((track, index) => ({
           value: index,
-          label: trackLabel(track, index, "Audio"),
+          label: trackLabel(track, index, t("player.track.audio")),
           selected: selectedIndex === index || selectedIndex < 0 && !!track.default
         }));
       }
@@ -902,7 +1021,7 @@
         if (renditions.length <= 1) return null;
         return renditions.map((track, index) => ({
           value: index,
-          label: trackLabel(track, index, "Audio"),
+          label: trackLabel(track, index, t("player.track.audio")),
           selected: !!track.selected || !!track.enabled
         }));
       }
@@ -911,7 +1030,7 @@
         if (tracks.length <= 1) return null;
         return tracks.map((track, index) => ({
           value: index,
-          label: trackLabel(track, index, "Audio"),
+          label: trackLabel(track, index, t("player.track.audio")),
           selected: track.useNative ? externalAudioIndex < 0 : externalAudioIndex === index
         }));
       }
@@ -956,8 +1075,12 @@
           return;
         }
         const sign = driftSeconds > 0 ? "+" : "-";
-        syncDriftBadge.textContent = `Audio ${sign}${Math.abs(driftSeconds).toFixed(1)}s`;
-        syncDriftBadge.title = driftSeconds > 0 ? "External audio is ahead of the video timeline" : "External audio is behind the video timeline";
+        syncDriftBadge.textContent = t("player.drift.badge", {
+          offset: `${sign}${Math.abs(driftSeconds).toFixed(1)}`
+        });
+        syncDriftBadge.title = t(
+          driftSeconds > 0 ? "player.drift.ahead" : "player.drift.behind"
+        );
         syncDriftBadge.hidden = false;
       }
       function updateExternalAudioDrift() {
@@ -977,7 +1100,9 @@
         externalAudio.load();
         externalAudioIndex = -1;
         mediaEl.muted = audibleMuted;
-        muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+        muteBtn.textContent = t(
+          audibleMuted ? "player.label.muted" : "player.label.sound"
+        );
         shell.dataset.vpAudioSource = "native";
         shell.dataset.vpAudioTrack = "native";
         updateExternalAudioDriftBadge(0);
@@ -1000,7 +1125,9 @@
         externalAudio.playbackRate = mediaEl.playbackRate || 1;
         externalAudio.muted = audibleMuted;
         mediaEl.muted = true;
-        muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+        muteBtn.textContent = t(
+          audibleMuted ? "player.label.muted" : "player.label.sound"
+        );
         if (mediaEl.paused || mediaEl.ended) {
           externalAudio.pause();
           clearExternalAudioSyncTimer();
@@ -1072,14 +1199,14 @@
         const options = [
           {
             value: "off",
-            label: "Off",
+            label: t("player.label.off"),
             selected: !tracks.some((track) => track.mode === "showing")
           }
         ];
         tracks.forEach((track, index) => {
           options.push({
             value: index,
-            label: trackLabel(track, index, "Subtitle"),
+            label: trackLabel(track, index, t("player.track.subtitle")),
             selected: track.mode === "showing"
           });
         });
@@ -1094,14 +1221,14 @@
         const options = [
           {
             value: "off",
-            label: "Off",
+            label: t("player.label.off"),
             selected: selectedIndex < 0 || !display
           }
         ];
         tracks.forEach((track, index) => {
           options.push({
             value: index,
-            label: trackLabel(track, index, "Subtitle"),
+            label: trackLabel(track, index, t("player.track.subtitle")),
             selected: display && selectedIndex === index
           });
         });
@@ -1115,14 +1242,14 @@
         const options = [
           {
             value: "off",
-            label: "Off",
+            label: t("player.label.off"),
             selected: learningSuiteSubtitleIndex < 0
           }
         ];
         tracks.forEach((track, index) => {
           options.push({
             value: index,
-            label: trackLabel(track, index, "Subtitle"),
+            label: trackLabel(track, index, t("player.track.subtitle")),
             selected: learningSuiteSubtitleIndex === index
           });
         });
@@ -1133,12 +1260,16 @@
         if (!tracks.length) return null;
         if (externalSubtitleIndex >= tracks.length) externalSubtitleIndex = -1;
         const options = [
-          { value: "off", label: "Off", selected: externalSubtitleIndex < 0 }
+          {
+            value: "off",
+            label: t("player.label.off"),
+            selected: externalSubtitleIndex < 0
+          }
         ];
         tracks.forEach((track, index) => {
           options.push({
             value: index,
-            label: trackLabel(track, index, "Subtitle"),
+            label: trackLabel(track, index, t("player.track.subtitle")),
             selected: externalSubtitleIndex === index
           });
         });
@@ -1276,20 +1407,24 @@
         bindHlsTrackEvents();
         const audioState = getAudioMenuState();
         audioBtn.disabled = audioState.options.length <= 1;
-        audioBtn.title = audioBtn.disabled ? "No alternate audio tracks available" : `Audio: ${(audioState.options.find((o) => o.selected) || audioState.options[0]).label}`;
+        audioBtn.title = audioBtn.disabled ? t("player.title.noAudio") : t("player.title.audio", {
+          track: (audioState.options.find((o) => o.selected) || audioState.options[0]).label
+        });
         renderMenu(
           audioMenu,
-          "Audio tracks",
+          t("player.tracks.audio"),
           audioState.options,
           (value) => setAudioTrack(audioState.source, value)
         );
         if (audioBtn.disabled) audioMenu.hidden = true;
         const subtitleState = getSubtitleMenuState();
         captionsBtn.disabled = subtitleState.options.length <= 1;
-        captionsBtn.title = captionsBtn.disabled ? "No subtitles available" : `Subtitles: ${(subtitleState.options.find((o) => o.selected) || subtitleState.options[0]).label}`;
+        captionsBtn.title = captionsBtn.disabled ? t("player.title.noSubtitles") : t("player.title.subtitles", {
+          track: (subtitleState.options.find((o) => o.selected) || subtitleState.options[0]).label
+        });
         renderMenu(
           captionsMenu,
-          "Subtitles",
+          t("player.tracks.subtitles"),
           subtitleState.options,
           (value) => setSubtitleTrack(subtitleState.source, value)
         );
@@ -1368,7 +1503,9 @@
         } else {
           mediaEl.muted = audibleMuted;
         }
-        muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+        muteBtn.textContent = t(
+          audibleMuted ? "player.label.muted" : "player.label.sound"
+        );
       };
       fsBtn.onclick = () => {
         var _a, _b;
@@ -1384,34 +1521,34 @@
         var _a, _b, _c;
         seekInput.value = String(mediaEl.currentTime);
         timeLabel.textContent = `${fmt(mediaEl.currentTime)} / ${fmt(mediaEl.duration)}`;
-        const t = mediaEl.currentTime;
-        renderActiveSubtitle(t);
+        const t2 = mediaEl.currentTime;
+        renderActiveSubtitle(t2);
         for (const o of overlays) {
-          const should = t >= o.from && t < o.to;
+          const should = t2 >= o.from && t2 < o.to;
           const isActive = activeOverlays.has(o.id);
           if (should && !isActive) {
             activeOverlays.add(o.id);
             const wrap = document.createElement("div");
             wrap.dataset.vpOverlay = o.id;
-            wrap.innerHTML = (_b = (_a = o.render) == null ? void 0 : _a.call(o, { time: t, duration: mediaEl.duration })) != null ? _b : "";
+            wrap.innerHTML = (_b = (_a = o.render) == null ? void 0 : _a.call(o, { time: t2, duration: mediaEl.duration })) != null ? _b : "";
             overlayLayer.appendChild(wrap);
-            bus.emit("any", { type: "overlay-show", id: o.id, time: t });
+            bus.emit("any", { type: "overlay-show", id: o.id, time: t2 });
           } else if (!should && isActive) {
             activeOverlays.delete(o.id);
             (_c = overlayLayer.querySelector(`[data-vp-overlay="${o.id}"]`)) == null ? void 0 : _c.remove();
-            bus.emit("any", { type: "overlay-hide", id: o.id, time: t });
+            bus.emit("any", { type: "overlay-hide", id: o.id, time: t2 });
           }
         }
-        bus.emit("any", { type: "time", time: t, duration: mediaEl.duration });
+        bus.emit("any", { type: "time", time: t2, duration: mediaEl.duration });
       };
       const onPlay = () => {
         setActive();
-        playPauseBtn.textContent = "Pause";
+        playPauseBtn.textContent = t("player.label.pause");
         syncExternalAudio();
         bus.emit("any", { type: "play", time: mediaEl.currentTime });
       };
       const onPause = () => {
-        playPauseBtn.textContent = "Play";
+        playPauseBtn.textContent = t("player.label.play");
         externalAudio.pause();
         clearExternalAudioSyncTimer();
         bus.emit("any", { type: "pause", time: mediaEl.currentTime });
@@ -1435,7 +1572,9 @@
           return;
         }
         audibleMuted = !!mediaEl.muted;
-        muteBtn.textContent = audibleMuted ? "Muted" : "Sound";
+        muteBtn.textContent = t(
+          audibleMuted ? "player.label.muted" : "player.label.sound"
+        );
       };
       const onDocumentClick = (e) => {
         if (!shell.contains(e.target)) closeTrackMenus();

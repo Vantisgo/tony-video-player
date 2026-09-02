@@ -77,6 +77,132 @@
     return (_a = ENTITIES[c]) != null ? _a : c;
   });
 
+  // runtime-src/common/i18n/core.ts
+  var LOCALES = ["en", "de"];
+  var DEFAULT_LOCALE = "en";
+  var isLocale = (value) => typeof value === "string" && LOCALES.includes(value);
+  var primarySubtag = (tag) => typeof tag === "string" ? tag.trim().toLowerCase().split(/[-_]/)[0] : "";
+  function resolveLocale() {
+    var _a, _b;
+    const override = primarySubtag(window.__vpLocale);
+    if (isLocale(override)) return override;
+    const declared = primarySubtag((_a = document.documentElement) == null ? void 0 : _a.lang);
+    if (isLocale(declared)) return declared;
+    const preferences = ((_b = navigator.languages) == null ? void 0 : _b.length) ? navigator.languages : [navigator.language];
+    for (const tag of preferences) {
+      const preferred = primarySubtag(tag);
+      if (isLocale(preferred)) return preferred;
+    }
+    return DEFAULT_LOCALE;
+  }
+  var cachedLocale = null;
+  function activeLocale() {
+    if (cachedLocale === null) cachedLocale = resolveLocale();
+    return cachedLocale;
+  }
+  var warned = /* @__PURE__ */ new Set();
+  function createT(messages) {
+    return (key, vars) => {
+      var _a;
+      let message = (_a = messages[activeLocale()][key]) != null ? _a : messages[DEFAULT_LOCALE][key];
+      if (message === void 0) {
+        if (!warned.has(key)) {
+          warned.add(key);
+          console.warn("[vp] missing message", key);
+        }
+        message = key;
+      }
+      if (!vars) return message;
+      return message.replace(/\{(\w+)\}/g, (match, name) => {
+        const value = vars[name];
+        return value === void 0 ? match : String(value);
+      });
+    };
+  }
+
+  // runtime-src/common/i18n/demo.ts
+  var EN = {
+    // Sidebar tabs
+    "demo.tab.coaching": "Coaching",
+    "demo.tab.science": "Science",
+    "demo.tab.meta": "Meta Structure",
+    // Section pill (video overlay, top-left)
+    "demo.section.eyebrow": "Course Section",
+    "demo.section.intro": "Intro",
+    "demo.section.empty": "Starting soon...",
+    "demo.section.progress": "{done} of {total} completed",
+    // Science pill + panel
+    "demo.science.label": "Science:",
+    "demo.science.open": "Open",
+    "demo.science.mentions": "{count} mentions",
+    // Coaching panel
+    "demo.phase.interventions": "Interventions",
+    "demo.phase.count": "{count} interventions",
+    "demo.phase.duration": "{min}m",
+    // Meta structure
+    "demo.meta.heading": "7 Master Steps",
+    "demo.meta.step": "Step {n} / {total}",
+    "demo.meta.openTitle": "Open Meta Structure",
+    // Voice-over banner
+    "demo.audio.by": "by {voice}",
+    "demo.audio.playing": "Playing",
+    "demo.audio.paused": "Paused",
+    "demo.audio.back": "-10s",
+    "demo.audio.playPause": "Play/Pause",
+    "demo.audio.forward": "+10s",
+    "demo.audio.skip": "Skip",
+    // Quiz
+    "quiz.action.skip": "Skip question",
+    "quiz.action.continue": "Continue",
+    "quiz.action.resume": "Resume video",
+    "quiz.action.close": "Close",
+    "quiz.action.restart": "Watch again",
+    "quiz.summary.heading": "Summary",
+    "quiz.summary.score": "{pct}% answered correctly",
+    "quiz.summary.passed": "Passed",
+    "quiz.summary.failed": "Not passed"
+  };
+  var DE = {
+    "demo.tab.coaching": "Coaching",
+    "demo.tab.science": "Wissenschaft",
+    "demo.tab.meta": "Master-Schritte",
+    "demo.section.eyebrow": "Sektion",
+    "demo.section.intro": "Intro",
+    "demo.section.empty": "Startet in Kürze …",
+    "demo.section.progress": "{done} von {total} erledigt",
+    "demo.science.label": "Wissenschaft:",
+    "demo.science.open": "Öffnen",
+    "demo.science.mentions": "{count} Erwähnungen",
+    "demo.phase.interventions": "Interventionen",
+    "demo.phase.count": "{count} Interventionen",
+    "demo.phase.duration": "{min} Min.",
+    "demo.meta.heading": "7 Master Steps",
+    "demo.meta.step": "Schritt {n} / {total}",
+    "demo.meta.openTitle": "Master-Schritte öffnen",
+    "demo.audio.by": "von {voice}",
+    "demo.audio.playing": "Spielt",
+    "demo.audio.paused": "Pausiert",
+    "demo.audio.back": "-10s",
+    "demo.audio.playPause": "Wiedergabe/Pause",
+    "demo.audio.forward": "+10s",
+    "demo.audio.skip": "Überspringen",
+    // Was "Continue" in the otherwise-German quiz UI — an intended copy fix.
+    "quiz.action.skip": "Frage überspringen",
+    "quiz.action.continue": "Weiter",
+    "quiz.action.resume": "Video fortsetzen",
+    "quiz.action.close": "Schließen",
+    "quiz.action.restart": "Nochmal ansehen",
+    "quiz.summary.heading": "Auswertung",
+    "quiz.summary.score": "{pct}% richtig beantwortet",
+    "quiz.summary.passed": "Bestanden",
+    "quiz.summary.failed": "Nicht bestanden"
+  };
+  var MESSAGES = {
+    en: EN,
+    de: DE
+  };
+  var t = createT(MESSAGES);
+
   // runtime-src/common/format.ts
   var formatTime = (s) => {
     if (!isFinite(s)) return "0:00";
@@ -244,8 +370,8 @@
     const quizzes = cfg.quizzes.flatMap((entry) => {
       const quiz = record(entry);
       const id = text(quiz == null ? void 0 : quiz.id);
-      const t = Number(quiz == null ? void 0 : quiz.t);
-      if (!quiz || !id || seenQuizIds.has(id) || !Number.isFinite(t) || t < 0 || !Array.isArray(quiz.questions)) {
+      const t2 = Number(quiz == null ? void 0 : quiz.t);
+      if (!quiz || !id || seenQuizIds.has(id) || !Number.isFinite(t2) || t2 < 0 || !Array.isArray(quiz.questions)) {
         console.warn("[vp] ignoring invalid quiz break", entry);
         return [];
       }
@@ -258,7 +384,7 @@
       return [
         {
           id,
-          t,
+          t: t2,
           title: text(quiz.title),
           resume: quiz.resume === "manual" ? "manual" : "auto",
           questions
@@ -348,15 +474,15 @@
 
   // runtime-src/common/interventions.ts
   var boundedEnd = (iv) => typeof iv.end === "number" && Number.isFinite(iv.end) ? iv.end : null;
-  function activeInterventionId(interventions, t) {
+  function activeInterventionId(interventions, t2) {
     let latest;
     for (const iv of interventions) {
-      if (t < iv.t) continue;
+      if (t2 < iv.t) continue;
       if (!latest || iv.t >= latest.t) latest = iv;
     }
     if (!latest) return null;
     const end = boundedEnd(latest);
-    if (end != null && t >= end) return null;
+    if (end != null && t2 >= end) return null;
     return latest.id;
   }
 
@@ -982,7 +1108,7 @@
         const skip = qzEl(
           "button",
           { type: "button", class: "vp-quiz-skip", "data-vp-quiz-skip": "" },
-          ["Frage überspringen"]
+          [t("quiz.action.skip")]
         );
         skip.addEventListener("click", () => skipQuestion());
         card.appendChild(skip);
@@ -991,7 +1117,7 @@
         card.appendChild(
           actionRow(
             "vp-quiz-feedback-continue",
-            "Continue",
+            t("quiz.action.continue"),
             () => continueFeedback()
           )
         );
@@ -1000,7 +1126,7 @@
         card.appendChild(
           actionRow(
             "vp-quiz-continue",
-            "Video fortsetzen",
+            t("quiz.action.resume"),
             () => continuePlayback()
           )
         );
@@ -1025,7 +1151,7 @@
         qzEl(
           "h2",
           { id: "vp-quiz-heading", class: "vp-quiz-heading", tabindex: "-1" },
-          ["Zusammenfassung"]
+          [t("quiz.summary.heading")]
         )
       );
       const rows = summaryRows();
@@ -1039,7 +1165,7 @@
         const wrap = qzEl("div", { class: "vp-quiz-summary-score" }, [
           qzEl("div", { class: "vp-quiz-score-big" }, [`${correct} / ${total}`]),
           qzEl("div", { class: "vp-quiz-score-sub" }, [
-            `${pct}% richtig beantwortet`
+            t("quiz.summary.score", { pct })
           ])
         ]);
         if (quiz.passingPercent != null) {
@@ -1048,7 +1174,7 @@
             qzEl(
               "div",
               { class: "vp-quiz-pass-badge", "data-pass": passed ? "1" : "0" },
-              [passed ? "Bestanden" : "Nicht bestanden"]
+              [t(passed ? "quiz.summary.passed" : "quiz.summary.failed")]
             )
           );
         }
@@ -1079,7 +1205,7 @@
           class: "vp-quiz-btn vp-quiz-btn-ghost",
           "data-vp-quiz-close": ""
         },
-        ["Schließen"]
+        [t("quiz.action.close")]
       );
       close.addEventListener("click", () => closeSummary());
       const again = qzEl(
@@ -1089,7 +1215,7 @@
           class: "vp-quiz-btn vp-quiz-btn-primary",
           "data-vp-quiz-restart": ""
         },
-        ["Nochmal ansehen"]
+        [t("quiz.action.restart")]
       );
       again.addEventListener("click", () => restart());
       card.appendChild(qzEl("div", { class: "vp-quiz-actions" }, [close, again]));
@@ -1435,13 +1561,13 @@
         return mode;
       },
       isActive,
-      onTime(t) {
-        if (isActive() || isAudioActive() || !Number.isFinite(t)) return false;
-        const delta = t - previousTime;
-        previousTime = t;
+      onTime(t2) {
+        if (isActive() || isAudioActive() || !Number.isFinite(t2)) return false;
+        const delta = t2 - previousTime;
+        previousTime = t2;
         if (seeking || delta < 0) return false;
         const due = quiz.quizzes.filter(
-          (item) => !completedQuizIds.has(item.id) && item.t > t - delta && item.t <= t
+          (item) => !completedQuizIds.has(item.id) && item.t > t2 - delta && item.t <= t2
         );
         if (!due.length) return false;
         pendingQuizIds.push(...due.slice(1).map((item) => item.id));
@@ -1738,14 +1864,14 @@
         </div>
       </div>
       <div class="vp-sec-expanded">
-        <div class="vp-sec-eyebrow">Course Section</div>
+        <div class="vp-sec-eyebrow">${esc(t("demo.section.eyebrow"))}</div>
         <h3 class="vp-sec-h3" data-section-h3></h3>
         <div data-progress-block>
           <div class="vp-sec-bar"><div class="vp-sec-bar-fill" data-bar-fill style="width:0%"></div></div>
           <div class="vp-sec-count" data-count></div>
           <div class="vp-sec-rows" data-rows></div>
         </div>
-        <div data-empty hidden style="color:rgba(168,191,186,.72); font-size:13px">Starting soon...</div>
+        <div data-empty hidden style="color:rgba(168,191,186,.72); font-size:13px">${esc(t("demo.section.empty"))}</div>
       </div>
     </div>`;
       if (showSectionOverlay) slotTL.appendChild(sectionPill);
@@ -1774,16 +1900,16 @@
       function renderSection() {
         var _a2, _b2;
         if (!showSectionOverlay) return;
-        const t = (_a2 = window.player.current) != null ? _a2 : 0;
-        const phase = phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec);
-        const section = (_b2 = phase == null ? void 0 : phase.title) != null ? _b2 : "Intro";
+        const t2 = (_a2 = window.player.current) != null ? _a2 : 0;
+        const phase = phases.find((p) => t2 >= p.startTimeSec && t2 < p.endTimeSec);
+        const section = (_b2 = phase == null ? void 0 : phase.title) != null ? _b2 : t("demo.section.intro");
         const subs = phase ? (
           // `current` honours an optional `end`, so an intervention past its end
           // time falls through to "completed" rather than staying current.
           phase.interventions.map((iv) => ({
             ...iv,
-            completed: t > iv.t,
-            current: activeInterventionId(phase.interventions, t) === iv.id
+            completed: t2 > iv.t,
+            current: activeInterventionId(phase.interventions, t2) === iv.id
           }))
         ) : [];
         const cur = subs.find((s) => s.current);
@@ -1806,7 +1932,10 @@
           sectionRefs.empty.hidden = true;
           const pct = completedCount / subs.length * 100;
           sectionRefs.barFill.style.width = pct + "%";
-          const countTxt = `${completedCount} of ${subs.length} completed`;
+          const countTxt = t("demo.section.progress", {
+            done: completedCount,
+            total: subs.length
+          });
           if (sectionRefs.count.textContent !== countTxt)
             sectionRefs.count.textContent = countTxt;
           if (renderedPhaseId !== phase.id) {
@@ -1844,11 +1973,11 @@
           sectionRefs.rowsHost.innerHTML = "";
         }
       }
-      function renderScience(t) {
+      function renderScience(t2) {
         let active = null;
         for (const sc of sciences)
           for (const ts of sc.timestampsSec)
-            if (t >= ts && t < ts + 5) {
+            if (t2 >= ts && t2 < ts + 5) {
               active = sc;
               break;
             }
@@ -1868,9 +1997,9 @@
         slotTR.innerHTML = `
       <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
         <span style="font-size:14px;line-height:1">🧪</span>
-        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">Science:</span>
+        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">${esc(t("demo.science.label"))}</span>
         <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">Open</button>
+        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(t("demo.science.open"))}</button>
       </div>`;
         const openSci = (e) => {
           var _a2;
@@ -2132,14 +2261,14 @@
         document.removeEventListener("click", onCaptureClick, true);
         document.removeEventListener("keydown", onCaptureKeydown, true);
       });
-      function maybeTriggerAudio(t) {
+      function maybeTriggerAudio(t2) {
         if (audioCtrl.isActive()) return;
         for (const a of audios)
-          if (t < a.t - 0.5) audioCtrl.triggered.delete(a.id);
+          if (t2 < a.t - 0.5) audioCtrl.triggered.delete(a.id);
         const due = audios.find(
-          (a) => t >= a.t && t < a.t + 1 && !audioCtrl.triggered.has(a.id)
+          (a) => t2 >= a.t && t2 < a.t + 1 && !audioCtrl.triggered.has(a.id)
         );
-        if (due) audioCtrl.activate(due, t);
+        if (due) audioCtrl.activate(due, t2);
       }
       function renderAudio() {
         if (!audioCtrl.isActive() || !audioCtrl.active) {
@@ -2180,9 +2309,11 @@
         <div style="flex:0 0 auto; min-width:0; max-width:35%;">
           <div style="font:700 13.5px system-ui;color:#f4f7f6; overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(active.title)}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:1px">
-            <span style="font:500 11px system-ui;color:rgba(168,191,186,.8); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">by ${esc(active.voice)}</span>
+            <span style="font:500 11px system-ui;color:rgba(168,191,186,.8); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t("demo.audio.by", { voice: active.voice }))}</span>
             <span style="width:4px;height:4px;border-radius:50%;background:#00e1a5" class="vp-pulse"></span>
-            <span style="font:500 10.5px system-ui;color:rgba(168,191,186,.62);text-transform:uppercase;letter-spacing:.4px">${isPlaying ? "Playing" : "Paused"}</span>
+            <span style="font:500 10.5px system-ui;color:rgba(168,191,186,.62);text-transform:uppercase;letter-spacing:.4px">${esc(
+          t(isPlaying ? "demo.audio.playing" : "demo.audio.paused")
+        )}</span>
           </div>
         </div>
         <div style="flex:1; display:flex; align-items:center; gap:10px; min-width:0;">
@@ -2193,10 +2324,10 @@
           <span style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px;text-align:right">${formatTime(active.dur)}</span>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button data-action="audio-back" title="-10s" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
-          <button data-action="audio-playpause" title="Play/Pause" style="background:#00e1a5;color:#062b22;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
-          <button data-action="audio-fwd" title="+10s" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
-          <button data-action="audio-skip" title="Skip" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
+          <button data-action="audio-back" title="${esc(t("demo.audio.back"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
+          <button data-action="audio-playpause" title="${esc(t("demo.audio.playPause"))}" style="background:#00e1a5;color:#062b22;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
+          <button data-action="audio-fwd" title="${esc(t("demo.audio.forward"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
+          <button data-action="audio-skip" title="${esc(t("demo.audio.skip"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
         </div>
       </div>`;
         const stop = (e) => e.stopPropagation();
@@ -2224,8 +2355,8 @@
         };
         return true;
       }
-      function renderMetaStep(t) {
-        const active = metaSteps.find((m) => t >= m.t && t < m.t + 5);
+      function renderMetaStep(t2) {
+        const active = metaSteps.find((m) => t2 >= m.t && t2 < m.t + 5);
         if (!active) {
           if (slotBR.dataset.kind === "meta") {
             slotBR.innerHTML = "";
@@ -2237,9 +2368,11 @@
         slotBR.dataset.kind = "meta";
         slotBR.dataset.activeMeta = active.id;
         slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="Open Meta Structure">
+      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="${esc(t("demo.meta.openTitle"))}">
         <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
-        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">Step ${esc(active.n)} / ${metaSteps.length}</span>
+        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">${esc(
+          t("demo.meta.step", { n: active.n, total: metaSteps.length })
+        )}</span>
         <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
         <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
       </div>`;
@@ -2265,9 +2398,13 @@
       sidebar.id = "vp-demo-sidebar";
       sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; color-scheme:dark; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.24); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
       const tabDefs = [
-        { key: "coaching", label: "Coaching", show: showCoachingTab },
-        { key: "science", label: "Science", show: showScienceTab },
-        { key: "meta", label: "Meta Structure", show: showMetaTab }
+        {
+          key: "coaching",
+          label: t("demo.tab.coaching"),
+          show: showCoachingTab
+        },
+        { key: "science", label: t("demo.tab.science"), show: showScienceTab },
+        { key: "meta", label: t("demo.tab.meta"), show: showMetaTab }
       ].filter((tab) => tab.show);
       sidebar.innerHTML = `
     <div style="padding:12px 14px 0">
@@ -2322,11 +2459,11 @@
           document.querySelector('[class*="content-scroll"]'),
           document.body
         ].filter(Boolean);
-        for (const t of targets) {
-          const prev = t.style.paddingRight;
-          t.style.paddingRight = reservePx + "px";
+        for (const t2 of targets) {
+          const prev = t2.style.paddingRight;
+          t2.style.paddingRight = reservePx + "px";
           onCleanup(() => {
-            t.style.paddingRight = prev;
+            t2.style.paddingRight = prev;
           });
         }
         const onResize = () => {
@@ -2430,14 +2567,18 @@
               </div>
               <p style="margin:6px 0 0;color:${T.mutedFg};font-size:13px;line-height:1.5;${open ? "" : "display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"}">${esc(p.description)}</p>
               ${!open ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-                <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">${p.interventions.length} interventions</span>
-                <span style="font:500 11px ui-monospace,monospace;background:transparent;color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">⏱ ${dur}m</span>
+                <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">${esc(
+            t("demo.phase.count", { count: p.interventions.length })
+          )}</span>
+                <span style="font:500 11px ui-monospace,monospace;background:transparent;color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">⏱ ${esc(
+            t("demo.phase.duration", { min: dur })
+          )}</span>
               </div>` : ""}
             </div>
           </button>
           ${open ? `<div style="padding:0 12px 12px">
             <div style="border-top:1px solid ${T.border};padding-top:12px">
-              <div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:8px">Interventions</div>
+              <div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:8px">${esc(t("demo.phase.interventions"))}</div>
               <div style="display:grid;gap:6px">
                 ${p.interventions.map((iv) => {
             const ivActive = iv.id === w.__vpActiveIntervention;
@@ -2491,12 +2632,14 @@
           return `<div data-sci-card="${esc(s.id)}" style="border:1px solid ${hl ? T.primary : T.border};border-radius:${T.radius};padding:12px;background:${T.card};${hl ? `box-shadow:0 0 0 4px ${T.primarySoft};` : ""}transition:all .2s">
           <div style="display:flex;align-items:baseline;gap:8px">
             <h3 style="margin:0;font:600 14px system-ui;color:${hl ? T.primary : T.fg};flex:1">${esc(s.name)}</h3>
-            <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 7px;border-radius:999px">${s.timestampsSec.length} mentions</span>
+            <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 7px;border-radius:999px">${esc(
+            t("demo.science.mentions", { count: s.timestampsSec.length })
+          )}</span>
           </div>
           <p style="margin:6px 0 0;color:${T.mutedFg};font-size:13px;line-height:1.5">${esc(s.description)}</p>
           <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
             ${s.timestampsSec.map(
-            (t) => `<span data-seek="${esc(t)}" style="font:500 11.5px ui-monospace,monospace;color:${T.primary};background:${T.primarySoft};padding:3px 8px;border-radius:6px;border:1px solid ${T.primaryRing};cursor:pointer">${formatTime(t)}</span>`
+            (t2) => `<span data-seek="${esc(t2)}" style="font:500 11.5px ui-monospace,monospace;color:${T.primary};background:${T.primarySoft};padding:3px 8px;border-radius:6px;border:1px solid ${T.primaryRing};cursor:pointer">${formatTime(t2)}</span>`
           ).join("")}
           </div>
         </div>`;
@@ -2524,7 +2667,7 @@
         const sig = (_a2 = w.__vpActiveMeta) != null ? _a2 : "";
         if (sig === metaSig) return;
         metaSig = sig;
-        metaPanel.innerHTML = `<div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:10px">7 Master Steps</div>
+        metaPanel.innerHTML = `<div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:10px">${esc(t("demo.meta.heading"))}</div>
       <ol style="list-style:none;padding:0;margin:0;display:grid;gap:6px">
         ${metaSteps.map((m) => {
           const active = w.__vpActiveMeta === m.id;
@@ -2544,12 +2687,12 @@
         });
       }
       renderMeta();
-      function recomputeActive(t) {
+      function recomputeActive(t2) {
         var _a2;
-        const phase = phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec) || null;
-        const intervention = phase ? activeInterventionId(phase.interventions, t) : null;
+        const phase = phases.find((p) => t2 >= p.startTimeSec && t2 < p.endTimeSec) || null;
+        const intervention = phase ? activeInterventionId(phase.interventions, t2) : null;
         let meta = null;
-        for (const m of metaSteps) if (t >= m.t) meta = m.id;
+        for (const m of metaSteps) if (t2 >= m.t) meta = m.id;
         const phaseChanged = w.__vpActivePhase !== (phase == null ? void 0 : phase.id);
         w.__vpActivePhase = (_a2 = phase == null ? void 0 : phase.id) != null ? _a2 : null;
         w.__vpActiveIntervention = intervention;
@@ -2558,19 +2701,19 @@
         renderCoaching();
         renderMeta();
         renderSection();
-        quizCtrl == null ? void 0 : quizCtrl.onTime(t);
+        quizCtrl == null ? void 0 : quizCtrl.onTime(t2);
         const quizOpen = (quizCtrl == null ? void 0 : quizCtrl.isActive()) === true;
-        if (!quizOpen) maybeTriggerAudio(t);
+        if (!quizOpen) maybeTriggerAudio(t2);
         if (quizOpen) {
           clearMetaPill();
           clearSciencePill();
         } else if (showAudio && audioCtrl.isActive()) {
           renderAudio();
           clearMetaPill();
-          renderScience(t);
+          renderScience(t2);
         } else {
-          renderMetaStep(t);
-          renderScience(t);
+          renderMetaStep(t2);
+          renderScience(t2);
         }
       }
       function clearMetaPill() {

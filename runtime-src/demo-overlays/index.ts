@@ -1,6 +1,8 @@
 import { type AssetFailure, resolveAssetUrl } from "../common/assets";
 import { resetCleanup, pushCleanup } from "../common/cleanup";
 import { esc } from "../common/escape";
+// Aliased to `tr`: `t` is this file's name for the current playback time.
+import { t as tr } from "../common/i18n/demo";
 import { formatTime as fmt } from "../common/format";
 import { type ConfigHit, loadVpConfig, parseVpConfig } from "../common/config";
 import { findPlayers, resolveHost } from "../common/player";
@@ -393,14 +395,14 @@ function main(): string {
         </div>
       </div>
       <div class="vp-sec-expanded">
-        <div class="vp-sec-eyebrow">Course Section</div>
+        <div class="vp-sec-eyebrow">${esc(tr("demo.section.eyebrow"))}</div>
         <h3 class="vp-sec-h3" data-section-h3></h3>
         <div data-progress-block>
           <div class="vp-sec-bar"><div class="vp-sec-bar-fill" data-bar-fill style="width:0%"></div></div>
           <div class="vp-sec-count" data-count></div>
           <div class="vp-sec-rows" data-rows></div>
         </div>
-        <div data-empty hidden style="color:rgba(168,191,186,.72); font-size:13px">Starting soon...</div>
+        <div data-empty hidden style="color:rgba(168,191,186,.72); font-size:13px">${esc(tr("demo.section.empty"))}</div>
       </div>
     </div>`;
     if (showSectionOverlay) slotTL.appendChild(sectionPill);
@@ -441,7 +443,7 @@ function main(): string {
       if (!showSectionOverlay) return;
       const t = window.player.current ?? 0;
       const phase = phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec);
-      const section = phase?.title ?? "Intro";
+      const section = phase?.title ?? tr("demo.section.intro");
       const subs = phase
         ? // `current` honours an optional `end`, so an intervention past its end
           // time falls through to "completed" rather than staying current.
@@ -474,7 +476,10 @@ function main(): string {
         sectionRefs.empty.hidden = true;
         const pct = (completedCount / subs.length) * 100;
         sectionRefs.barFill.style.width = pct + "%";
-        const countTxt = `${completedCount} of ${subs.length} completed`;
+        const countTxt = tr("demo.section.progress", {
+          done: completedCount,
+          total: subs.length,
+        });
         if (sectionRefs.count.textContent !== countTxt)
           sectionRefs.count.textContent = countTxt;
 
@@ -543,9 +548,9 @@ function main(): string {
       slotTR.innerHTML = `
       <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
         <span style="font-size:14px;line-height:1">🧪</span>
-        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">Science:</span>
+        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">${esc(tr("demo.science.label"))}</span>
         <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">Open</button>
+        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(tr("demo.science.open"))}</button>
       </div>`;
       const openSci = (e: Event) => {
         e.stopPropagation();
@@ -914,9 +919,11 @@ function main(): string {
         <div style="flex:0 0 auto; min-width:0; max-width:35%;">
           <div style="font:700 13.5px system-ui;color:#f4f7f6; overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(active.title)}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:1px">
-            <span style="font:500 11px system-ui;color:rgba(168,191,186,.8); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">by ${esc(active.voice)}</span>
+            <span style="font:500 11px system-ui;color:rgba(168,191,186,.8); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tr("demo.audio.by", { voice: active.voice }))}</span>
             <span style="width:4px;height:4px;border-radius:50%;background:#00e1a5" class="vp-pulse"></span>
-            <span style="font:500 10.5px system-ui;color:rgba(168,191,186,.62);text-transform:uppercase;letter-spacing:.4px">${isPlaying ? "Playing" : "Paused"}</span>
+            <span style="font:500 10.5px system-ui;color:rgba(168,191,186,.62);text-transform:uppercase;letter-spacing:.4px">${esc(
+              tr(isPlaying ? "demo.audio.playing" : "demo.audio.paused"),
+            )}</span>
           </div>
         </div>
         <div style="flex:1; display:flex; align-items:center; gap:10px; min-width:0;">
@@ -927,10 +934,10 @@ function main(): string {
           <span style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px;text-align:right">${fmt(active.dur)}</span>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button data-action="audio-back" title="-10s" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
-          <button data-action="audio-playpause" title="Play/Pause" style="background:#00e1a5;color:#062b22;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
-          <button data-action="audio-fwd" title="+10s" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
-          <button data-action="audio-skip" title="Skip" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
+          <button data-action="audio-back" title="${esc(tr("demo.audio.back"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
+          <button data-action="audio-playpause" title="${esc(tr("demo.audio.playPause"))}" style="background:#00e1a5;color:#062b22;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
+          <button data-action="audio-fwd" title="${esc(tr("demo.audio.forward"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
+          <button data-action="audio-skip" title="${esc(tr("demo.audio.skip"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
         </div>
       </div>`;
       const stop = (e: Event) => e.stopPropagation();
@@ -981,9 +988,11 @@ function main(): string {
       slotBR.dataset.kind = "meta";
       slotBR.dataset.activeMeta = active.id;
       slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="Open Meta Structure">
+      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="${esc(tr("demo.meta.openTitle"))}">
         <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
-        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">Step ${esc(active.n)} / ${metaSteps.length}</span>
+        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">${esc(
+          tr("demo.meta.step", { n: active.n, total: metaSteps.length }),
+        )}</span>
         <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
         <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
       </div>`;
@@ -1013,9 +1022,13 @@ function main(): string {
     // Only tabs whose config section has content exist at all — an empty
     // "Science" tab is dead UI, not a placeholder.
     const tabDefs = [
-      { key: "coaching", label: "Coaching", show: showCoachingTab },
-      { key: "science", label: "Science", show: showScienceTab },
-      { key: "meta", label: "Meta Structure", show: showMetaTab },
+      {
+        key: "coaching",
+        label: tr("demo.tab.coaching"),
+        show: showCoachingTab,
+      },
+      { key: "science", label: tr("demo.tab.science"), show: showScienceTab },
+      { key: "meta", label: tr("demo.tab.meta"), show: showMetaTab },
     ].filter((tab) => tab.show);
 
     sidebar.innerHTML = `
@@ -1211,8 +1224,12 @@ function main(): string {
               ${
                 !open
                   ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-                <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">${p.interventions.length} interventions</span>
-                <span style="font:500 11px ui-monospace,monospace;background:transparent;color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">⏱ ${dur}m</span>
+                <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">${esc(
+                  tr("demo.phase.count", { count: p.interventions.length }),
+                )}</span>
+                <span style="font:500 11px ui-monospace,monospace;background:transparent;color:${T.mutedFg};padding:2px 8px;border-radius:999px;border:1px solid ${T.border}">⏱ ${esc(
+                  tr("demo.phase.duration", { min: dur }),
+                )}</span>
               </div>`
                   : ""
               }
@@ -1222,7 +1239,7 @@ function main(): string {
             open
               ? `<div style="padding:0 12px 12px">
             <div style="border-top:1px solid ${T.border};padding-top:12px">
-              <div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:8px">Interventions</div>
+              <div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:8px">${esc(tr("demo.phase.interventions"))}</div>
               <div style="display:grid;gap:6px">
                 ${p.interventions
                   .map((iv) => {
@@ -1285,7 +1302,9 @@ function main(): string {
           return `<div data-sci-card="${esc(s.id)}" style="border:1px solid ${hl ? T.primary : T.border};border-radius:${T.radius};padding:12px;background:${T.card};${hl ? `box-shadow:0 0 0 4px ${T.primarySoft};` : ""}transition:all .2s">
           <div style="display:flex;align-items:baseline;gap:8px">
             <h3 style="margin:0;font:600 14px system-ui;color:${hl ? T.primary : T.fg};flex:1">${esc(s.name)}</h3>
-            <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 7px;border-radius:999px">${s.timestampsSec.length} mentions</span>
+            <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 7px;border-radius:999px">${esc(
+              tr("demo.science.mentions", { count: s.timestampsSec.length }),
+            )}</span>
           </div>
           <p style="margin:6px 0 0;color:${T.mutedFg};font-size:13px;line-height:1.5">${esc(s.description)}</p>
           <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
@@ -1324,7 +1343,7 @@ function main(): string {
       const sig = w.__vpActiveMeta ?? "";
       if (sig === metaSig) return;
       metaSig = sig;
-      metaPanel.innerHTML = `<div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:10px">7 Master Steps</div>
+      metaPanel.innerHTML = `<div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:10px">${esc(tr("demo.meta.heading"))}</div>
       <ol style="list-style:none;padding:0;margin:0;display:grid;gap:6px">
         ${metaSteps
           .map((m) => {

@@ -8,6 +8,10 @@
 // "Code einbetten" block, paste an LLM prompt's output). Idempotent +
 // re-injectable.
 import { pushCleanup, resetCleanup } from "../common/cleanup";
+import { esc } from "../common/escape";
+// Aliased to `tr` for consistency with the other entries, where `t` is the
+// established name for the current playback time.
+import { t as tr } from "../common/i18n/admin";
 import { PROMPT_TEXT } from "./prompt";
 import { ADMIN_CSS } from "./styles";
 
@@ -50,33 +54,40 @@ function main(): string {
     const host = document.createElement("div");
     host.id = "vp-admin-dialog-host";
     host.className = "vp-admin-dialog-backdrop";
+    // Headings, buttons and labels are plain text and keep their esc() wrapper.
+    // The `*Html` bodies are the one deliberate exception in the whole runtime:
+    // they carry first-party inline markup (<strong>, <em>, <code>) that esc()
+    // would render as visible &lt; entities. They are compile-time constants
+    // from common/i18n.ts, never config or host input — the boundary is enforced
+    // by tests/common/no-bare-strings.test.ts, which fails if a non-Html key
+    // ever gains a `<`.
     host.innerHTML = `
       <div class="vp-admin-dialog" role="dialog" aria-modal="true">
         <header>
           <span class="vp-icon" style="font-size:22px">⚡</span>
-          <h2>Advanced Video Modus aktivieren</h2>
-          <button class="vp-close" aria-label="Schließen">×</button>
+          <h2>${esc(tr("admin.dialog.title"))}</h2>
+          <button class="vp-close" aria-label="${esc(tr("admin.dialog.close"))}">×</button>
         </header>
         <section>
-          <h3><span class="vp-step-num">1</span>Code-Block hinzufügen</h3>
-          <p>Füge unter dem Video einen <strong>"Code einbetten"</strong>-Block hinzu — links in der Block-Sidebar unter <em>Code-Elemente → Code einbetten</em>.</p>
-          <p>Stelle den Block auf <strong>"In Seite anzeigen"</strong> (Standard).</p>
+          <h3><span class="vp-step-num">1</span>${esc(tr("admin.step1.heading"))}</h3>
+          <p>${tr("admin.step1.bodyHtml")}</p>
+          <p>${tr("admin.step1.noteHtml")}</p>
         </section>
         <section>
-          <h3><span class="vp-step-num">2</span>Voice-Over-Dateien hochladen</h3>
-          <p>Lade im <strong>"Code einbetten"</strong>-Editor die Audio-Dateien als <strong>Assets</strong> hoch und kopiere jeden Verweis (Form <code>{{asset:datei-name}}</code>) — du gibst sie im nächsten Schritt mit in den Prompt.</p>
-          <p>Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen.</p>
+          <h3><span class="vp-step-num">2</span>${esc(tr("admin.step2.heading"))}</h3>
+          <p>${tr("admin.step2.bodyHtml")}</p>
+          <p>${tr("admin.step2.noteHtml")}</p>
         </section>
         <section>
-          <h3><span class="vp-step-num">3</span>Prompt an LLM, dann Antwort einfügen</h3>
-          <p>Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.</p>
+          <h3><span class="vp-step-num">3</span>${esc(tr("admin.step3.heading"))}</h3>
+          <p>${tr("admin.step3.bodyHtml")}</p>
           <div class="vp-prompt-wrap">
             <textarea class="vp-prompt" readonly></textarea>
-            <button class="vp-copy-btn">Prompt kopieren</button>
+            <button class="vp-copy-btn">${esc(tr("admin.copy.button"))}</button>
           </div>
         </section>
         <footer>
-          <span class="vp-tip">💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays).</span>
+          <span class="vp-tip">${tr("admin.footer.tipHtml")}</span>
         </footer>
       </div>
     `;
@@ -114,10 +125,10 @@ function main(): string {
           /* ignore */
         }
       }
-      copyBtn.textContent = "✓ Kopiert";
+      copyBtn.textContent = tr("admin.copy.done");
       copyBtn.dataset.copied = "1";
       setTimeout(() => {
-        copyBtn.textContent = "Prompt kopieren";
+        copyBtn.textContent = tr("admin.copy.button");
         copyBtn.dataset.copied = "0";
       }, 1800);
     };
@@ -146,8 +157,8 @@ function main(): string {
     // renderer. Never re-arm an interval or observer on it.
     function labelButton(): void {
       button.textContent = hasVpConfigOnPage()
-        ? "edit Annotation"
-        : "enable Annotation";
+        ? tr("admin.launch.edit")
+        : tr("admin.launch.enable");
     }
     labelButton();
 

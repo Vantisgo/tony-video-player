@@ -71,6 +71,24 @@
   degrade when unset). Keep testable route logic in framework/env-free modules
   (`relay.ts`, `config-flag.ts`); route.ts is thin wiring. App-route tests live at
   `app/**/*.test.ts` (in the vitest `include`).
+- **`.gitattributes` owns line endings — do not remove or narrow it.** `* text=auto eol=lf`
+  normalises every text file in the index _and_ on checkout, overriding whatever
+  `core.autocrlf` a contributor has set (it is `true` in at least one WSL checkout
+  here, from the machine's global `~/.gitconfig`). This is load-bearing rather than
+  cosmetic: `public/runtime/*.js` is committed, unminified and byte-compared in CI,
+  so line endings are part of its content. Before the file existed, any checkout —
+  including a `git stash` round-trip — rewrote touched files as CRLF and broke the
+  drift check for reasons no diff explained. Verify with
+  `git checkout-index --prefix=/tmp/x/ -a && file /tmp/x/public/runtime/loader.js`;
+  it must not say CRLF. Binary types are declared explicitly there rather than left
+  to git's content heuristic.
+- **All user-facing runtime copy lives in `runtime-src/common/i18n/`,** split per
+  entry (`demo.ts` / `player.ts` / `admin.ts`) over a shared `core.ts`. Never
+  hardcode a UI string in an entry — `tests/common/no-bare-strings.test.ts` and
+  `tests/common/locale-surface.test.ts` both fail if you do. Import the lookup as
+  `tr`, never `t` (`t` is the playback-time variable everywhere in this codebase).
+  See the 2026-09-02 runtime-i18n entry for the locale-resolution order, the
+  `admin.*Html` `esc()` exception, and the German vocabulary source.
 
 ---
 
@@ -461,3 +479,59 @@ inset:0`), so overlays already track host resizes via CSS. The observer only re-
   URL (no `-git-<branch>-` segment) serving exactly commit `a388bb8` — measured byte-for-byte. It is
   immutable, so nothing new reaches authors until that tag points at an alias that moves. The
   production domain 404s on `/runtime/*` and the spike alias still serves the stale 44.5 KB reskin.
+
+## 2026-09-02 · runtime-i18n · Locale-aware UI strings for the injected runtime
+
+- **Decision**: All user-facing copy in the three augment bundles lives in
+  `runtime-src/common/i18n/`, split **per surface** — `core.ts` (locale resolution +
+  a `createT(messages)` factory) plus `demo.ts` / `player.ts` / `admin.ts`, one per
+  entry. Not one pooled catalogue: measured, pooling cost **+13 KB per bundle**
+  instead of ~5 KB, because each entry then carried all three surfaces' copy.
+  A new string goes in the catalogue for the entry that renders it; a string two
+  entries share gets duplicated rather than pooled.
+- **Decision**: `DEFAULT_LOCALE` is **`en`** (user's call, overriding the plan's `de`).
+  `en` is also each catalogue's completeness reference: the key union is
+  `keyof typeof EN` and the other locale is annotated `Record<Key, string>`, so a
+  missing translation is a `typecheck:runtime` error, not a runtime hole. Never
+  build a locale with `{ ...EN, ...overrides }` — that trades the compile-time
+  guarantee for a silent English fallback.
+- **Decision**: locale resolves **once per module instance**, in this order:
+  `window.__vpLocale` → primary subtag of `document.documentElement.lang` →
+  `navigator.languages` (the visitor's **ordered** preferences) → `DEFAULT_LOCALE`.
+  Regional and cased tags match on the primary subtag only (`de-AT`, `DE`, `de_CH`
+  → `de`). Not re-read per call — the lookup is on the per-`timeupdate` path. A
+  remount re-injects the bundle as a fresh module instance, which is what picks up
+  a mid-session `lang` change.
+  - The `navigator` step exists **because** `DEFAULT_LOCALE` is `en`: LearningSuite
+    may declare no `lang` at all, and without it a German learner whose browser is
+    plainly asking for German would get an English UI. Walk the whole list, never
+    just `navigator.language` — a visitor preferring `["fr", "de", "en"]` wants
+    German, and reading only the first entry falls through to the default.
+  - A page that _does_ declare a language outranks the browser: an explicitly
+    German lesson stays German for a visitor browsing in English. Both orderings
+    are pinned by mutation-tested cases in `tests/common/i18n.test.ts`.
+- **Gotcha**: import the lookup as **`tr`**, never `t` — across `runtime-src/`, `t`
+  is the name for the current playback time (`onTime(t)`, `const t = mediaEl.currentTime`),
+  so an unaliased import shadows it at nearly every call site.
+- **Gotcha (the one `esc()` exception in the runtime)**: catalogue keys ending in
+  `Html` (only `admin.*` today) carry first-party inline markup and are interpolated
+  into `innerHTML` **without** `esc()`, which would render visible entities. Every
+  other key is plain text and keeps its `esc()` wrapper. The boundary is enforced as
+  data by `tests/common/i18n.test.ts` — no non-`Html` key may contain `<`, `>` or `&`
+  in any locale. Do not add an `*Html` key outside `admin.*` without extending that test.
+- **Gotcha**: esbuild strips comments from the bundles regardless of `minify: false`
+  (`legalComments: "none"`), verified by measurement — comment density in
+  `runtime-src/` is free, so document liberally. What costs bundle bytes is catalogue
+  breadth and call-site length, not prose.
+- **Fixed during this work**: a CRLF hazard that made a `git stash` round-trip break the
+  `public/runtime` drift check and mimic build nondeterminism. `.gitattributes` now pins
+  `eol=lf` repo-wide — promoted to Standing Constraints. If CRLF ever reappears, recover
+  with `prettier --write` on the affected files + `build:runtime`.
+- **German copy has one source of truth**: `admin-toggle/prompt.ts`'s house vocabulary
+  — `Sektion`, `Master-Schritte`, `Auswertung`, `7 Master Steps`, `Interventionen`
+  (the last fixed by `CONTEXT.md`, which forbids "Interaction"). Match it when adding
+  `de` strings rather than translating afresh. Visible player-control labels stay
+  short (`Ton`, `Voll`, `Aus`, `Start`) — `.vp-controls` is a grid whose seek slider
+  absorbs every extra character; the precise term goes in the `player.aria.*` label.
+- **`admin-toggle/prompt.ts` stays untranslated by design** — model instruction text,
+  not UI, and it already tells the model to keep the source material's language.

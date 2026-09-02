@@ -73,9 +73,9 @@ So that **the enrichment layer reads as part of the course rather than a bolted-
 ## Lifecycle (append-only)
 
 - **Created:** 2026-08-04
-- **Modified:** 2026-08-04
-- **Commits:** _(none yet)_
-- **Agent / Session:** claude-opus-5 / session ba3ec5c2-6e53-41f5-9ffc-608520dd5cb7
+- **Modified:** 2026-08-04, 2026-09-02, 2026-09-02 (follow-up)
+- **Commits:** _(implemented on `feature/e2e-canary-playwright`, uncommitted at time of writing)_
+- **Agent / Session:** claude-opus-5 / session ba3ec5c2-6e53-41f5-9ffc-608520dd5cb7, claude-opus-5 / session 55d279de-3263-4e89-9568-fb160637849b
 - **Back refs:**
   - `.claude/PRPs/plans/completed/2026-08-04_spike-parity_quiz-lifecycle-darktheme.plan.md` — ships the German quiz strings this plan externalises; **must land first** (it creates `demo-overlays/quiz.ts`)
   - `.claude/PRPs/plans/completed/2026-07-24_refactor_runtime-ts-module-migration.plan.md` — established `runtime-src/common/` as the home for shared runtime modules
@@ -272,7 +272,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
 **Status markers** — prefix EVERY task header with one: `[ ]` idle · `[wip]` in progress ·
 `[x]` complete · `[f]` failed.
 
-### `[ ]` Task 1: CREATE `runtime-src/common/i18n.ts`
+### `[x]` Task 1: CREATE `runtime-src/common/i18n.ts` _(shipped as `common/i18n/{core,demo,player,admin}.ts` — see Amendments)_
 
 - **ACTION**: CREATE the catalogue and lookup
 - **IMPLEMENT**:
@@ -326,7 +326,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
   primary subtag case-insensitively, never the full tag.
 - **VALIDATE**: `npm run typecheck:runtime`
 
-### `[ ]` Task 2: UPDATE `runtime-src/global.d.ts` — declare `__vpLocale`
+### `[x]` Task 2: UPDATE `runtime-src/global.d.ts` — declare `__vpLocale`
 
 - **ACTION**: ADD the window global declaration
 - **IMPLEMENT**: `__vpLocale?: string;` on the existing `Window` interface — typed as `string`, not
@@ -334,7 +334,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
 - **MIRROR**: the existing `__vpTrustedOrigins` / `__vpRuntimeBaseUrl` declarations in the same file
 - **VALIDATE**: `npm run typecheck:runtime`
 
-### `[ ]` Task 3: CREATE `runtime-src/tests/common/i18n.test.ts`
+### `[x]` Task 3: CREATE `runtime-src/tests/common/i18n.test.ts`
 
 - **ACTION**: CREATE unit tests
 - **IMPLEMENT**:
@@ -353,7 +353,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
   locale from a previous test does not leak.
 - **VALIDATE**: `npm test -- runtime-src/tests/common/i18n.test.ts`
 
-### `[ ]` Task 4: UPDATE `runtime-src/demo-overlays/index.ts` — externalise ~16 literals
+### `[x]` Task 4: UPDATE `runtime-src/demo-overlays/index.ts` — externalise ~16 literals
 
 - **ACTION**: REPLACE each inventoried literal with a `t()` call
 - **IMPLEMENT**: Work down the `demo-overlays` inventory table. Template-literal sites keep their
@@ -369,7 +369,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
   catalogue.
 - **VALIDATE**: `npm run typecheck:runtime && npm test`
 
-### `[ ]` Task 5: UPDATE `runtime-src/demo-overlays/quiz.ts` — externalise ~9 literals
+### `[x]` Task 5: UPDATE `runtime-src/demo-overlays/quiz.ts` — externalise ~9 literals
 
 - **ACTION**: REPLACE the German quiz literals with `t()` calls
 - **IMPLEMENT**: `qzEl("button", …, [t("quiz.action.skip")])` and friends. The score line becomes
@@ -382,7 +382,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
   commit message rather than letting it look like a stray edit.
 - **VALIDATE**: `npm run typecheck:runtime && npm test -- runtime-src/tests/demo-overlays/quiz.test.ts`
 
-### `[ ]` Task 6: UPDATE `runtime-src/reskin-player/index.ts` — externalise ~8 literals
+### `[x]` Task 6: UPDATE `runtime-src/reskin-player/index.ts` — externalise ~8 literals
 
 - **ACTION**: REPLACE the control `aria-label`s and state labels with `t()` calls
 - **IMPLEMENT**: `aria-label="${esc(t("player.aria.mute"))}"` etc. in the control-shell template;
@@ -394,7 +394,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
   a `t()` call there is fine.
 - **VALIDATE**: `npm run typecheck:runtime && npm test`
 
-### `[ ]` Task 7: UPDATE `runtime-src/admin-toggle/index.ts` — externalise the dialog
+### `[x]` Task 7: UPDATE `runtime-src/admin-toggle/index.ts` — externalise the dialog
 
 - **ACTION**: REPLACE the ~11 German dialog literals with `t()` calls
 - **IMPLEMENT**: `Advanced Video Modus aktivieren`, `Code-Block hinzufügen`,
@@ -407,7 +407,7 @@ qzEl("button", { type: "button", class: "vp-quiz-skip" }, [
   `\u` escapes. Confirm in the generated output.
 - **VALIDATE**: `npm run typecheck:runtime && npm test`
 
-### `[ ]` Task 8: CREATE the bare-string guard, rebuild, and verify
+### `[x]` Task 8: CREATE the bare-string guard, rebuild, and verify
 
 - **ACTION**: CREATE a regression guard; REGENERATE the bundles; run every gate
 - **IMPLEMENT**: `runtime-src/tests/common/no-bare-strings.test.ts` reads the four entry source
@@ -676,5 +676,92 @@ Created as the companion follow-up to
 `.claude/PRPs/plans/completed/2026-08-04_spike-parity_quiz-lifecycle-darktheme.plan.md`, per the user's
 decision to keep that plan's German quiz strings as-is and plan i18n separately. String inventory
 derived by grep from `feature/mm-refactoring` plus the strings the spike-parity plan introduces.
+
+</details>
+
+<details>
+<summary>2026-09-02 — implemented (4 deviations)</summary>
+
+Implemented on `feature/e2e-canary-playwright` at the user's direction (no new
+`git flow feature` branch). All 8 tasks complete; Level 1–3 green; 329 tests
+(baseline 293).
+
+**Deviations, in order of significance:**
+
+1. **`DEFAULT_LOCALE` is `en`, not `de`.** User decision when the plan's
+   _Questionables_ was put to them. Consequence the plan did not consider: an
+   unlabelled host page now shows English, so `resolveLocale()` never reading
+   `navigator.language` matters more than it did. AC1's chain was implemented
+   exactly as specified rather than widened — see the report's open question.
+2. **The catalogue is split per surface**, `common/i18n/{core,demo,player,admin}.ts`,
+   not one `common/i18n.ts`. Taking the escape hatch the plan named under
+   _Questionables_: one pooled catalogue cost **+13.5 / +13.2 / +11.7 KB** per
+   bundle against AC8's ~5 KB budget, because each entry carried all three
+   surfaces' copy (the admin dialog's ~2.8 KB of rich text included). Split:
+   **+0 / +5.0 / +5.2 / +4.5 KB**.
+3. **An `esc()` exception for `admin.*Html` keys.** The admin dialog's prose
+   carries inline `<strong>`/`<em>`/`<code>`/`&lt;pre&gt;` that `esc()` would
+   render as visible entities. Those keys are interpolated raw; the boundary is
+   enforced as data by `i18n.test.ts` ("confine markup to the admin.\*Html keys")
+   so a non-`Html` key can never gain a `<`.
+4. **The lookup is exported as `t` but must be imported as `tr`.** Across
+   `runtime-src/`, `t` is the established name for the current playback time
+   (`renderScience(t)`, `onTime(t)`, `const t = mediaEl.currentTime`); an
+   unaliased import shadows it at nearly every call site.
+
+**Scope grew from the plan's ~40 keys to 80** (32 demo/quiz + 23 player + 15
+admin, ×2 locales). The plan predates three merged features; re-running its
+inventory greps found the admin dialog had grown a third step, plus uninventoried
+copy: the section progress line, the `Intro` fallback, the phase-duration pill,
+four voice-over control tooltips, four track-button tooltips, the drift-badge
+titles, and the `Off` / `Current` / `Play` / `Sound` / `Full` / `CC` control labels.
+
+**German column** uses `admin-toggle/prompt.ts`'s house vocabulary per user
+decision (`Sektion`, `Master-Schritte`, `Auswertung`, `7 Master Steps`) rather
+than the plan's fresh translations (`Kursabschnitt`, `Meta-Struktur`,
+`Zusammenfassung`).
+
+**Extra test beyond the plan:** `tests/common/locale-surface.test.ts` mounts the
+real `demo-overlays` and `reskin-player` entries under each locale and asserts
+the whole surface flips together — AC5 as an executable check rather than a
+manual browser step. Both it and `no-bare-strings.test.ts` were mutation-tested:
+reverting one call site to a hardcoded literal fails each independently.
+
+**Not verified:** Level 4 browser validation on a live LearningSuite tenant and
+Level 5 manual walkthrough (no tenant access from this session). Level 5 step 5
+— deleting a `de` key must fail `typecheck:runtime` — WAS verified.
+
+</details>
+
+<details>
+<summary>2026-09-02 — follow-up: navigator.language fallback + CRLF fix</summary>
+
+Both items the implementation report raised were closed on the user's request.
+
+**1. `resolveLocale()` gained a third step — this WIDENS AC1.**
+Order is now `window.__vpLocale` → `document.documentElement.lang` →
+`navigator.languages` → `DEFAULT_LOCALE`. AC1 fixed the chain at three steps, but
+it was written assuming `DEFAULT_LOCALE = de`; once the user chose `en`, the
+`navigator` step became the thing that keeps a German learner on a `lang`-less
+LearningSuite page out of an English UI. The **whole ordered list** is walked
+(`navigator.language` only as the fallback for browsers without `languages`), so
+a visitor preferring `["fr", "de", "en"]` gets German rather than the default.
+A page that declares a language still outranks the browser. Both orderings are
+mutation-tested. Cost: **+268 bytes per bundle**, which puts `reskin-player`
+(+5,253) and `demo-overlays` (+5,494) modestly above AC8's literal 5,120 —
+recorded rather than rounded; see the report.
+
+**2. `.gitattributes` added** — `* text=auto eol=lf`, an explicit
+`public/runtime/*.js text eol=lf`, and explicit `binary` for tracked
+image/audio/font types. Closes the CRLF hazard recorded in the previous
+amendment: `core.autocrlf=true` (from the machine's global `~/.gitconfig`) had
+any checkout — a `git stash` round-trip included — rewriting files as CRLF, which
+breaks the committed-bundle drift check. Verified with `git checkout-index`
+(the same eol filter a `stash pop` uses): CRLF without the file, LF with it.
+Zero churn — a `--renormalize` dry-run reported 0 files whose stored content
+would change, and the index was already 100% LF.
+
+Tests: **339 passing** (was 329), +10 covering the navigator step and its
+precedence. All Level 1–3 gates green.
 
 </details>

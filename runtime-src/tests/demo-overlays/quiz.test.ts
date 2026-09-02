@@ -763,8 +763,11 @@ describe("summary", () => {
     expect(h.slot.querySelector(".vp-quiz-score-big")?.textContent).toBe(
       "2 / 3",
     );
+    // The score line now renders from common/i18n; with no `lang` on the test
+    // document it resolves to DEFAULT_LOCALE ("en"). The German copy is covered
+    // by tests/common/i18n.test.ts.
     expect(h.slot.querySelector(".vp-quiz-score-sub")?.textContent).toBe(
-      "67% richtig beantwortet",
+      "67% answered correctly",
     );
     expect(
       h.slot.querySelector<HTMLElement>(".vp-quiz-pass-badge")?.dataset.pass,

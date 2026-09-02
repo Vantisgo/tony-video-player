@@ -7,6 +7,8 @@
 // Quiz state is deliberately SESSION-ONLY: nothing is written to storage and no
 // API is called, so a reload — or a remount after the host strips our nodes —
 // starts a fresh attempt.
+// Aliased to `tr`: `t` is this file's name for the current playback time.
+import { t as tr } from "../common/i18n/demo";
 import type {
   AnswerOption,
   MediaEl,
@@ -297,7 +299,7 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
       const skip = qzEl(
         "button",
         { type: "button", class: "vp-quiz-skip", "data-vp-quiz-skip": "" },
-        ["Frage überspringen"],
+        [tr("quiz.action.skip")],
       );
       skip.addEventListener("click", () => skipQuestion());
       card.appendChild(skip);
@@ -307,14 +309,14 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
     // Continue — auto-advancing would pull it away mid-read.
     if (mode === "feedback" && result?.outcome === "wrong") {
       card.appendChild(
-        actionRow("vp-quiz-feedback-continue", "Continue", () =>
+        actionRow("vp-quiz-feedback-continue", tr("quiz.action.continue"), () =>
           continueFeedback(),
         ),
       );
     }
     if (mode === "awaiting-continue") {
       card.appendChild(
-        actionRow("vp-quiz-continue", "Video fortsetzen", () =>
+        actionRow("vp-quiz-continue", tr("quiz.action.resume"), () =>
           continuePlayback(),
         ),
       );
@@ -344,7 +346,7 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
       qzEl(
         "h2",
         { id: "vp-quiz-heading", class: "vp-quiz-heading", tabindex: "-1" },
-        ["Zusammenfassung"],
+        [tr("quiz.summary.heading")],
       ),
     );
 
@@ -357,7 +359,7 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
       const wrap = qzEl("div", { class: "vp-quiz-summary-score" }, [
         qzEl("div", { class: "vp-quiz-score-big" }, [`${correct} / ${total}`]),
         qzEl("div", { class: "vp-quiz-score-sub" }, [
-          `${pct}% richtig beantwortet`,
+          tr("quiz.summary.score", { pct }),
         ]),
       ]);
       if (quiz.passingPercent != null) {
@@ -366,7 +368,7 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
           qzEl(
             "div",
             { class: "vp-quiz-pass-badge", "data-pass": passed ? "1" : "0" },
-            [passed ? "Bestanden" : "Nicht bestanden"],
+            [tr(passed ? "quiz.summary.passed" : "quiz.summary.failed")],
           ),
         );
       }
@@ -399,7 +401,7 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
         class: "vp-quiz-btn vp-quiz-btn-ghost",
         "data-vp-quiz-close": "",
       },
-      ["Schließen"],
+      [tr("quiz.action.close")],
     );
     close.addEventListener("click", () => closeSummary());
     const again = qzEl(
@@ -409,7 +411,7 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
         class: "vp-quiz-btn vp-quiz-btn-primary",
         "data-vp-quiz-restart": "",
       },
-      ["Nochmal ansehen"],
+      [tr("quiz.action.restart")],
     );
     again.addEventListener("click", () => restart());
     card.appendChild(qzEl("div", { class: "vp-quiz-actions" }, [close, again]));
