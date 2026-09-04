@@ -18,11 +18,34 @@ import {
   DEFAULT_PHASES,
   DEFAULT_SCIENCES,
 } from "./data";
-import { ANIM_CSS, QUIZ_CSS, SECTION_CSS, T } from "./styles";
+import {
+  ANIM_CSS,
+  AUDIO_CSS,
+  QUIZ_CSS,
+  SECTION_CSS,
+  SLOT_CSS,
+  T,
+} from "./styles";
 import { createQuizController } from "./quiz";
 
 const CLEANUP_KEY = "__vpDemoCleanup";
 const AUDIO_EL_ID = "vp-audio-el";
+
+// Inline SVG for the voice-over transport, replacing the emoji glyphs (▶ ⏸ ⏭)
+// and the 🎙️ badge: emoji render differently per platform and cannot take
+// `currentColor`. Paths are lucide's, the icon set the reference player uses.
+// Static markup with no config data in it, so there is nothing to escape here.
+// Play and pause are BOTH rendered; AUDIO_CSS picks between them off the card's
+// `[data-playing]`, which is what lets the per-timeupdate path swap the icon
+// with a single attribute write.
+const ICON_PLAY =
+  '<svg class="vp-audio-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+const ICON_PAUSE =
+  '<svg class="vp-audio-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+const ICON_SKIP =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/></svg>';
+const ICON_MIC =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>';
 
 // Our own origin (the injected <script>'s), resolved synchronously — used for
 // the kill-switch + telemetry API calls.
@@ -119,7 +142,9 @@ const OWNED_NODE_IDS = [
   "vp-slot-quiz",
   "vp-demo-sidebar",
   "vp-anim-style",
+  "__vp-slot-style",
   "__vp-section-style",
+  "__vp-audio-style",
   "__vp-quiz-style",
   AUDIO_EL_ID,
 ];
@@ -297,6 +322,26 @@ function main(): string {
       data: { phases, sciences, audios, metaSteps, assets, demo: isDemo, quiz },
     };
 
+    // ─── Injected-slot white-space reset (inject once) ───
+    // The id must NOT start with `vp-slot-`: the defensive sweep below filters
+    // OWNED_NODE_IDS on that prefix to clear stray slot *elements*, and would
+    // delete this stylesheet three lines after it was injected. Hence the
+    // `__vp-` prefix, shared with the other two injected stylesheets.
+    //
+    // Injected FIRST on purpose. `.vp-slot *` is specificity 0,1,0 — exactly
+    // tying `.vp-quiz-summary-row-text { white-space:nowrap }` in QUIZ_CSS, so
+    // the tie resolves by source order. Landing here keeps it ahead of both
+    // SECTION_CSS and QUIZ_CSS, which are remove-then-append and therefore move
+    // to the end of <head> on every mount. Higher-specificity rules
+    // (.vp-section-pill .vp-sec-title, 0,2,0) and the inline nowrap
+    // declarations in the pill markup win regardless.
+    if (!document.getElementById("__vp-slot-style")) {
+      const s = document.createElement("style");
+      s.id = "__vp-slot-style";
+      s.textContent = SLOT_CSS;
+      document.head.appendChild(s);
+    }
+
     // ─── Animation keyframes (inject once) ───
     if (!document.getElementById("vp-anim-style")) {
       const s = document.createElement("style");
@@ -320,7 +365,9 @@ function main(): string {
       playerHost.style.position = "relative";
 
     // Defensive: clear stray nodes with our ids (e.g. a stale mount from before
-    // this controller's own cleanup registry existed).
+    // this controller's own cleanup registry existed). The `vp-slot-` prefix
+    // filter is a namespace, not a coincidence — anything else that needs to
+    // survive this point must not be named `vp-slot-*` (see __vp-slot-style).
     OWNED_NODE_IDS.filter(
       (id) => id.startsWith("vp-slot-") || id.endsWith("sidebar"),
     ).forEach((id) => document.getElementById(id)?.remove());
@@ -338,6 +385,12 @@ function main(): string {
     function makeSlot(id: string, posCss: string): HTMLElement {
       const el = document.createElement("div");
       el.id = id;
+      // Carries SLOT_CSS's white-space reset to every slot and its subtree. A
+      // class, not five id selectors: a sixth slot added later is covered for
+      // free, and it matches the two existing resets (.vp-section-pill,
+      // .vp-admin-dialog), which are class-scoped too. The ids stay the public
+      // surface — the e2e canary asserts #vp-slot-* and checkAlive() reads them.
+      el.className = "vp-slot";
       el.style.cssText = `position:absolute; ${posCss}; pointer-events:none; z-index:8;`;
       const swallow = (e: Event) => {
         if (e.target !== el) e.stopPropagation();
@@ -360,9 +413,15 @@ function main(): string {
     );
     const slotTR = makeSlot("vp-slot-tr", "top:10px; right:10px;");
     const slotBR = makeSlot("vp-slot-br", "bottom:70px; right:14px;");
+    // Keeps the id `vp-slot-lt` even though the voice-over card is no longer a
+    // lower third: the e2e canary asserts `#vp-slot-*` by id and checkAlive()
+    // reads this one, so renaming buys a tidier name at the cost of both. It
+    // now shares the bottom-right corner with slotBR — safe only because
+    // recomputeActive's audio branch calls clearMetaPill(), which is therefore
+    // load-bearing for layout and not just tidiness.
     const slotLowerThird = makeSlot(
       "vp-slot-lt",
-      "left:14px; right:14px; bottom:70px;",
+      "right:14px; bottom:70px; width:320px; max-width:calc(100% - 28px);",
     );
     // The quiz scrim covers the whole player, so unlike the (invisible when
     // empty) pill slots this one is only created when there is a quiz to show.
@@ -595,6 +654,34 @@ function main(): string {
       );
       reportFailure(errorType);
       return "";
+    }
+
+    // The portrait resolves through the same two shapes as `asset`, but QUIETLY:
+    // note the absence of reportFailure(). The three `audio-asset-*` errorTypes
+    // exist to say "no cue on this page will find its audio" — the loudest
+    // operator alarm in the runtime — and a missing picture must never fire it.
+    // The learner just gets initials. Operator still gets a named console line.
+    function resolveAvatarUrl(a: Audio): string {
+      const { url, failure } = resolveAssetUrl(a.avatar, assets);
+      if (!failure) return url;
+      console.warn(
+        `[vp] audio cue "${a.id}": portrait unusable (${failure}) — showing initials instead`,
+        a.avatar,
+      );
+      return "";
+    }
+
+    // Up to two letters from `voice`, for the fallback badge. `voice` is
+    // untrusted config, so every degenerate input has to yield something
+    // renderable: empty, one word, and punctuation-only all have to work.
+    function voiceInitials(voice: string): string {
+      const letters = String(voice ?? "")
+        .split(/[\s\-_.]+/)
+        .filter((word) => /\p{L}/u.test(word))
+        .slice(0, 2)
+        .map((word) => (word.match(/\p{L}/u) as RegExpMatchArray)[0])
+        .join("");
+      return (letters || "?").toUpperCase();
     }
 
     // Play the real file when the cue's asset resolves; otherwise (and on any
@@ -879,7 +966,22 @@ function main(): string {
       if (due) audioCtrl.activate(due, t);
     }
 
-    // ─── Audio overlay (lower-third banner) ───
+    // ─── Voice-over card styles ───
+    // remove-then-append + onCleanup, the QUIZ_CSS variant: mount-scoped, so it
+    // goes away with the mount. Lands after SLOT_CSS in <head>, but the card's
+    // `white-space` rules carry two classes so they do not rely on that.
+    // The id must not begin with `vp-slot-` — see the sweep above.
+    if (showAudio) {
+      const audioStyleId = "__vp-audio-style";
+      document.getElementById(audioStyleId)?.remove();
+      const s = document.createElement("style");
+      s.id = audioStyleId;
+      s.textContent = AUDIO_CSS;
+      document.head.appendChild(s);
+      onCleanup(() => document.getElementById(audioStyleId)?.remove());
+    }
+
+    // ─── Voice-over card (bottom-right) ───
     function renderAudio(): boolean {
       if (!audioCtrl.isActive() || !audioCtrl.active) {
         if (slotLowerThird.dataset.kind === "audio") {
@@ -894,50 +996,71 @@ function main(): string {
       const pct = Math.min(100, (elapsed / active.dur) * 100);
       const isPlaying = audioCtrl.state === "playing";
       if (slotLowerThird.dataset.activeAudio === active.id) {
+        const card = slotLowerThird.firstElementChild as HTMLElement | null;
         const fill = slotLowerThird.querySelector(
           "[data-fill]",
         ) as HTMLElement | null;
         const tEl = slotLowerThird.querySelector(
           "[data-elapsed]",
         ) as HTMLElement | null;
-        const pp = slotLowerThird.querySelector(
-          '[data-action="audio-playpause"]',
+        const stEl = slotLowerThird.querySelector(
+          "[data-status]",
         ) as HTMLElement | null;
         if (fill) fill.style.width = pct + "%";
         if (tEl) tEl.textContent = fmt(elapsed);
-        if (pp) pp.textContent = isPlaying ? "⏸" : "▶";
+        // One attribute write swaps the transport icon — AUDIO_CSS owns which of
+        // the two inline SVGs is shown. This replaced a `textContent` write,
+        // which cannot swap an SVG at all; it is also the cheaper of the two on
+        // a path that runs on every `timeupdate` (~4x/s). Re-rendering the card
+        // per tick would throw away the dirty check this branch exists for.
+        if (card) card.dataset.playing = isPlaying ? "1" : "0";
+        // Previously omitted, so the status label went stale after a pause while
+        // the icon updated. textContent, so no esc() (it would double-escape).
+        if (stEl)
+          stEl.textContent = tr(
+            isPlaying ? "demo.audio.playing" : "demo.audio.paused",
+          );
         return true;
       }
       slotLowerThird.dataset.kind = "audio";
       slotLowerThird.dataset.activeAudio = active.id;
+      const portrait = resolveAvatarUrl(active);
       slotLowerThird.innerHTML = `
-      <div class="vp-anim-bottom" style="display:flex; align-items:center; gap:14px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:14px; padding:10px 14px; backdrop-filter:blur(10px); box-shadow:0 14px 32px rgba(0,0,0,.35); color:#f4f7f6; pointer-events:auto;">
-        <div style="position:relative;flex-shrink:0">
-          <div style="width:40px;height:40px;border-radius:50%;background:#00e1a5;border:2px solid #62dfc1;display:flex;align-items:center;justify-content:center;font:700 14px system-ui;color:#062b22">FH</div>
-          <div style="position:absolute;right:-3px;bottom:-3px;width:16px;height:16px;border-radius:50%;border:2px solid #323333;background:#00e1a5;display:flex;align-items:center;justify-content:center;font-size:9px">🎙️</div>
-        </div>
-        <div style="flex:0 0 auto; min-width:0; max-width:35%;">
-          <div style="font:700 13.5px system-ui;color:#f4f7f6; overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(active.title)}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:1px">
-            <span style="font:500 11px system-ui;color:rgba(168,191,186,.8); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tr("demo.audio.by", { voice: active.voice }))}</span>
-            <span style="width:4px;height:4px;border-radius:50%;background:#00e1a5" class="vp-pulse"></span>
-            <span style="font:500 10.5px system-ui;color:rgba(168,191,186,.62);text-transform:uppercase;letter-spacing:.4px">${esc(
-              tr(isPlaying ? "demo.audio.playing" : "demo.audio.paused"),
-            )}</span>
+      <div class="vp-audio-card vp-anim-bottom" data-playing="${isPlaying ? "1" : "0"}">
+        <div class="vp-audio-head">
+          <div class="vp-audio-avatar">
+            ${
+              portrait
+                ? `<img class="vp-audio-portrait" src="${esc(portrait)}" alt="${esc(tr("demo.audio.avatarAlt"))}">`
+                : `<div class="vp-audio-initials">${esc(voiceInitials(active.voice))}</div>`
+            }
+            <span class="vp-audio-badge">${ICON_MIC}</span>
+          </div>
+          <div class="vp-audio-meta">
+            <div class="vp-audio-title">${esc(active.title)}</div>
+            <div class="vp-audio-byline">${esc(tr("demo.audio.by", { voice: active.voice }))}</div>
+            <div class="vp-audio-state">
+              <span class="vp-audio-dot vp-pulse"></span>
+              <span class="vp-audio-status" data-status>${esc(
+                tr(isPlaying ? "demo.audio.playing" : "demo.audio.paused"),
+              )}</span>
+            </div>
           </div>
         </div>
-        <div style="flex:1; display:flex; align-items:center; gap:10px; min-width:0;">
-          <span data-elapsed style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px">${fmt(elapsed)}</span>
-          <div style="flex:1;height:6px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden">
-            <div data-fill style="width:${pct}%; height:100%; background:linear-gradient(90deg,#00e1a5,#2edbb1,#62dfc1); transition:width .15s linear;"></div>
+        <div class="vp-audio-progress">
+          <div class="vp-audio-bar">
+            <div class="vp-audio-fill" data-fill style="width:${pct}%"></div>
           </div>
-          <span style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px;text-align:right">${fmt(active.dur)}</span>
+          <div class="vp-audio-times">
+            <span class="vp-audio-time" data-elapsed>${fmt(elapsed)}</span>
+            <span class="vp-audio-time">${fmt(active.dur)}</span>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button data-action="audio-back" title="${esc(tr("demo.audio.back"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
-          <button data-action="audio-playpause" title="${esc(tr("demo.audio.playPause"))}" style="background:#00e1a5;color:#062b22;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
-          <button data-action="audio-fwd" title="${esc(tr("demo.audio.forward"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
-          <button data-action="audio-skip" title="${esc(tr("demo.audio.skip"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
+        <div class="vp-audio-controls">
+          <button class="vp-audio-btn" data-action="audio-back" title="${esc(tr("demo.audio.back"))}">−10s</button>
+          <button class="vp-audio-btn vp-audio-btn-primary" data-action="audio-playpause" title="${esc(tr("demo.audio.playPause"))}" aria-label="${esc(tr("demo.audio.playPause"))}">${ICON_PLAY}${ICON_PAUSE}</button>
+          <button class="vp-audio-btn" data-action="audio-fwd" title="${esc(tr("demo.audio.forward"))}">+10s</button>
+          <button class="vp-audio-btn vp-audio-btn-skip" data-action="audio-skip" title="${esc(tr("demo.audio.skip"))}">${ICON_SKIP}<span class="vp-audio-skip-label">${esc(tr("demo.audio.skip"))}</span></button>
         </div>
       </div>`;
       const stop = (e: Event) => e.stopPropagation();
@@ -1368,6 +1491,29 @@ function main(): string {
     renderMeta();
 
     // ─── Time sync ───
+
+    // True once the learner has actually started playback. Nothing time-
+    // triggered may fire before that: recomputeActive() also runs once at mount
+    // with t = 0 (see the end of this function's section), and a cue or quiz
+    // authored at t:0 would otherwise open with no user action at all — measured
+    // on the live tenant as a 119s voice-over playing over a paused video.
+    //
+    // Read from the media element rather than the bus `play` event, for two
+    // independent reasons. (a) `paused` is authoritative even when no event is
+    // coming: this latch is mount-scoped, so a remount mid-playback resets it to
+    // false, and the next bus event is a `time`, not a `play` — an event-armed
+    // latch would stay shut and suppress every remaining cue for the rest of the
+    // lesson. (b) window.player is a PlayerApi and has no `paused` at all.
+    //
+    // One-way on purpose: a later pause must NOT re-close it, or pausing
+    // mid-lesson would swallow every cue that comes due afterwards.
+    let playbackStarted = false;
+    function hasPlaybackStarted(): boolean {
+      if (playbackStarted) return true;
+      if (videoEl && !videoEl.paused) playbackStarted = true;
+      return playbackStarted;
+    }
+
     function recomputeActive(t: number): void {
       const phase =
         phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec) || null;
@@ -1390,10 +1536,24 @@ function main(): string {
       // Priority: an open quiz outranks a voice-over cue, which outranks the
       // passive pills. Asking the quiz first is what keeps a cue from starting
       // underneath an open dialog.
-      quizCtrl?.onTime(t);
+      //
+      // Both triggers — and ONLY these two — sit behind the playback gate: they
+      // are the only calls here that pause the video or start audio. The five
+      // renderers above and below must keep running while paused, because
+      // renderSection/renderMetaStep/renderScience have no other call site and
+      // the pills would never appear on a lesson the learner has not started.
+      //
+      // This is also where the t:0 pre-roll happens, with no extra wiring: the
+      // bus routes `play` here, bus.emit is synchronous from reskin-player's
+      // native `play` listener, and the HTML spec sets `paused` false before
+      // queuing that event — so the gate opens and a due t:0 cue fires (pausing
+      // the video again) inside the same call stack as the native play, before
+      // a frame or a moment of the video's own audio gets out.
+      const started = hasPlaybackStarted();
+      if (started) quizCtrl?.onTime(t);
       const quizOpen = quizCtrl?.isActive() === true;
 
-      if (!quizOpen) maybeTriggerAudio(t);
+      if (started && !quizOpen) maybeTriggerAudio(t);
 
       if (quizOpen) {
         clearMetaPill();

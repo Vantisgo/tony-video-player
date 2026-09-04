@@ -151,6 +151,7 @@
     "demo.audio.playPause": "Play/Pause",
     "demo.audio.forward": "+10s",
     "demo.audio.skip": "Skip",
+    "demo.audio.avatarAlt": "Voice-over speaker",
     // Quiz
     "quiz.action.skip": "Skip question",
     "quiz.action.continue": "Continue",
@@ -186,6 +187,7 @@
     "demo.audio.playPause": "Wiedergabe/Pause",
     "demo.audio.forward": "+10s",
     "demo.audio.skip": "Überspringen",
+    "demo.audio.avatarAlt": "Stimme des Voice-Overs",
     // Was "Continue" in the otherwise-German quiz UI — an intended copy fix.
     "quiz.action.skip": "Frage überspringen",
     "quiz.action.continue": "Weiter",
@@ -763,6 +765,9 @@
     // --primary @ 42%
     radius: "12px"
   };
+  var SLOT_CSS = `
+      .vp-slot, .vp-slot * { white-space:normal; }
+    `;
   var ANIM_CSS = `
       @keyframes vp-slide-in-right { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
       @keyframes vp-slide-in-bottom{ from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
@@ -817,6 +822,87 @@
       .vp-section-pill .vp-sec-row[data-state="current"]   .vp-sec-row-title { color:#f4f7f6; font-weight:500; }
       .vp-section-pill .vp-sec-row[data-state="completed"] .vp-sec-row-title { color:rgba(168,191,186,.68); font-weight:400; }
       .vp-section-pill .vp-sec-row[data-state="upcoming"]  .vp-sec-row-title { color:rgba(168,191,186,.48); font-weight:400; }
+    `;
+  var AUDIO_CSS = `
+      .vp-audio-card {
+        display:grid; gap:12px; pointer-events:auto; box-sizing:border-box;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38);
+        border-radius:16px; padding:14px;
+        backdrop-filter:blur(10px);
+        box-shadow:0 18px 40px rgba(0,0,0,.38);
+        color:${T.fg}; font-family:system-ui;
+      }
+      .vp-audio-head { display:flex; align-items:flex-start; gap:11px; min-width:0; }
+      .vp-audio-avatar { position:relative; flex:0 0 auto; width:44px; height:44px; }
+      .vp-audio-portrait {
+        width:44px; height:44px; border-radius:50%; object-fit:cover; display:block;
+        border:2px solid ${T.primary}; box-shadow:0 4px 12px rgba(0,0,0,.3);
+      }
+      .vp-audio-initials {
+        width:44px; height:44px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        background:${T.primary}; color:${T.primaryFg};
+        font:700 15px system-ui; border:2px solid #62dfc1;
+      }
+      .vp-audio-badge {
+        position:absolute; right:-3px; bottom:-3px;
+        width:18px; height:18px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        background:${T.primary}; color:${T.primaryFg};
+        border:2px solid ${T.card};
+      }
+      .vp-audio-badge svg { width:9px; height:9px; }
+      .vp-audio-meta { flex:1 1 auto; min-width:0; }
+      .vp-audio-card .vp-audio-title {
+        font:700 14.5px/1.3 system-ui; color:${T.fg};
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .vp-audio-card .vp-audio-byline {
+        font:500 11.5px system-ui; color:rgba(168,191,186,.8); margin-top:2px;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .vp-audio-state { display:flex; align-items:center; gap:5px; margin-top:4px; }
+      .vp-audio-dot { width:6px; height:6px; border-radius:50%; background:${T.primary}; flex:0 0 auto; }
+      .vp-audio-card .vp-audio-status {
+        font:600 10px system-ui; letter-spacing:.5px; text-transform:uppercase;
+        color:rgba(168,191,186,.62); white-space:nowrap;
+      }
+      .vp-audio-progress { display:grid; gap:6px; }
+      .vp-audio-bar { height:7px; background:rgba(255,255,255,.10); border-radius:999px; overflow:hidden; }
+      .vp-audio-fill {
+        height:100%; border-radius:999px;
+        background:linear-gradient(90deg,#00e1a5,#2edbb1,#62dfc1);
+        transition:width .15s linear;
+      }
+      .vp-audio-times { display:flex; justify-content:space-between; }
+      .vp-audio-card .vp-audio-time {
+        font:500 11px ui-monospace,monospace; color:rgba(168,191,186,.7); white-space:nowrap;
+      }
+      .vp-audio-controls { display:flex; align-items:center; gap:7px; min-width:0; }
+      .vp-audio-btn {
+        display:flex; align-items:center; justify-content:center; gap:5px;
+        border:0; border-radius:11px; cursor:pointer; box-sizing:border-box;
+        background:rgba(22,79,73,.72); color:${T.fg};
+        font:600 11.5px system-ui; padding:9px 10px; min-width:0; flex:0 0 auto;
+      }
+      .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      .vp-audio-btn:focus-visible { outline:2px solid ${T.primary}; outline-offset:2px; }
+      .vp-audio-btn-primary {
+        background:${T.primary}; color:${T.primaryFg}; padding:9px 13px;
+      }
+      .vp-audio-btn-primary:hover { background:#2edbb1; }
+      /* Skip absorbs the leftover width and truncates instead of overflowing —
+         "Überspringen" is 12 characters in a 320px card. */
+      .vp-audio-btn-skip { flex:1 1 auto; }
+      .vp-audio-card .vp-audio-skip-label {
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
+      }
+      .vp-audio-btn svg { width:14px; height:14px; flex:0 0 auto; }
+      .vp-audio-btn-primary svg { width:16px; height:16px; }
+      /* The transport icon swap: one attribute write per state change. */
+      .vp-audio-card[data-playing="1"] .vp-audio-icon-play { display:none; }
+      .vp-audio-card[data-playing="0"] .vp-audio-icon-pause { display:none; }
     `;
   var QUIZ_CSS = `
       #vp-slot-quiz { container-type: inline-size; container-name: vp-quiz; }
@@ -895,7 +981,15 @@
       .vp-quiz-summary-row[data-outcome="correct"] .vp-quiz-summary-row-icon { color:#4ade80; }
       .vp-quiz-summary-row[data-outcome="wrong"] .vp-quiz-summary-row-icon, .vp-quiz-summary-row[data-outcome="timeout"] .vp-quiz-summary-row-icon { color:#f87171; }
       .vp-quiz-summary-row[data-outcome="skipped"] .vp-quiz-summary-row-icon, .vp-quiz-summary-row[data-outcome="none"] .vp-quiz-summary-row-icon { color:rgba(168,191,186,.5); }
-      .vp-quiz-summary-row-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      /* Two classes on purpose (0,2,0). SLOT_CSS's \`.vp-slot *\` reset is
+         (0,1,0) and a bare \`.vp-quiz-summary-row-text\` would only tie it,
+         leaving the ellipsis truncation to be decided by which stylesheet
+         happens to be appended last. Verified in Chrome 152: at equal
+         specificity the later rule wins, so the tie was survivable only while
+         SLOT_CSS stays injected first — and happy-dom does not model that
+         tiebreak at all, so no unit test could have guarded it. Raising the
+         specificity makes the outcome order-independent and testable. */
+      .vp-quiz-card .vp-quiz-summary-row-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     `;
 
   // runtime-src/demo-overlays/quiz.ts
@@ -1611,6 +1705,10 @@
   // runtime-src/demo-overlays/index.ts
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
+  var ICON_PLAY = '<svg class="vp-audio-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+  var ICON_PAUSE = '<svg class="vp-audio-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+  var ICON_SKIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/></svg>';
+  var ICON_MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>';
   var runtimeBaseUrl = getRuntimeBaseUrl();
   function reportFailure(errorType) {
     var _a, _b, _c;
@@ -1644,7 +1742,9 @@
     "vp-slot-quiz",
     "vp-demo-sidebar",
     "vp-anim-style",
+    "__vp-slot-style",
     "__vp-section-style",
+    "__vp-audio-style",
     "__vp-quiz-style",
     AUDIO_EL_ID
   ];
@@ -1759,7 +1859,7 @@
       }
     }
     function mountInner(cfgHit, mountState) {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
       const onCleanup = (fn) => {
         mountState.cleanups.push(fn);
       };
@@ -1783,6 +1883,12 @@
         source: cfgHit.source,
         data: { phases, sciences, audios, metaSteps, assets, demo: isDemo, quiz }
       };
+      if (!document.getElementById("__vp-slot-style")) {
+        const s = document.createElement("style");
+        s.id = "__vp-slot-style";
+        s.textContent = SLOT_CSS;
+        document.head.appendChild(s);
+      }
       if (!document.getElementById("vp-anim-style")) {
         const s = document.createElement("style");
         s.id = "vp-anim-style";
@@ -1818,6 +1924,7 @@
       function makeSlot(id, posCss) {
         const el = document.createElement("div");
         el.id = id;
+        el.className = "vp-slot";
         el.style.cssText = `position:absolute; ${posCss}; pointer-events:none; z-index:8;`;
         const swallow = (e) => {
           if (e.target !== el) e.stopPropagation();
@@ -1838,7 +1945,7 @@
       const slotBR = makeSlot("vp-slot-br", "bottom:70px; right:14px;");
       const slotLowerThird = makeSlot(
         "vp-slot-lt",
-        "left:14px; right:14px; bottom:70px;"
+        "right:14px; bottom:70px; width:320px; max-width:calc(100% - 28px);"
       );
       const slotQuiz = showQuiz ? makeSlot(
         "vp-slot-quiz",
@@ -2026,6 +2133,19 @@
         );
         reportFailure(errorType);
         return "";
+      }
+      function resolveAvatarUrl(a) {
+        const { url, failure } = resolveAssetUrl(a.avatar, assets);
+        if (!failure) return url;
+        console.warn(
+          `[vp] audio cue "${a.id}": portrait unusable (${failure}) — showing initials instead`,
+          a.avatar
+        );
+        return "";
+      }
+      function voiceInitials(voice) {
+        const letters = String(voice != null ? voice : "").split(/[\s\-_.]+/).filter((word) => /\p{L}/u.test(word)).slice(0, 2).map((word) => word.match(/\p{L}/u)[0]).join("");
+        return (letters || "?").toUpperCase();
       }
       function startFile(a, url) {
         audioCtrl.mode = "file";
@@ -2270,6 +2390,18 @@
         );
         if (due) audioCtrl.activate(due, t2);
       }
+      if (showAudio) {
+        const audioStyleId = "__vp-audio-style";
+        (_j = document.getElementById(audioStyleId)) == null ? void 0 : _j.remove();
+        const s = document.createElement("style");
+        s.id = audioStyleId;
+        s.textContent = AUDIO_CSS;
+        document.head.appendChild(s);
+        onCleanup(() => {
+          var _a2;
+          return (_a2 = document.getElementById(audioStyleId)) == null ? void 0 : _a2.remove();
+        });
+      }
       function renderAudio() {
         if (!audioCtrl.isActive() || !audioCtrl.active) {
           if (slotLowerThird.dataset.kind === "audio") {
@@ -2284,50 +2416,60 @@
         const pct = Math.min(100, elapsed / active.dur * 100);
         const isPlaying = audioCtrl.state === "playing";
         if (slotLowerThird.dataset.activeAudio === active.id) {
+          const card = slotLowerThird.firstElementChild;
           const fill = slotLowerThird.querySelector(
             "[data-fill]"
           );
           const tEl = slotLowerThird.querySelector(
             "[data-elapsed]"
           );
-          const pp = slotLowerThird.querySelector(
-            '[data-action="audio-playpause"]'
+          const stEl = slotLowerThird.querySelector(
+            "[data-status]"
           );
           if (fill) fill.style.width = pct + "%";
           if (tEl) tEl.textContent = formatTime(elapsed);
-          if (pp) pp.textContent = isPlaying ? "⏸" : "▶";
+          if (card) card.dataset.playing = isPlaying ? "1" : "0";
+          if (stEl)
+            stEl.textContent = t(
+              isPlaying ? "demo.audio.playing" : "demo.audio.paused"
+            );
           return true;
         }
         slotLowerThird.dataset.kind = "audio";
         slotLowerThird.dataset.activeAudio = active.id;
+        const portrait = resolveAvatarUrl(active);
         slotLowerThird.innerHTML = `
-      <div class="vp-anim-bottom" style="display:flex; align-items:center; gap:14px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:14px; padding:10px 14px; backdrop-filter:blur(10px); box-shadow:0 14px 32px rgba(0,0,0,.35); color:#f4f7f6; pointer-events:auto;">
-        <div style="position:relative;flex-shrink:0">
-          <div style="width:40px;height:40px;border-radius:50%;background:#00e1a5;border:2px solid #62dfc1;display:flex;align-items:center;justify-content:center;font:700 14px system-ui;color:#062b22">FH</div>
-          <div style="position:absolute;right:-3px;bottom:-3px;width:16px;height:16px;border-radius:50%;border:2px solid #323333;background:#00e1a5;display:flex;align-items:center;justify-content:center;font-size:9px">🎙️</div>
-        </div>
-        <div style="flex:0 0 auto; min-width:0; max-width:35%;">
-          <div style="font:700 13.5px system-ui;color:#f4f7f6; overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(active.title)}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:1px">
-            <span style="font:500 11px system-ui;color:rgba(168,191,186,.8); overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t("demo.audio.by", { voice: active.voice }))}</span>
-            <span style="width:4px;height:4px;border-radius:50%;background:#00e1a5" class="vp-pulse"></span>
-            <span style="font:500 10.5px system-ui;color:rgba(168,191,186,.62);text-transform:uppercase;letter-spacing:.4px">${esc(
+      <div class="vp-audio-card vp-anim-bottom" data-playing="${isPlaying ? "1" : "0"}">
+        <div class="vp-audio-head">
+          <div class="vp-audio-avatar">
+            ${portrait ? `<img class="vp-audio-portrait" src="${esc(portrait)}" alt="${esc(t("demo.audio.avatarAlt"))}">` : `<div class="vp-audio-initials">${esc(voiceInitials(active.voice))}</div>`}
+            <span class="vp-audio-badge">${ICON_MIC}</span>
+          </div>
+          <div class="vp-audio-meta">
+            <div class="vp-audio-title">${esc(active.title)}</div>
+            <div class="vp-audio-byline">${esc(t("demo.audio.by", { voice: active.voice }))}</div>
+            <div class="vp-audio-state">
+              <span class="vp-audio-dot vp-pulse"></span>
+              <span class="vp-audio-status" data-status>${esc(
           t(isPlaying ? "demo.audio.playing" : "demo.audio.paused")
         )}</span>
+            </div>
           </div>
         </div>
-        <div style="flex:1; display:flex; align-items:center; gap:10px; min-width:0;">
-          <span data-elapsed style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px">${formatTime(elapsed)}</span>
-          <div style="flex:1;height:6px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden">
-            <div data-fill style="width:${pct}%; height:100%; background:linear-gradient(90deg,#00e1a5,#2edbb1,#62dfc1); transition:width .15s linear;"></div>
+        <div class="vp-audio-progress">
+          <div class="vp-audio-bar">
+            <div class="vp-audio-fill" data-fill style="width:${pct}%"></div>
           </div>
-          <span style="font:500 11px ui-monospace,monospace;color:rgba(168,191,186,.8);min-width:36px;text-align:right">${formatTime(active.dur)}</span>
+          <div class="vp-audio-times">
+            <span class="vp-audio-time" data-elapsed>${formatTime(elapsed)}</span>
+            <span class="vp-audio-time">${formatTime(active.dur)}</span>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button data-action="audio-back" title="${esc(t("demo.audio.back"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">−10s</button>
-          <button data-action="audio-playpause" title="${esc(t("demo.audio.playPause"))}" style="background:#00e1a5;color:#062b22;border:0;border-radius:8px;padding:7px 12px;font:500 13px system-ui;cursor:pointer;min-width:36px">${isPlaying ? "⏸" : "▶"}</button>
-          <button data-action="audio-fwd" title="${esc(t("demo.audio.forward"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">+10s</button>
-          <button data-action="audio-skip" title="${esc(t("demo.audio.skip"))}" style="background:rgba(22,79,73,.72);color:#f4f7f6;border:0;border-radius:8px;padding:7px 10px;font:500 12px system-ui;cursor:pointer">⏭</button>
+        <div class="vp-audio-controls">
+          <button class="vp-audio-btn" data-action="audio-back" title="${esc(t("demo.audio.back"))}">−10s</button>
+          <button class="vp-audio-btn vp-audio-btn-primary" data-action="audio-playpause" title="${esc(t("demo.audio.playPause"))}" aria-label="${esc(t("demo.audio.playPause"))}">${ICON_PLAY}${ICON_PAUSE}</button>
+          <button class="vp-audio-btn" data-action="audio-fwd" title="${esc(t("demo.audio.forward"))}">+10s</button>
+          <button class="vp-audio-btn vp-audio-btn-skip" data-action="audio-skip" title="${esc(t("demo.audio.skip"))}">${ICON_SKIP}<span class="vp-audio-skip-label">${esc(t("demo.audio.skip"))}</span></button>
         </div>
       </div>`;
         const stop = (e) => e.stopPropagation();
@@ -2384,7 +2526,7 @@
       }
       if (showQuiz) {
         const quizStyleId = "__vp-quiz-style";
-        (_j = document.getElementById(quizStyleId)) == null ? void 0 : _j.remove();
+        (_k = document.getElementById(quizStyleId)) == null ? void 0 : _k.remove();
         const s = document.createElement("style");
         s.id = quizStyleId;
         s.textContent = QUIZ_CSS;
@@ -2687,6 +2829,12 @@
         });
       }
       renderMeta();
+      let playbackStarted = false;
+      function hasPlaybackStarted() {
+        if (playbackStarted) return true;
+        if (videoEl && !videoEl.paused) playbackStarted = true;
+        return playbackStarted;
+      }
       function recomputeActive(t2) {
         var _a2;
         const phase = phases.find((p) => t2 >= p.startTimeSec && t2 < p.endTimeSec) || null;
@@ -2701,9 +2849,10 @@
         renderCoaching();
         renderMeta();
         renderSection();
-        quizCtrl == null ? void 0 : quizCtrl.onTime(t2);
+        const started = hasPlaybackStarted();
+        if (started) quizCtrl == null ? void 0 : quizCtrl.onTime(t2);
         const quizOpen = (quizCtrl == null ? void 0 : quizCtrl.isActive()) === true;
-        if (!quizOpen) maybeTriggerAudio(t2);
+        if (started && !quizOpen) maybeTriggerAudio(t2);
         if (quizOpen) {
           clearMetaPill();
           clearSciencePill();
@@ -2738,7 +2887,7 @@
         if (e.type === "ended") quizCtrl == null ? void 0 : quizCtrl.onEnded();
       });
       if (typeof offBus === "function") onCleanup(offBus);
-      recomputeActive((_k = window.player.current) != null ? _k : 0);
+      recomputeActive((_l = window.player.current) != null ? _l : 0);
       mountState.checkAlive = () => {
         if (!playerHost.isConnected) return false;
         if (window.player !== mountedPlayer) return false;

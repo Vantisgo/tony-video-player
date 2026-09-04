@@ -89,6 +89,21 @@
   `tr`, never `t` (`t` is the playback-time variable everywhere in this codebase).
   See the 2026-09-02 runtime-i18n entry for the locale-resolution order, the
   `admin.*Html` `esc()` exception, and the German vocabulary source.
+- **The LearningSuite host sets `white-space: pre-wrap`, and it inherits into
+  everything we inject.** The custom-code block wraps its content in a
+  `pre-wrap` div, so under it a whitespace-only text node is **not collapsible**
+  (CSS Text 3 §4.1.1) and each newline of an indented template literal becomes a
+  forced line break — inflating any **block** container by one line box per
+  newline. Measured: the voice-over banner rendered 200px against a 62px design.
+  Flex containers are immune (CSS Flexbox 1 §4: a whitespace-only run in a flex
+  container is "not rendered"), and `createElement`-built DOM has no stray text
+  nodes, so the pills and the quiz card were only ever incidentally safe.
+  `SLOT_CSS` (`demo-overlays/styles.ts`) resets this at the slot roots via a
+  `vp-slot` class that `makeSlot` sets on all five slots. **Invisible in local
+  dev** — our own pages never set `pre-wrap`, so this reproduces only on the
+  LearningSuite origin. Consequence for any new rule: `.vp-slot *` is specificity
+  0,1,0, so a `white-space` declaration meant to survive it needs **two**
+  classes, not one — do not rely on stylesheet order to break the tie.
 
 ---
 
@@ -598,3 +613,82 @@ NaN` CI reading was **only** the schema sampling the media before it had loaded,
   absorbs every extra character; the precise term goes in the `player.aria.*` label.
 - **`admin-toggle/prompt.ts` stays untranslated by design** — model instruction text,
   not UI, and it already tells the model to keep the source material's language.
+
+## 2026-09-04 · vo-defects · Pre-wrap reset + playback-start gate for time-triggered cues
+
+- **Decision**: the playback gate reads the **media element's `paused`**, not the bus `play`
+  event, and is a one-way latch. Two independent reasons: (a) the latch is mount-scoped, so a
+  remount mid-playback resets it and the next bus event is a `time`, not a `play` — an
+  event-armed latch would stay shut and suppress every remaining cue for the rest of the
+  lesson; (b) `window.player` is a `PlayerApi` and has no `paused` at all. One-way because a
+  later pause must not re-close it.
+- **Decision**: gate **only** `quizCtrl.onTime` and `maybeTriggerAudio` inside
+  `recomputeActive`, never the whole function. `renderSection`/`renderMetaStep`/`renderScience`
+  have **no call site outside it**, so an early return leaves the section, meta and science
+  pills empty on a lesson nobody has started. Those two calls are the only ones there with
+  playback-altering side effects.
+- **Decision**: the t:0 pre-roll needs **no extra wiring**. The bus already routes `play` into
+  `recomputeActive(e.time)`, `bus.emit` is synchronous from reskin-player's native `play`
+  listener, and the HTML spec sets `paused` false _before_ queuing that event — so the gate
+  opens and the due cue fires, pausing the video again, inside the same call stack as the
+  native play. Adding a second trigger call in the `play` branch would double-fire.
+- **User feedback (2026-09-04)**: a cue at `t: 0` must not play on load; the learner presses
+  play once, the voice-over pre-rolls, and the video then continues **without a second press**.
+  `end({resume:true})`'s automatic `videoEl.play()` is therefore deliberate, not incidental.
+- **Deviation**: the plan relied on **injection order** to keep
+  `.vp-quiz-summary-row-text`'s `nowrap` from being clobbered by the 0,1,0 tie. Replaced with a
+  two-class selector (`.vp-quiz-card .vp-quiz-summary-row-text`, 0,2,0) after discovering the
+  tie is untestable — happy-dom resolves specificity correctly but does **not** model the
+  equal-specificity source-order tiebreak, so it reported the reset winning where Chrome 152
+  reports the later rule winning. Specificity makes the outcome order-independent _and_
+  assertable; injection order is kept as belt-and-braces but is no longer load-bearing.
+- **Gotcha**: `OWNED_NODE_IDS`' defensive sweep in `mountInner` filters on
+  `id.startsWith("vp-slot-")` to clear stray slot _elements_ — so that prefix is a reserved
+  namespace. The reset stylesheet was first named `vp-slot-style` and the runtime deleted it
+  three lines after injecting it; renamed `__vp-slot-style`. Caught only by running the real
+  bundle in a real browser: the unit tests appended `SLOT_CSS` by hand, so they proved the
+  rule's content while never exercising its wiring. Any new node that must survive that point
+  needs a non-`vp-slot-*` id, and a stylesheet test should mount the runtime rather than
+  inject the constant.
+- **Gotcha (tests)**: happy-dom returns **0** from `getBoundingClientRect()`/`offsetHeight`/
+  `clientHeight` unconditionally — "full rendering is out of scope"
+  (capricorn86/happy-dom#1416). The height that _is_ the defect is therefore not assertable in
+  the unit suite; the tests pin the computed `white-space` as a proxy and the real measurement
+  belongs in browser validation. Also: the autoplay-rejection test stubs
+  `HTMLMediaElement.prototype.play` **globally**, so it must `await video.play()` _before_
+  installing the stub — otherwise the video never starts, the gate stays shut, and the cue it
+  is trying to test never fires.
+
+## 2026-09-04 · vo-redesign · Voice-over card: main's composition in the dark palette
+
+- **Decision**: the voice-over overlay is now a compact ~320px card in the bottom-right,
+  porting the composition of `components/video-player/overlays/audio-overlay.tsx` (portrait +
+  title stack, progress bar **above** the time row, four-button transport ending in a labelled
+  Skip) in the dark `T` tokens. `main`'s orange was explicitly rejected, reinforcing the
+  2026-08-04 dark-palette call. Implemented by repositioning `slotLowerThird` rather than
+  sharing `slotBR`: the id stays `vp-slot-lt` despite being a misnomer now, because the e2e
+  canary asserts `#vp-slot-*` by id and `checkAlive()` reads it.
+- **Constraint**: `slotLowerThird` and `slotBR` now occupy the same corner at the same
+  z-index, so `recomputeActive`'s `clearMetaPill()` call in the audio branch is **load-bearing
+  for layout**, not housekeeping. Removing it overlaps the card with the meta pill.
+- **Decision**: `audios[].avatar` is optional and resolves through the same `resolveAssetUrl`
+  two-shape contract as `asset`, falling back to initials derived from `voice` ("Coach-Stimme"
+  → "CS"). It resolves **silently** — no `reportFailure`. The three `audio-asset-*` errorTypes
+  mean "no cue on this page will find its audio"; firing that alarm for a missing portrait
+  would corrupt the operator signal. `main`'s hardcoded `/frederik.webp` + "Dr. Frederik
+  Hümmeke" did not port: the runtime renders whatever `voice` the config carries.
+- **Decision**: the transport icons are inline SVG with **both** play and pause in the DOM,
+  selected by `[data-playing]` on the card. This is a performance requirement, not styling:
+  `renderAudio`'s fast branch runs on every `timeupdate` (~4×/s) and a `textContent` write
+  cannot swap an SVG, while re-rendering the card per tick would discard the dirty check. One
+  attribute write is cheaper than the text write it replaced.
+- **Fixed in passing**: the fast branch never updated the status label, so "SPIELT" persisted
+  after a pause while the icon changed. It now writes `[data-status]` too.
+- **Gotcha (tests)**: no beacon assertion is possible in the `demo-overlays` harness.
+  `report()` early-returns when the runtime origin is unknown, which it always is under test
+  (no injected `<script src>`), so a `sendBeacon` spy reads zero regardless — a vacuous
+  assertion. Setting `__vpRuntimeBaseUrl` to fix that arms the kill-switch **fetch**, which
+  delays `main()` past `nextFrames()` so nothing mounts. Assert the distinguishable
+  `console.warn` messages instead. Related: `vi.stubGlobal` is NOT undone by
+  `vi.restoreAllMocks()` — a stubbed `navigator` leaks into later tests and breaks locale
+  resolution.

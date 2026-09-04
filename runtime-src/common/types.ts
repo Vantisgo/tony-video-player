@@ -43,6 +43,13 @@ export interface Audio {
   // it cannot be resolved — the overlay falls back to speaking `script` via
   // SpeechSynthesis. See ./assets.
   asset?: string;
+  // Portrait of whoever is speaking, resolved the same two ways as `asset`.
+  // Optional: without it — or when it cannot be resolved — the card falls back
+  // to initials derived from `voice`. Unlike `asset`, a failure here is purely
+  // cosmetic and is NEVER beaconed: the `audio-asset-*` errorTypes mean "no cue
+  // on this page will find its audio", and a missing portrait must not fire the
+  // loudest operator alarm in the system.
+  avatar?: string;
 }
 
 export interface MetaStep {

@@ -17,6 +17,27 @@ export const T = {
   radius: "12px",
 } as const;
 
+// The LearningSuite "Code einbetten" block renders its content inside a
+// `white-space: pre-wrap` wrapper, and `white-space` inherits — so it reaches
+// every node this runtime appends to the player host. Under `pre-wrap` a space
+// run is non-collapsible (CSS Text 3 §4.1.1) and a segment break is a *forced*
+// line break, so the "anonymous blocks of collapsible white space are removed"
+// rule never applies: each newline of an indented template literal generates a
+// real line box at the host's inherited line-height.
+//
+// Only **block** containers are affected. A whitespace-only text run directly
+// inside a flex container is not rendered at all (CSS Flexbox 1 §4, "just as if
+// its text nodes were display:none"), which is why the science and meta pills —
+// both `inline-flex` — never broke, and why the quiz card is immune too (it is
+// built with createElement, so it has no stray text nodes). That immunity is
+// incidental: measured on the live tenant, the voice-over banner's two
+// `display:block` wrappers rendered 160px and 178px tall against a 62px design,
+// taking the card to 200px. Resetting at the slot roots covers every renderer,
+// present and future, instead of one template at a time.
+export const SLOT_CSS = `
+      .vp-slot, .vp-slot * { white-space:normal; }
+    `;
+
 export const ANIM_CSS = `
       @keyframes vp-slide-in-right { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
       @keyframes vp-slide-in-bottom{ from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
@@ -72,6 +93,104 @@ export const SECTION_CSS = `
       .vp-section-pill .vp-sec-row[data-state="current"]   .vp-sec-row-title { color:#f4f7f6; font-weight:500; }
       .vp-section-pill .vp-sec-row[data-state="completed"] .vp-sec-row-title { color:rgba(168,191,186,.68); font-weight:400; }
       .vp-section-pill .vp-sec-row[data-state="upcoming"]  .vp-sec-row-title { color:rgba(168,191,186,.48); font-weight:400; }
+    `;
+
+// Voice-over card (lower-third slot, bottom-right). Composition ported from the
+// reference player's `components/video-player/overlays/audio-overlay.tsx` —
+// avatar + title stack, progress bar above the time row, four-button transport
+// ending in a labelled Skip — rendered in the dark tokens rather than that
+// component's orange-amber gradient (the palette was settled 2026-08-04).
+//
+// Two structural notes:
+//   * Both transport icons live in the DOM at once and CSS picks between them
+//     off `[data-playing]`. The per-`timeupdate` fast path in renderAudio then
+//     flips one attribute instead of writing textContent, which is what makes
+//     inline SVG possible on a path that runs ~4x/s.
+//   * The `white-space` declarations use TWO classes (0,2,0) so they outrank
+//     SLOT_CSS's `.vp-slot *` reset (0,1,0) on specificity rather than on
+//     stylesheet order. Order would work — AUDIO_CSS is injected later — but a
+//     0,1,0 tie is invisible to the unit suite (happy-dom does not model
+//     equal-specificity source order) and silently breaks if injection moves.
+export const AUDIO_CSS = `
+      .vp-audio-card {
+        display:grid; gap:12px; pointer-events:auto; box-sizing:border-box;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38);
+        border-radius:16px; padding:14px;
+        backdrop-filter:blur(10px);
+        box-shadow:0 18px 40px rgba(0,0,0,.38);
+        color:${T.fg}; font-family:system-ui;
+      }
+      .vp-audio-head { display:flex; align-items:flex-start; gap:11px; min-width:0; }
+      .vp-audio-avatar { position:relative; flex:0 0 auto; width:44px; height:44px; }
+      .vp-audio-portrait {
+        width:44px; height:44px; border-radius:50%; object-fit:cover; display:block;
+        border:2px solid ${T.primary}; box-shadow:0 4px 12px rgba(0,0,0,.3);
+      }
+      .vp-audio-initials {
+        width:44px; height:44px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        background:${T.primary}; color:${T.primaryFg};
+        font:700 15px system-ui; border:2px solid #62dfc1;
+      }
+      .vp-audio-badge {
+        position:absolute; right:-3px; bottom:-3px;
+        width:18px; height:18px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        background:${T.primary}; color:${T.primaryFg};
+        border:2px solid ${T.card};
+      }
+      .vp-audio-badge svg { width:9px; height:9px; }
+      .vp-audio-meta { flex:1 1 auto; min-width:0; }
+      .vp-audio-card .vp-audio-title {
+        font:700 14.5px/1.3 system-ui; color:${T.fg};
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .vp-audio-card .vp-audio-byline {
+        font:500 11.5px system-ui; color:rgba(168,191,186,.8); margin-top:2px;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .vp-audio-state { display:flex; align-items:center; gap:5px; margin-top:4px; }
+      .vp-audio-dot { width:6px; height:6px; border-radius:50%; background:${T.primary}; flex:0 0 auto; }
+      .vp-audio-card .vp-audio-status {
+        font:600 10px system-ui; letter-spacing:.5px; text-transform:uppercase;
+        color:rgba(168,191,186,.62); white-space:nowrap;
+      }
+      .vp-audio-progress { display:grid; gap:6px; }
+      .vp-audio-bar { height:7px; background:rgba(255,255,255,.10); border-radius:999px; overflow:hidden; }
+      .vp-audio-fill {
+        height:100%; border-radius:999px;
+        background:linear-gradient(90deg,#00e1a5,#2edbb1,#62dfc1);
+        transition:width .15s linear;
+      }
+      .vp-audio-times { display:flex; justify-content:space-between; }
+      .vp-audio-card .vp-audio-time {
+        font:500 11px ui-monospace,monospace; color:rgba(168,191,186,.7); white-space:nowrap;
+      }
+      .vp-audio-controls { display:flex; align-items:center; gap:7px; min-width:0; }
+      .vp-audio-btn {
+        display:flex; align-items:center; justify-content:center; gap:5px;
+        border:0; border-radius:11px; cursor:pointer; box-sizing:border-box;
+        background:rgba(22,79,73,.72); color:${T.fg};
+        font:600 11.5px system-ui; padding:9px 10px; min-width:0; flex:0 0 auto;
+      }
+      .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      .vp-audio-btn:focus-visible { outline:2px solid ${T.primary}; outline-offset:2px; }
+      .vp-audio-btn-primary {
+        background:${T.primary}; color:${T.primaryFg}; padding:9px 13px;
+      }
+      .vp-audio-btn-primary:hover { background:#2edbb1; }
+      /* Skip absorbs the leftover width and truncates instead of overflowing —
+         "Überspringen" is 12 characters in a 320px card. */
+      .vp-audio-btn-skip { flex:1 1 auto; }
+      .vp-audio-card .vp-audio-skip-label {
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
+      }
+      .vp-audio-btn svg { width:14px; height:14px; flex:0 0 auto; }
+      .vp-audio-btn-primary svg { width:16px; height:16px; }
+      /* The transport icon swap: one attribute write per state change. */
+      .vp-audio-card[data-playing="1"] .vp-audio-icon-play { display:none; }
+      .vp-audio-card[data-playing="0"] .vp-audio-icon-pause { display:none; }
     `;
 
 // Quiz-break dialog. #vp-slot-quiz is a container so the option grid can go
@@ -154,5 +273,13 @@ export const QUIZ_CSS = `
       .vp-quiz-summary-row[data-outcome="correct"] .vp-quiz-summary-row-icon { color:#4ade80; }
       .vp-quiz-summary-row[data-outcome="wrong"] .vp-quiz-summary-row-icon, .vp-quiz-summary-row[data-outcome="timeout"] .vp-quiz-summary-row-icon { color:#f87171; }
       .vp-quiz-summary-row[data-outcome="skipped"] .vp-quiz-summary-row-icon, .vp-quiz-summary-row[data-outcome="none"] .vp-quiz-summary-row-icon { color:rgba(168,191,186,.5); }
-      .vp-quiz-summary-row-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      /* Two classes on purpose (0,2,0). SLOT_CSS's \`.vp-slot *\` reset is
+         (0,1,0) and a bare \`.vp-quiz-summary-row-text\` would only tie it,
+         leaving the ellipsis truncation to be decided by which stylesheet
+         happens to be appended last. Verified in Chrome 152: at equal
+         specificity the later rule wins, so the tie was survivable only while
+         SLOT_CSS stays injected first — and happy-dom does not model that
+         tiebreak at all, so no unit test could have guarded it. Raising the
+         specificity makes the outcome order-independent and testable. */
+      .vp-quiz-card .vp-quiz-summary-row-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     `;

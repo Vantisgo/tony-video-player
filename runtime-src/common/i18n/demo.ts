@@ -33,6 +33,7 @@ const EN = {
   "demo.audio.playPause": "Play/Pause",
   "demo.audio.forward": "+10s",
   "demo.audio.skip": "Skip",
+  "demo.audio.avatarAlt": "Voice-over speaker",
   // Quiz
   "quiz.action.skip": "Skip question",
   "quiz.action.continue": "Continue",
@@ -76,6 +77,7 @@ const DE: Record<DemoKey, string> = {
   "demo.audio.playPause": "Wiedergabe/Pause",
   "demo.audio.forward": "+10s",
   "demo.audio.skip": "Überspringen",
+  "demo.audio.avatarAlt": "Stimme des Voice-Overs",
   // Was "Continue" in the otherwise-German quiz UI — an intended copy fix.
   "quiz.action.skip": "Frage überspringen",
   "quiz.action.continue": "Weiter",
