@@ -1,0 +1,205 @@
+name: e2e-canary
+
+# Runs the injected runtime against the real LearningSuite platform — the one
+# environment none of the checks in runtime.yml can see.
+#
+# Deliberately a separate workflow. This job talks to a third party over a real
+# network and will occasionally be red for reasons that have nothing to do with a
+# change; keeping it out of runtime.yml is what stops that flake from blocking a
+# merge.
+
+on:
+  # The drift canary: does the deployed runtime still work on the live platform?
+  schedule:
+    - cron: "0 6 * * *"
+
+  # Manual run, optionally pointed somewhere specific.
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Course or lesson — URL, id or name. Empty = the default fixtures."
+        required: false
+        type: string
+      video:
+        description: "1-based video index within that course. Empty = all videos."
+        required: false
+        type: string
+
+  # PR-time run: a successful Vercel preview deployment.
+  deployment_status:
+
+jobs:
+  canary:
+    # `deployment_status` fires for every successful deployment in this
+    # repository — including previews built from **fork** pull requests. It is a
+    # dangerous trigger by nature: the job runs in the base repository's context,
+    # so it holds the LearningSuite credentials, and `E2E_RUNTIME_BASE_URL` below
+    # points the canary at the deployment's own origin. An unguarded fork preview
+    # would therefore have its JavaScript injected into the real tenant page
+    # while the browser is logged in as the test account.
+    #
+    # Two controls, both fail-closed:
+    #   1. this expression — an **allowlist** of the preview environment, never a
+    #      denylist of production. A denylist lets a new or renamed environment
+    #      through by default; an allowlist makes the mistake "the PR job stopped
+    #      running", which is the survivable direction.
+    #   2. the `Verify deployment provenance` step below, which refuses a commit
+    #      that is not reachable from a branch of this repository. It runs BEFORE
+    #      `actions/checkout`, so no fork-authored code executes on a rejected
+    #      run. **Keep it first.**
+    #
+    # Non-deployment triggers (schedule, workflow_dispatch) pass straight through.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       (github.event.deployment_status.environment == 'Preview' ||
+        github.event.deployment_status.environment == 'preview') &&
+       github.event.deployment_status.environment_url != '')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    # The canary only reads the repository. No write scope, no packages, no id-token.
+    permissions:
+      contents: read
+
+    env:
+      E2E_LS_BASE_URL: ${{ vars.E2E_LS_BASE_URL }}
+      E2E_LS_EMAIL: ${{ secrets.E2E_LS_EMAIL }}
+      E2E_LS_PASSWORD: ${{ secrets.E2E_LS_PASSWORD }}
+      E2E_LS_LOGIN_PATH: ${{ vars.E2E_LS_LOGIN_PATH }}
+      E2E_LS_COURSES_PATH: ${{ vars.E2E_LS_COURSES_PATH }}
+      # What to test, in precedence order:
+      #   1. a `workflow_dispatch` input — a one-off run, wins over everything;
+      #   2. the `E2E_CANARY_TARGET` repository variable — what the schedule and
+      #      the PR previews watch, changeable without a commit;
+      #   3. empty — the committed fixtures in `e2e/fixtures/lessons.ts`.
+      #
+      # `||` is GitHub's first-truthy operator, and `inputs` is null on the
+      # schedule and on deployment_status, so those events fall through to the
+      # variable. Unset the variable and behaviour reverts to (3) exactly.
+      #
+      # The variable takes a lesson **path** or a full URL on the configured
+      # tenant. A path is resolved against `E2E_LS_BASE_URL` and then re-checked
+      # against it, so a value that only looks like a path ("//other.example/x")
+      # is refused rather than followed. See `e2e/support/target.ts`.
+      E2E_TARGET: ${{ inputs.target || vars.E2E_CANARY_TARGET }}
+      E2E_VIDEO: ${{ inputs.video }}
+      # Set only on the deployment_status path: its presence is what switches the
+      # run into preview mode.
+      E2E_RUNTIME_BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.environment_url || '' }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+    steps:
+      # ── MUST REMAIN THE FIRST STEP ──────────────────────────────────────────
+      # This is what stops a fork pull request's preview from reaching the
+      # secrets in `env:` above and the live tenant session below. Every step
+      # after it either checks out or executes repository code; this one runs
+      # before any of that.
+      #
+      # The test: **is the deployed commit reachable from a branch of this
+      # repository?** A fork PR's commit exists here only under
+      # `refs/pull/<n>/head` — never on a branch — so this distinguishes an
+      # internal branch or PR from a fork without depending on any
+      # Vercel-specific payload field. The fetch asks for `refs/heads/*` only;
+      # fetching `refs/pull/*` would defeat the whole check.
+      #
+      # Anonymous fetch, because this repository is public. If it is ever made
+      # private this step fails and the PR job stops running — fail-closed, and
+      # the fix is to give the fetch `${{ github.token }}`, never to delete the
+      # check.
+      - name: Verify deployment provenance
+        if: github.event_name == 'deployment_status'
+        env:
+          SHA: ${{ github.event.deployment.sha }}
+          ENVIRONMENT: ${{ github.event.deployment_status.environment }}
+          TARGET_URL: ${{ github.event.deployment_status.environment_url }}
+        run: |
+          set -euo pipefail
+
+          echo "deployment: sha=${SHA} environment=${ENVIRONMENT}"
+          echo "preview url: ${TARGET_URL}"
+
+          # Reject anything that is not a plain object name before it reaches git.
+          if [[ ! "${SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::deployment sha '${SHA}' is not a 40-character object name — refusing."
+            exit 1
+          fi
+
+          git init -q provenance-check
+          cd provenance-check
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          # --filter=blob:none: commits and trees are all this check needs.
+          git fetch -q --filter=blob:none --no-tags origin "+refs/heads/*:refs/remotes/origin/*"
+
+          if ! git cat-file -e "${SHA}^{commit}" 2>/dev/null; then
+            echo "::error::Deployment commit ${SHA} is not reachable from any branch of ${GITHUB_REPOSITORY}."
+            echo "::error::That is what a fork pull request's preview looks like. Refusing to run with credentials."
+            exit 1
+          fi
+
+          branches="$(git branch -r --contains "${SHA}" 2>/dev/null || true)"
+          if [ -z "${branches}" ]; then
+            echo "::error::Deployment commit ${SHA} was fetched but sits on no branch of ${GITHUB_REPOSITORY} — refusing."
+            exit 1
+          fi
+
+          echo "Provenance OK — ${SHA} is contained in:"
+          echo "${branches}" | sed 's/^/  /'
+
+      # Checks out the deployment's commit on the `deployment_status` path, which
+      # is only safe because the step above has already established that the
+      # commit came from this repository.
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+
+      - name: Install Chrome
+        # Real Chrome, not bundled Chromium: Bunny streams H.264/AAC HLS and the
+        # playback assertion needs those codecs to exist.
+        run: bunx playwright install --with-deps chrome
+
+      - name: Run the canary
+        # `bun run e2e`, never `playwright test` — the latter resolves no targets
+        # and would pass having collected nothing.
+        run: bun run e2e
+
+      - name: Upload report and traces
+        uses: actions/upload-artifact@v4
+        # `!cancelled()` rather than `failure()`: when phase 1 fails, the resolve
+        # project's attachment is the only evidence of why a target could not be
+        # found.
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Alert
+        if: failure()
+        # Posts to the same sink the runtime's own failure beacons use, so there
+        # is one place to watch. `source` distinguishes a canary failure from a
+        # runtime-side one. An unset secret skips the step rather than failing it
+        # — a missing webhook must not turn a red canary into a confusing error.
+        env:
+          WEBHOOK: ${{ secrets.RUNTIME_ALERT_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "RUNTIME_ALERT_WEBHOOK_URL is not set — skipping the alert."
+            exit 0
+          fi
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          mode="canary"
+          if [ -n "${E2E_RUNTIME_BASE_URL}" ]; then mode="preview"; fi
+          # jq --arg, not printf: `target` is a free-text workflow_dispatch input,
+          # and a quote in it would otherwise produce malformed JSON.
+          payload=$(jq -nc \
+            --arg mode "$mode" \
+            --arg target "${E2E_TARGET}" \
+            --arg video "${E2E_VIDEO}" \
+            --arg run_url "$run_url" \
+            '{source:"e2e-canary", mode:$mode, target:$target, video:$video, run_url:$run_url}')
+          curl -sS -X POST -H "content-type: application/json" -d "$payload" "$WEBHOOK" || \
+            echo "::warning::alert POST failed"
