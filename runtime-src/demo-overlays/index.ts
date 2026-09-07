@@ -416,7 +416,7 @@ function main(): string {
       "top:14px; left:14px; right:14px; max-width:none",
     );
     const slotTR = makeSlot("vp-slot-tr", "top:10px; right:10px;");
-    const slotBR = makeSlot("vp-slot-br", "bottom:70px; right:14px;");
+    const slotBR = makeSlot("vp-slot-br", "bottom:58px; right:14px;");
     // Keeps the id `vp-slot-lt` even though the voice-over card is no longer a
     // lower third: the e2e canary asserts `#vp-slot-*` by id and checkAlive()
     // reads this one, so renaming buys a tidier name at the cost of both. It
@@ -425,7 +425,7 @@ function main(): string {
     // load-bearing for layout and not just tidiness.
     const slotLowerThird = makeSlot(
       "vp-slot-lt",
-      "right:14px; bottom:70px; width:320px; max-width:calc(100% - 28px);",
+      "right:14px; bottom:58px; width:320px; max-width:calc(100% - 28px);",
     );
     // The quiz scrim covers the whole player, so unlike the (invisible when
     // empty) pill slots this one is only created when there is a quiz to show.
@@ -928,16 +928,13 @@ function main(): string {
       audioEl.remove();
     });
 
-    const onCaptureClick = (e: MouseEvent) => {
-      if (!audioCtrl.isActive()) return;
-      const btn =
-        (e.target as HTMLElement)?.closest?.('[data-vp="playpause"]') ?? null;
-      if (btn) {
-        e.preventDefault();
-        e.stopPropagation();
-        audioCtrl.togglePlay();
-      }
-    };
+    // The click interception that used to live here targeted our own
+    // `[data-vp="playpause"]` button, which no longer exists: LearningSuite owns
+    // the control bar again. A learner pressing THEIR play button under a live
+    // cue is handled by enforceCuePause, which re-parks the video — that needs
+    // no hook into their markup and cannot be confused with the host's own
+    // re-assertion. The Space shortcut below survives unchanged, because it is a
+    // bare document listener with no dependency on the bar.
     const onCaptureKeydown = (e: KeyboardEvent) => {
       if (!audioCtrl.isActive()) return;
       const tag = (document.activeElement?.tagName || "").toLowerCase();
@@ -953,10 +950,8 @@ function main(): string {
         audioCtrl.togglePlay();
       }
     };
-    document.addEventListener("click", onCaptureClick, true);
     document.addEventListener("keydown", onCaptureKeydown, true);
     onCleanup(() => {
-      document.removeEventListener("click", onCaptureClick, true);
       document.removeEventListener("keydown", onCaptureKeydown, true);
     });
 
@@ -1646,17 +1641,10 @@ function main(): string {
       slotTR.dataset.activeSci = "";
     }
 
-    window.player.setOverlays([]);
     const offBus = window.player.on("any", (e) => {
       if (mountState.disposed) return;
       if (e.type === "play") quizCtrl?.onPlay();
-      if (
-        e.type === "time" ||
-        e.type === "overlay-show" ||
-        e.type === "overlay-hide" ||
-        e.type === "play" ||
-        e.type === "pause"
-      ) {
+      if (e.type === "time" || e.type === "play" || e.type === "pause") {
         recomputeActive(e.time ?? window.player.current ?? 0);
         // After recompute, never before: on the learner's own press the cue is
         // activated *by* that recompute, and only then is there an invariant to

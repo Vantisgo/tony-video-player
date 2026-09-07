@@ -48,11 +48,11 @@ const COPY = [
   "richtig beantwortet",
   "answered correctly",
   "Schließen",
-  // reskin-player
-  "Play/Pause",
+  // reskin-player — the control bar's copy went with the bar on 2026-09-07;
+  // what is left is the language-pack control and the drift badge.
   "Audio tracks",
-  "No alternate audio tracks",
-  "No subtitles available",
+  "Ton- und Untertitelsprache",
+  "Audio and subtitle language",
   "External audio is ahead",
   "External audio is behind",
   // admin-toggle

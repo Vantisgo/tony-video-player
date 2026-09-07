@@ -676,34 +676,17 @@ describe("keyboard interaction", () => {
   });
 });
 
-describe("player controls are inert while a quiz is open", () => {
-  it("blocks click and pointerdown on the control bar, and releases after close", () => {
-    const h = setup(baseQuiz({ showSummary: true }));
-    const seek = document.querySelector<HTMLElement>(".vp-controls input");
-    expect(seek).not.toBeNull();
-
-    h.ctrl.onTime(30.2);
-
-    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
-    const pointer = new Event("pointerdown", {
-      bubbles: true,
-      cancelable: true,
-    });
-    seek?.dispatchEvent(click);
-    seek?.dispatchEvent(pointer);
-    expect(click.defaultPrevented).toBe(true);
-    expect(pointer.defaultPrevented).toBe(true);
-
-    h.options()[1].click();
-    vi.advanceTimersByTime(3010);
-    expect(h.ctrl.isActive()).toBe(false);
-
-    const after = new MouseEvent("click", { bubbles: true, cancelable: true });
-    seek?.dispatchEvent(after);
-    expect(after.defaultPrevented).toBe(false);
-    h.teardown();
-  });
-});
+// The "player controls are inert while a quiz is open" suite lived here. Its
+// subject was a pair of capture-phase guards that swallowed click/pointerdown on
+// our own `.vp-controls` bar. That bar was removed on 2026-09-07 and the guards
+// with it: measured on the tenant, `.vp-quiz-scrim` (inset:0, pointer-events:auto,
+// inside #vp-slot-quiz at z-index:20) already wins elementFromPoint over
+// LearningSuite's control container, whose computed z-index is `auto`.
+//
+// The guarantee therefore moved from a JS guard to CSS stacking, and happy-dom
+// cannot assert it — it returns 0 from every getBoundingClientRect and does no
+// hit-testing (capricorn86/happy-dom#1416). It is a browser check now; see the
+// browser-validation step of the media-controls plan.
 
 describe("summary", () => {
   const threeAcross = () =>

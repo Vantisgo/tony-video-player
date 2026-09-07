@@ -97,12 +97,16 @@ afterEach(() => {
 describe("reskin attach rollback (F2)", () => {
   it("AC1: a throw after the shell mounts rolls back every host mutation", async () => {
     const { host, video } = setupDom();
-    // Fault: accessing the media element's audioTracks throws while building the
-    // track menus — a realistic host-surface break, after marker + shell mount.
-    Object.defineProperty(video, "audioTracks", {
+    // Fault: a throwing DOM accessor on the media element. The silencer resolves
+    // the inner <video> through `shadowRoot` while attachInner runs — after the
+    // marker and shell are mounted — so this exercises the same
+    // "host surface broke mid-attach" path the old audioTracks fault did.
+    // (audioTracks itself is no longer read: the native/HLS track menus that
+    // used it were deleted on 2026-09-07.)
+    Object.defineProperty(video, "shadowRoot", {
       configurable: true,
       get() {
-        throw new Error("host audioTracks blew up");
+        throw new Error("host shadowRoot blew up");
       },
     });
 
@@ -123,7 +127,7 @@ describe("reskin shell precondition (F3)", () => {
       this: Element,
       selector: string,
     ) {
-      if (selector === '[data-vp="playpause"]') return null;
+      if (selector === "[data-vp-subtitles]") return null;
       return original.call(this, selector) as Element | null;
     });
 
@@ -137,12 +141,12 @@ describe("reskin shell precondition (F3)", () => {
 });
 
 describe("reskin post-attach self-verification (F4)", () => {
-  it("AC1: tears down when the overlay layer has a zero box over a visible player", async () => {
+  it("AC1: tears down when the shell has a zero box over a visible player", async () => {
     const { host, video } = setupDom();
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
       function (this: Element) {
         if (this.tagName === "HLS-VIDEO") return rect(640, 360);
-        if ((this as HTMLElement).classList?.contains("vp-overlay-layer"))
+        if ((this as HTMLElement).classList?.contains("vp-shell"))
           return rect(0, 0);
         return rect(0, 0);
       },
@@ -169,12 +173,12 @@ describe("reskin post-attach self-verification (F4)", () => {
     expect(document.querySelector(".vp-shell")).not.toBeNull();
   });
 
-  it("AC3: a correctly-sized overlay layer passes verification (no teardown)", async () => {
+  it("AC3: a correctly-sized shell passes verification (no teardown)", async () => {
     setupDom();
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
       function (this: Element) {
         if (this.tagName === "HLS-VIDEO") return rect(640, 360);
-        if ((this as HTMLElement).classList?.contains("vp-overlay-layer"))
+        if ((this as HTMLElement).classList?.contains("vp-shell"))
           return rect(640, 300);
         return rect(0, 0);
       },

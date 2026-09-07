@@ -1463,29 +1463,9 @@
         e.stopPropagation();
       }
     }
-    const inControls = (e) => {
-      const target = e.target;
-      return target instanceof Element && !!target.closest(".vp-controls");
-    };
-    function onGlobalClick(e) {
-      if (!isActive() || !inControls(e)) return;
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    function onGlobalPointerDown(e) {
-      if (!isActive() || !inControls(e)) return;
-      e.preventDefault();
-      e.stopPropagation();
-    }
     document.addEventListener("keydown", onGlobalKeydown, true);
-    document.addEventListener("click", onGlobalClick, true);
-    document.addEventListener("pointerdown", onGlobalPointerDown, true);
     onCleanup(
       () => document.removeEventListener("keydown", onGlobalKeydown, true)
-    );
-    onCleanup(() => document.removeEventListener("click", onGlobalClick, true));
-    onCleanup(
-      () => document.removeEventListener("pointerdown", onGlobalPointerDown, true)
     );
     function clearCountdown() {
       if (countdownHandle) clearInterval(countdownHandle);
@@ -1943,10 +1923,10 @@
         "top:14px; left:14px; right:14px; max-width:none"
       );
       const slotTR = makeSlot("vp-slot-tr", "top:10px; right:10px;");
-      const slotBR = makeSlot("vp-slot-br", "bottom:70px; right:14px;");
+      const slotBR = makeSlot("vp-slot-br", "bottom:58px; right:14px;");
       const slotLowerThird = makeSlot(
         "vp-slot-lt",
-        "right:14px; bottom:70px; width:320px; max-width:calc(100% - 28px);"
+        "right:14px; bottom:58px; width:320px; max-width:calc(100% - 28px);"
       );
       const slotQuiz = showQuiz ? makeSlot(
         "vp-slot-quiz",
@@ -2354,16 +2334,6 @@
         audioEl.removeAttribute("src");
         audioEl.remove();
       });
-      const onCaptureClick = (e) => {
-        var _a2, _b2, _c2;
-        if (!audioCtrl.isActive()) return;
-        const btn = (_c2 = (_b2 = (_a2 = e.target) == null ? void 0 : _a2.closest) == null ? void 0 : _b2.call(_a2, '[data-vp="playpause"]')) != null ? _c2 : null;
-        if (btn) {
-          e.preventDefault();
-          e.stopPropagation();
-          audioCtrl.togglePlay();
-        }
-      };
       const onCaptureKeydown = (e) => {
         var _a2, _b2;
         if (!audioCtrl.isActive()) return;
@@ -2376,10 +2346,8 @@
           audioCtrl.togglePlay();
         }
       };
-      document.addEventListener("click", onCaptureClick, true);
       document.addEventListener("keydown", onCaptureKeydown, true);
       onCleanup(() => {
-        document.removeEventListener("click", onCaptureClick, true);
         document.removeEventListener("keydown", onCaptureKeydown, true);
       });
       function maybeTriggerAudio(t2) {
@@ -2899,12 +2867,11 @@
         slotTR.innerHTML = "";
         slotTR.dataset.activeSci = "";
       }
-      window.player.setOverlays([]);
       const offBus = window.player.on("any", (e) => {
         var _a2, _b2;
         if (mountState.disposed) return;
         if (e.type === "play") quizCtrl == null ? void 0 : quizCtrl.onPlay();
-        if (e.type === "time" || e.type === "overlay-show" || e.type === "overlay-hide" || e.type === "play" || e.type === "pause") {
+        if (e.type === "time" || e.type === "play" || e.type === "pause") {
           recomputeActive((_b2 = (_a2 = e.time) != null ? _a2 : window.player.current) != null ? _b2 : 0);
           if (e.type === "play") enforceCuePause();
         }

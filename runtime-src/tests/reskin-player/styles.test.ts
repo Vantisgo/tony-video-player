@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { RESKIN_CSS } from "../../reskin-player/styles";
 
-// Build host > hls-video > {media-controls, [slot=ui], plain child} and inject
-// RESKIN_CSS, so getComputedStyle reflects the tag-scoped chrome-hiding cascade.
-function mountNativeChrome(): {
+// The inverse of what this file used to assert. Until 2026-09-07 RESKIN_CSS
+// hid LearningSuite's chrome so our own control bar could replace it; the bar is
+// gone and the host's controls — which work, including their subtitles — are
+// back. These tests now guard against a hiding rule ever returning.
+function mountHostChrome(): {
   host: HTMLElement;
   mediaControls: HTMLElement;
   slotUi: HTMLElement;
+  hostBar: HTMLElement;
+  subtitleLayer: HTMLElement;
 } {
   const style = document.createElement("style");
   style.textContent = RESKIN_CSS;
@@ -19,9 +23,16 @@ function mountNativeChrome(): {
   slotUi.setAttribute("slot", "ui");
   video.appendChild(mediaControls);
   video.appendChild(slotUi);
-  host.appendChild(video);
+  // LearningSuite's real control bar is a MUI box, a direct child of the host.
+  const hostBar = document.createElement("div");
+  hostBar.className = "PlayerControlsAbsoluteContainer MuiBox-root css-1gauxy4";
+  // One of ours, so an "it isn't hidden" assertion cannot pass vacuously on a
+  // stylesheet that turned out to be empty.
+  const subtitleLayer = document.createElement("div");
+  subtitleLayer.className = "vp-subtitle-layer";
+  host.append(video, hostBar, subtitleLayer);
   document.body.appendChild(host);
-  return { host, mediaControls, slotUi };
+  return { host, mediaControls, slotUi, hostBar, subtitleLayer };
 }
 
 afterEach(() => {
@@ -29,40 +40,35 @@ afterEach(() => {
   document.head.innerHTML = "";
 });
 
-describe("RESKIN_CSS native-chrome hiding (F1)", () => {
-  it('scopes every native-chrome selector under [data-vp-reskinned="true"]', () => {
-    // Each selector fragment that targets the native player must be gated by the
-    // success marker — no bare `hls-video …{display:none}` rule may exist.
+describe("RESKIN_CSS leaves the host's chrome alone", () => {
+  it("contains no rule that targets the host's player or control bar", () => {
     const selectorText = RESKIN_CSS.split("{")
       .map((chunk) => chunk.split("}").pop() ?? "")
       .join(",");
     const fragments = selectorText
       .split(",")
       .map((s) => s.trim())
-      .filter((s) => s.includes("hls-video"));
-    expect(fragments.length).toBeGreaterThan(0);
-    for (const fragment of fragments)
-      expect(fragment.startsWith('[data-vp-reskinned="true"]')).toBe(true);
+      .filter(Boolean);
+    // Anchor: the stylesheet must still be styling OUR nodes, or this whole
+    // file passes on an empty string.
+    expect(fragments.some((f) => f.includes(".vp-subtitle-layer"))).toBe(true);
+    for (const fragment of fragments) {
+      expect(fragment).not.toContain("hls-video");
+      expect(fragment).not.toContain("PlayerControlsAbsoluteContainer");
+    }
   });
 
-  it("AC1: native controls stay visible when the marker is absent", () => {
-    const { mediaControls, slotUi } = mountNativeChrome();
+  it("keeps the host's chrome visible even with the marker set", () => {
+    const { host, mediaControls, slotUi, hostBar } = mountHostChrome();
+    host.dataset.vpReskinned = "true";
     expect(getComputedStyle(mediaControls).display).not.toBe("none");
     expect(getComputedStyle(slotUi).display).not.toBe("none");
+    expect(getComputedStyle(hostBar).display).not.toBe("none");
   });
 
-  it("AC2: native controls are hidden once the host carries the marker", () => {
-    const { host, mediaControls, slotUi } = mountNativeChrome();
+  it("still styles our own layers under the marker", () => {
+    const { host, subtitleLayer } = mountHostChrome();
     host.dataset.vpReskinned = "true";
-    expect(getComputedStyle(mediaControls).display).toBe("none");
-    expect(getComputedStyle(slotUi).display).toBe("none");
-  });
-
-  it("AC3: native controls return after the marker is removed (teardown)", () => {
-    const { host, mediaControls } = mountNativeChrome();
-    host.dataset.vpReskinned = "true";
-    expect(getComputedStyle(mediaControls).display).toBe("none");
-    delete host.dataset.vpReskinned;
-    expect(getComputedStyle(mediaControls).display).not.toBe("none");
+    expect(getComputedStyle(subtitleLayer).position).toBe("absolute");
   });
 });

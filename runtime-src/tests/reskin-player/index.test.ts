@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // A Bunny playlist id/URL that getBunnyVideoId() recognises, so the
 // LearningSuite-transcript path is actually reachable in these tests.
@@ -40,84 +40,7 @@ function setupReskinDom(): HTMLElement {
   return video;
 }
 
-function setApollo(cache: Record<string, unknown>): { extract: () => unknown } {
-  const extract = vi.fn(() => cache);
-  (
-    window as unknown as {
-      __APOLLO_CLIENT__?: { cache: { extract: () => unknown } };
-    }
-  ).__APOLLO_CLIENT__ = { cache: { extract } };
-  return { extract };
-}
-
-// A StepFile whose downloadable URL matches VIDEO_ID, exposing one transcript
-// track with two cues (0–5s "Hallo", 5–10s "Welt").
-const APOLLO_CACHE: Record<string, unknown> = {
-  "StepFile:1": {
-    __typename: "StepFile",
-    transcript: {
-      sourceLanguage: "de",
-      translations: [
-        {
-          lang: "de",
-          text: [
-            { text: "Hallo", from: 0, to: 5000 },
-            { text: "Welt", from: 5000, to: 10000 },
-          ],
-        },
-      ],
-    },
-    downloadable: { __ref: "Downloadable:1" },
-  },
-  "Downloadable:1": { url: SRC },
-};
-
-beforeEach(() => {
-  vi.resetModules();
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(() => Promise.resolve({ ok: false, json: async () => null })),
-  );
-  delete (window as unknown as { __APOLLO_CLIENT__?: unknown })
-    .__APOLLO_CLIENT__;
-});
-
-afterEach(() => {
-  const cleanup = (
-    window as unknown as { __vpReskinCleanup?: Array<() => void> }
-  ).__vpReskinCleanup;
-  if (Array.isArray(cleanup))
-    cleanup.forEach((fn) => {
-      try {
-        fn();
-      } catch {
-        /* ignore */
-      }
-    });
-  (
-    window as unknown as { __vpReskinCleanup?: Array<() => void> }
-  ).__vpReskinCleanup = [];
-  document.body.innerHTML = "";
-  document.head.innerHTML = "";
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-});
-
 describe("reskin-player performance guards", () => {
-  it("does not extract the Apollo cache on timeupdate when no LearningSuite subtitle is selected", async () => {
-    const { extract } = setApollo(APOLLO_CACHE);
-    const video = setupReskinDom();
-    await import("../../reskin-player/index");
-    await Promise.resolve();
-
-    // Menu-building during attach may extract once; from here, timeupdate must not.
-    const before = (extract as unknown as { mock: { calls: unknown[] } }).mock
-      .calls.length;
-    for (let i = 0; i < 5; i++) video.dispatchEvent(new Event("timeupdate"));
-
-    expect(extract).toHaveBeenCalledTimes(before);
-  });
-
   it("broadcasts to trusted iframes from a cached target list, not a per-emit DOM scan", async () => {
     setupReskinDom();
     // Append with no `src` attribute so happy-dom never navigates the frame,
@@ -157,35 +80,5 @@ describe("reskin-player performance guards", () => {
       (c) => c[0] === "iframe",
     ).length;
     expect(iframeScansAfter).toBe(iframeScansBefore);
-  });
-
-  it("does not rewrite the subtitle cue while the displayed cue is unchanged", async () => {
-    setApollo(APOLLO_CACHE);
-    const video = setupReskinDom() as unknown as StubMedia & HTMLElement;
-    await import("../../reskin-player/index");
-    await Promise.resolve();
-
-    // Select the LearningSuite subtitle track (option value "0").
-    const option = document.querySelector(
-      '[data-vp-menu="captions"] .vp-menu-option[data-value="0"]',
-    ) as HTMLElement | null;
-    expect(option).not.toBeNull();
-    option!.click();
-
-    const layer = document.querySelector("[data-vp-subtitles]") as HTMLElement;
-    const cue1 = layer.querySelector(".vp-subtitle-cue");
-    expect(cue1?.textContent).toBe("Hallo");
-
-    // Still inside the "Hallo" cue → node preserved, no rewrite.
-    video.currentTime = 1;
-    video.dispatchEvent(new Event("timeupdate"));
-    expect(layer.querySelector(".vp-subtitle-cue")).toBe(cue1);
-
-    // Crosses into the "Welt" cue → rewritten.
-    video.currentTime = 6;
-    video.dispatchEvent(new Event("timeupdate"));
-    const cue2 = layer.querySelector(".vp-subtitle-cue");
-    expect(cue2).not.toBe(cue1);
-    expect(cue2?.textContent).toBe("Welt");
   });
 });

@@ -134,18 +134,15 @@ export type PlayerEvent =
   | { type: "time"; time: number; duration: number }
   | { type: "play"; time: number }
   | { type: "pause"; time: number }
-  | { type: "ended"; time: number }
-  | { type: "overlay-show"; id: string; time: number }
-  | { type: "overlay-hide"; id: string; time: number };
+  | { type: "ended"; time: number };
 
 // ─── window.player API exposed by reskin-player, consumed by demo-overlays ───
-export interface OverlaySlot {
-  id: string;
-  from: number;
-  to: number;
-  render?: (ctx: { time: number; duration: number }) => string;
-}
-
+//
+// `setOverlays(OverlaySlot[])` was removed on 2026-09-07 along with the
+// `.vp-overlay-layer` it fed. Its only production call site ever passed an empty
+// array — demo-overlays draws into its own `#vp-slot-*` nodes on the player host
+// — so the slot machinery, the `overlay-show`/`overlay-hide` events and the
+// layer were all dead weight.
 export interface PlayerApi {
   readonly current: number;
   readonly duration: number;
@@ -153,7 +150,6 @@ export interface PlayerApi {
   pause(): void;
   seek(t: number): void;
   on(event: "any", fn: (payload: PlayerEvent) => void): () => void;
-  setOverlays(next: OverlaySlot[]): void;
   _diag?: () => unknown;
 }
 

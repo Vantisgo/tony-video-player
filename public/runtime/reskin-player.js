@@ -55,31 +55,6 @@
     ((_a = store[key]) != null ? _a : store[key] = []).push(fn);
   }
 
-  // runtime-src/common/dom.ts
-  function listToArray(list) {
-    if (!list) return [];
-    try {
-      return Array.from(list);
-    } catch {
-      const out = [];
-      for (let i = 0; i < (list.length || 0); i++) out.push(list[i]);
-      return out;
-    }
-  }
-
-  // runtime-src/common/escape.ts
-  var ENTITIES = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  };
-  var esc = (v) => String(v != null ? v : "").replace(/[&<>"']/g, (c) => {
-    var _a;
-    return (_a = ENTITIES[c]) != null ? _a : c;
-  });
-
   // runtime-src/common/i18n/core.ts
   var LOCALES = ["en", "de"];
   var DEFAULT_LOCALE = "en";
@@ -126,56 +101,32 @@
   // runtime-src/common/i18n/player.ts
   var EN = {
     // Control aria-labels — the accessibility surface
-    "player.aria.playPause": "Play/Pause",
-    "player.aria.mute": "Mute",
-    "player.aria.fullscreen": "Fullscreen",
     // Track menus: used for both the button's aria-label and the menu heading
     "player.tracks.audio": "Audio tracks",
     "player.tracks.subtitles": "Subtitles",
+    "player.langpack.button": "Language",
+    "player.langpack.aria": "Audio and subtitle language",
     // Visible control labels
-    "player.label.play": "Play",
-    "player.label.pause": "Pause",
-    "player.label.audio": "Audio",
-    "player.label.captions": "CC",
-    "player.label.sound": "Sound",
-    "player.label.muted": "Muted",
-    "player.label.fullscreen": "Full",
     "player.label.current": "Current",
     "player.label.off": "Off",
     // Fallback names for unlabelled tracks
     "player.track.audio": "Audio",
     "player.track.subtitle": "Subtitle",
     // Track-button tooltips
-    "player.title.audio": "Audio: {track}",
-    "player.title.noAudio": "No alternate audio tracks available",
-    "player.title.subtitles": "Subtitles: {track}",
-    "player.title.noSubtitles": "No subtitles available",
     // External-audio drift badge
     "player.drift.badge": "Audio {offset}s",
     "player.drift.ahead": "External audio is ahead of the video timeline",
     "player.drift.behind": "External audio is behind the video timeline"
   };
   var DE = {
-    "player.aria.playPause": "Wiedergabe/Pause",
-    "player.aria.mute": "Stumm schalten",
-    "player.aria.fullscreen": "Vollbild",
     "player.tracks.audio": "Tonspuren",
     "player.tracks.subtitles": "Untertitel",
-    "player.label.play": "Start",
-    "player.label.pause": "Pause",
-    "player.label.audio": "Audio",
-    "player.label.captions": "CC",
-    "player.label.sound": "Ton",
-    "player.label.muted": "Stumm",
-    "player.label.fullscreen": "Voll",
+    "player.langpack.button": "Sprache",
+    "player.langpack.aria": "Ton- und Untertitelsprache",
     "player.label.current": "Aktuell",
     "player.label.off": "Aus",
     "player.track.audio": "Tonspur",
     "player.track.subtitle": "Untertitel",
-    "player.title.audio": "Tonspur: {track}",
-    "player.title.noAudio": "Keine alternativen Tonspuren verfügbar",
-    "player.title.subtitles": "Untertitel: {track}",
-    "player.title.noSubtitles": "Keine Untertitel verfügbar",
     "player.drift.badge": "Audio {offset}s",
     "player.drift.ahead": "Externes Audio läuft dem Video voraus",
     "player.drift.behind": "Externes Audio läuft dem Video nach"
@@ -243,34 +194,34 @@
 
   // runtime-src/common/player.ts
   var KNOWN_TAG_NAMES = /* @__PURE__ */ new Set(["hls-video", "mux-player", "video"]);
-  function isMediaEl(el) {
-    return !!el && typeof el.play === "function" && "currentTime" in el && "duration" in el;
+  function isMediaEl(el2) {
+    return !!el2 && typeof el2.play === "function" && "currentTime" in el2 && "duration" in el2;
   }
-  function isPlayerCandidate(el) {
-    return isMediaEl(el) || KNOWN_TAG_NAMES.has(el.tagName.toLowerCase());
+  function isPlayerCandidate(el2) {
+    return isMediaEl(el2) || KNOWN_TAG_NAMES.has(el2.tagName.toLowerCase());
   }
   function dedup(elements) {
     return [...new Set(elements)];
   }
   function collectDeep(root, out = []) {
-    root.querySelectorAll("*").forEach((el) => {
-      out.push(el);
-      const sr = el.shadowRoot;
+    root.querySelectorAll("*").forEach((el2) => {
+      out.push(el2);
+      const sr = el2.shadowRoot;
       if (sr) collectDeep(sr, out);
     });
     return out;
   }
   function queryShadow(root, selector) {
     const out = [];
-    collectDeep(root).forEach((el) => {
-      const sr = el.shadowRoot;
+    collectDeep(root).forEach((el2) => {
+      const sr = el2.shadowRoot;
       if (sr) out.push(...sr.querySelectorAll(selector));
     });
     return out;
   }
-  function mediaElementsWithin(el) {
-    if (isPlayerCandidate(el)) return [el];
-    return collectDeep(el).filter(isPlayerCandidate);
+  function mediaElementsWithin(el2) {
+    if (isPlayerCandidate(el2)) return [el2];
+    return collectDeep(el2).filter(isPlayerCandidate);
   }
   var BY_TAG = [
     ["hls-video", "tag:hls-video"],
@@ -303,11 +254,11 @@
   }
   function resolveHost(mediaEl) {
     const first = mediaEl.parentElement;
-    let el = first;
-    while (el) {
-      const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) return el;
-      el = el.parentElement;
+    let el2 = first;
+    while (el2) {
+      const rect = el2.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) return el2;
+      el2 = el2.parentElement;
     }
     return first;
   }
@@ -428,10 +379,10 @@
         console.warn("[vp] config <script> parse failed", e);
       }
     }
-    const el = document.querySelector("[data-vp-config]:not(script)");
-    if ((_b = el == null ? void 0 : el.textContent) == null ? void 0 : _b.trim()) {
+    const el2 = document.querySelector("[data-vp-config]:not(script)");
+    if ((_b = el2 == null ? void 0 : el2.textContent) == null ? void 0 : _b.trim()) {
       try {
-        return { source: "element", data: JSON.parse(el.textContent.trim()) };
+        return { source: "element", data: JSON.parse(el2.textContent.trim()) };
       } catch (e) {
         console.warn("[vp] config element parse failed", e);
       }
@@ -455,15 +406,205 @@
     return null;
   }
 
+  // runtime-src/reskin-player/language-pack-control.ts
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== void 0) node.textContent = text;
+    return node;
+  }
+  function renderGroup(menu, title, options, onSelect, close, refresh) {
+    menu.appendChild(el("div", "vp-menu-title", title));
+    for (const option of options) {
+      const btn = el("button", "vp-menu-option");
+      btn.type = "button";
+      btn.setAttribute("role", "menuitemradio");
+      btn.setAttribute("aria-checked", option.selected ? "true" : "false");
+      btn.dataset.value = String(option.value);
+      btn.appendChild(el("span", "vp-menu-label", option.label));
+      if (option.selected)
+        btn.appendChild(
+          el("span", "vp-menu-current", t("player.label.current"))
+        );
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        onSelect(option.value);
+        close();
+        refresh();
+      };
+      menu.appendChild(btn);
+    }
+  }
+  function createLanguagePackControl(deps) {
+    if (!deps.audioOptions() && !deps.subtitleOptions()) return null;
+    const root = el("div", "vp-langpack");
+    const button = el("button", "vp-langpack-btn", t("player.langpack.button"));
+    button.type = "button";
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-label", t("player.langpack.aria"));
+    const menu = el("div", "vp-menu");
+    menu.setAttribute("role", "menu");
+    menu.hidden = true;
+    root.append(button, menu);
+    const close = () => {
+      menu.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+    };
+    const refresh = () => {
+      menu.replaceChildren();
+      const audio = deps.audioOptions();
+      if (audio)
+        renderGroup(
+          menu,
+          t("player.tracks.audio"),
+          audio,
+          deps.onSelectAudio,
+          close,
+          refresh
+        );
+      const subtitles = deps.subtitleOptions();
+      if (subtitles)
+        renderGroup(
+          menu,
+          t("player.tracks.subtitles"),
+          subtitles,
+          deps.onSelectSubtitle,
+          close,
+          refresh
+        );
+    };
+    button.onclick = (e) => {
+      e.stopPropagation();
+      const willOpen = menu.hidden;
+      if (willOpen) refresh();
+      menu.hidden = !willOpen;
+      button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    };
+    const onDocumentClick = (e) => {
+      if (!root.contains(e.target)) close();
+    };
+    const onDocumentKeydown = (e) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("click", onDocumentClick);
+    document.addEventListener("keydown", onDocumentKeydown);
+    refresh();
+    deps.playerHost.appendChild(root);
+    const destroy = () => {
+      document.removeEventListener("click", onDocumentClick);
+      document.removeEventListener("keydown", onDocumentKeydown);
+      root.remove();
+    };
+    deps.onCleanup(destroy);
+    return { refresh, destroy };
+  }
+
+  // runtime-src/reskin-player/silence.ts
+  var MAX_MUTE_REASSERTS = 3;
+  var graphs = /* @__PURE__ */ new WeakMap();
+  function resolveAudioElement(el2) {
+    var _a, _b, _c, _d;
+    if (typeof HTMLMediaElement !== "undefined" && el2 instanceof HTMLMediaElement)
+      return el2;
+    const withShadow = el2;
+    const inner = (_d = (_c = (_a = withShadow.shadowRoot) == null ? void 0 : _a.querySelector("video, audio")) != null ? _c : (_b = withShadow.querySelector) == null ? void 0 : _b.call(withShadow, "video, audio")) != null ? _d : null;
+    return typeof HTMLMediaElement !== "undefined" && inner instanceof HTMLMediaElement ? inner : null;
+  }
+  function buildGraph(el2, Ctor) {
+    const cached = graphs.get(el2);
+    if (cached) return cached;
+    try {
+      const ctx = new Ctor();
+      const source = ctx.createMediaElementSource(el2);
+      const gain = ctx.createGain();
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      const graph = { ctx, gain };
+      graphs.set(el2, graph);
+      return graph;
+    } catch (err) {
+      console.warn("[vp] web-audio silencer unavailable", err);
+      return null;
+    }
+  }
+  function createSilencer(mediaEl, globals = window) {
+    const audioEl = resolveAudioElement(mediaEl);
+    const Ctor = globals.AudioContext;
+    const graph = audioEl && Ctor ? buildGraph(audioEl, Ctor) : null;
+    if (graph) {
+      let silenced = false;
+      const apply = (value) => {
+        var _a, _b;
+        try {
+          graph.gain.gain.value = value;
+        } catch {
+        }
+        if (graph.ctx.state === "suspended") void ((_b = (_a = graph.ctx).resume) == null ? void 0 : _b.call(_a));
+      };
+      return {
+        mode: "webaudio",
+        silence() {
+          if (silenced) return;
+          silenced = true;
+          apply(0);
+        },
+        restore() {
+          if (!silenced) return;
+          silenced = false;
+          apply(1);
+        },
+        dispose() {
+          if (silenced) apply(1);
+        }
+      };
+    }
+    const target = audioEl != null ? audioEl : mediaEl;
+    if (!target || typeof target.addEventListener !== "function")
+      return {
+        mode: "none",
+        silence() {
+        },
+        restore() {
+        },
+        dispose() {
+        }
+      };
+    let want = false;
+    let reasserts = 0;
+    const set = (value) => {
+      try {
+        target.muted = value;
+      } catch {
+      }
+    };
+    const onVolumeChange = () => {
+      if (!want || target.muted || reasserts >= MAX_MUTE_REASSERTS) return;
+      reasserts += 1;
+      set(true);
+    };
+    target.addEventListener("volumechange", onVolumeChange);
+    return {
+      mode: "reassert",
+      silence() {
+        want = true;
+        reasserts = 0;
+        set(true);
+      },
+      restore() {
+        want = false;
+        reasserts = 0;
+        set(false);
+      },
+      dispose() {
+        want = false;
+        target.removeEventListener("volumechange", onVolumeChange);
+      }
+    };
+  }
+
   // runtime-src/reskin-player/styles.ts
   var RESKIN_CSS = `
-      [data-vp-reskinned="true"] hls-video > *:not([slot="media"]) { display: none !important; }
-      [data-vp-reskinned="true"] hls-video [slot="ui"], [data-vp-reskinned="true"] hls-video [slot="layer"] { display: none !important; }
-      [data-vp-reskinned="true"] hls-video media-controls, [data-vp-reskinned="true"] hls-video media-poster, [data-vp-reskinned="true"] hls-video media-play-button,
-      [data-vp-reskinned="true"] hls-video media-gesture, [data-vp-reskinned="true"] hls-video media-time-display, [data-vp-reskinned="true"] hls-video media-volume-slider,
-      [data-vp-reskinned="true"] hls-video media-time-slider, [data-vp-reskinned="true"] hls-video media-fullscreen-button,
-      [data-vp-reskinned="true"] hls-video media-captions-button, [data-vp-reskinned="true"] hls-video media-menu { display: none !important; }
-      [data-vp-reskinned="true"] > [class*="PlayerControlsAbsoluteContainer"] { display: none !important; pointer-events: none !important; }
       .vp-shell { position: absolute; inset: 0; pointer-events: none; font: 14px system-ui, sans-serif; color: #fff; z-index: 5; }
       .vp-shell > * { pointer-events: auto; }
       .vp-overlay-layer { position: absolute; inset: 0 0 60px 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
@@ -473,15 +614,10 @@
       .vp-subtitle-cue { max-width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.72); color: #fff; font: 600 16px/1.35 system-ui, sans-serif; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,.75); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
       .vp-sync-badge { position: absolute; right: 12px; bottom: 56px; z-index: 7; padding: 4px 7px; border-radius: 6px; background: rgba(180, 83, 9, .92); color: #fff; font: 600 12px/1.2 system-ui, sans-serif; letter-spacing: 0; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,.28); }
       .vp-sync-badge[hidden] { display: none !important; }
-      .vp-controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px; background: linear-gradient(transparent, rgba(0,0,0,.7)); display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto; gap: 10px; align-items: center; }
-      .vp-controls button { background: none; border: 0; color: #fff; cursor: pointer; padding: 6px 8px; border-radius: 4px; font-size: 14px; }
-      .vp-controls button:hover { background: rgba(255,255,255,.15); }
-      .vp-controls button:disabled { cursor: default; opacity: .42; }
-      .vp-controls button:disabled:hover { background: none; }
-      .vp-seek { width: 100%; }
-      .vp-time { font-variant-numeric: tabular-nums; opacity: .85; min-width: 100px; text-align: center; }
-      .vp-menu-wrap { position: relative; display: inline-flex; }
-      .vp-menu { position: absolute; right: 0; bottom: calc(100% + 8px); min-width: 190px; max-width: min(260px, 70vw); max-height: 240px; overflow: auto; padding: 6px; background: rgba(17, 17, 20, .96); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; box-shadow: 0 16px 40px rgba(0,0,0,.38); color: #fff; pointer-events: auto; }
+      .vp-langpack { position: absolute; left: 14px; bottom: 58px; z-index: 8; display: inline-flex; pointer-events: auto; }
+      .vp-langpack-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(17,17,20,.82); border: 1px solid rgba(255,255,255,.18); color: #fff; cursor: pointer; padding: 6px 10px; border-radius: 8px; font: 13px system-ui, sans-serif; backdrop-filter: blur(6px); }
+      .vp-langpack-btn:hover { background: rgba(17,17,20,.94); }
+      .vp-menu { position: absolute; left: 0; bottom: calc(100% + 8px); min-width: 190px; max-width: min(260px, 70vw); max-height: 240px; overflow: auto; padding: 6px; background: rgba(17, 17, 20, .96); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; box-shadow: 0 16px 40px rgba(0,0,0,.38); color: #fff; pointer-events: auto; }
       .vp-menu[hidden] { display: none !important; }
       .vp-menu-title { padding: 6px 8px 5px; font-size: 11px; font-weight: 700; line-height: 1.2; text-transform: uppercase; color: rgba(255,255,255,.58); }
       .vp-menu-option { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent; color: #fff; font: 13px system-ui, sans-serif; text-align: left; }
@@ -724,9 +860,9 @@
   }
   function main() {
     resetCleanup(CLEANUP_KEY);
-    document.querySelectorAll(".vp-shell").forEach((el) => el.remove());
-    findPlayers().forEach((el) => {
-      delete el.__vpAttached;
+    document.querySelectorAll(".vp-shell").forEach((el2) => el2.remove());
+    findPlayers().forEach((el2) => {
+      delete el2.__vpAttached;
     });
     const vpTrustedOrigins = getTrustedOrigins();
     const bus = createBus();
@@ -764,8 +900,6 @@
         }
       }
     });
-    const overlays = [];
-    const activeOverlays = /* @__PURE__ */ new Set();
     let lastDiscovery = "none";
     let reportedDiscovery = null;
     function noteDiscovery(strategy) {
@@ -798,10 +932,6 @@
         if (videoEl) videoEl.currentTime = t2;
       },
       on: bus.on,
-      setOverlays: (next) => {
-        overlays.length = 0;
-        overlays.push(...next);
-      },
       _diag: () => ({
         runtime: {
           build: runtimeBuild,
@@ -814,7 +944,6 @@
         duration: videoEl == null ? void 0 : videoEl.duration,
         paused: videoEl == null ? void 0 : videoEl.paused,
         readyState: videoEl == null ? void 0 : videoEl.readyState,
-        activeOverlays: [...activeOverlays],
         tracks: getTrackDiagnostics(videoEl)
       })
     };
@@ -879,152 +1008,35 @@
       const shell = document.createElement("div");
       shell.className = "vp-shell";
       shell.innerHTML = `
-      <div class="vp-overlay-layer" data-vp-overlays></div>
       <div class="vp-subtitle-layer" data-vp-subtitles hidden></div>
       <div class="vp-sync-badge" data-vp-sync-drift hidden></div>
-      <div class="vp-controls">
-        <button data-vp="playpause" aria-label="${esc(t("player.aria.playPause"))}">${esc(t("player.label.play"))}</button>
-        <input  data-vp="seek" class="vp-seek" type="range" min="0" max="0" step="0.1" value="0" />
-        <span   data-vp="time" class="vp-time">0:00 / 0:00</span>
-        <div class="vp-menu-wrap" data-vp-track-menu="audio">
-          <button data-vp="audio" aria-label="${esc(t("player.tracks.audio"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(t("player.label.audio"))}</button>
-          <div data-vp-menu="audio" class="vp-menu" role="menu" hidden></div>
-        </div>
-        <div class="vp-menu-wrap" data-vp-track-menu="captions">
-          <button data-vp="captions" aria-label="${esc(t("player.tracks.subtitles"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(t("player.label.captions"))}</button>
-          <div data-vp-menu="captions" class="vp-menu" role="menu" hidden></div>
-        </div>
-        <button data-vp="mute" aria-label="${esc(t("player.aria.mute"))}">${esc(t("player.label.sound"))}</button>
-        <button data-vp="fs" aria-label="${esc(t("player.aria.fullscreen"))}">${esc(t("player.label.fullscreen"))}</button>
-      </div>
     `;
       host.appendChild(shell);
       undo.push(() => shell.remove());
-      const q = (sel) => shell.querySelector(`[data-vp="${sel}"]`);
-      const playPauseBtn = q("playpause");
-      const seekInput = q("seek");
-      const timeLabel = q("time");
-      const audioBtn = q("audio");
-      const captionsBtn = q("captions");
-      const muteBtn = q("mute");
-      const fsBtn = q("fs");
-      const overlayLayer = shell.querySelector(
-        "[data-vp-overlays]"
-      );
       const subtitleLayer = shell.querySelector(
         "[data-vp-subtitles]"
       );
       const syncDriftBadge = shell.querySelector(
         "[data-vp-sync-drift]"
       );
-      const audioMenu = shell.querySelector(
-        '[data-vp-menu="audio"]'
-      );
-      const captionsMenu = shell.querySelector(
-        '[data-vp-menu="captions"]'
-      );
-      if (!playPauseBtn || !seekInput || !timeLabel || !overlayLayer)
+      if (!subtitleLayer || !syncDriftBadge)
         throw new Error("[vp] reskin shell is missing required nodes");
       const setActive = () => {
         videoEl = mediaEl;
       };
-      let learningSuiteSubtitleIndex = -1;
       let externalLanguagePack = null;
       let externalAudioIndex = -1;
       let externalSubtitleIndex = -1;
       let renderedCueText = "";
       let externalAudioSyncTimer = null;
-      let audibleMuted = !!mediaEl.muted;
       let disposed = false;
       const externalAudio = new Audio();
       externalAudio.preload = "metadata";
+      const silencer = createSilencer(mediaEl);
       shell.dataset.vpAudioSource = "native";
       shell.dataset.vpAudioTrack = "native";
       shell.dataset.vpSubtitleSource = "off";
       shell.dataset.vpSubtitleTrack = "off";
-      const fmt = (s) => {
-        if (!isFinite(s)) return "0:00";
-        const n = Math.max(0, s | 0);
-        return `${n / 60 | 0}:${String(n % 60).padStart(2, "0")}`;
-      };
-      function closeTrackMenus() {
-        audioMenu.hidden = true;
-        captionsMenu.hidden = true;
-        audioBtn.setAttribute("aria-expanded", "false");
-        captionsBtn.setAttribute("aria-expanded", "false");
-      }
-      function toggleTrackMenu(name) {
-        const targetMenu = name === "audio" ? audioMenu : captionsMenu;
-        const targetButton = name === "audio" ? audioBtn : captionsBtn;
-        const willOpen = targetMenu.hidden;
-        closeTrackMenus();
-        if (willOpen && !targetButton.disabled) {
-          targetMenu.hidden = false;
-          targetButton.setAttribute("aria-expanded", "true");
-        }
-      }
-      function renderMenu(menu, title, options, onSelect) {
-        menu.replaceChildren();
-        const heading = document.createElement("div");
-        heading.className = "vp-menu-title";
-        heading.textContent = title;
-        menu.appendChild(heading);
-        for (const option of options) {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "vp-menu-option";
-          btn.setAttribute("role", "menuitemradio");
-          btn.setAttribute("aria-checked", option.selected ? "true" : "false");
-          btn.dataset.value = String(option.value);
-          const label = document.createElement("span");
-          label.className = "vp-menu-label";
-          label.textContent = option.label;
-          btn.appendChild(label);
-          if (option.selected) {
-            const current = document.createElement("span");
-            current.className = "vp-menu-current";
-            current.textContent = t("player.label.current");
-            btn.appendChild(current);
-          }
-          btn.onclick = (e) => {
-            e.stopPropagation();
-            setActive();
-            onSelect(option.value);
-            closeTrackMenus();
-            updateTrackMenus();
-          };
-          menu.appendChild(btn);
-        }
-      }
-      function getNativeAudioOptions() {
-        const tracks = listToArray(mediaEl.audioTracks);
-        if (tracks.length <= 1) return null;
-        return tracks.map((track, index) => ({
-          value: index,
-          label: trackLabel(track, index, t("player.track.audio")),
-          selected: !!track.enabled
-        }));
-      }
-      function getHlsAudioOptions() {
-        const hls = getHlsApi(mediaEl);
-        const tracks = Array.isArray(hls == null ? void 0 : hls.audioTracks) ? hls.audioTracks : [];
-        if (tracks.length <= 1) return null;
-        const selectedIndex = typeof (hls == null ? void 0 : hls.audioTrack) === "number" ? hls.audioTrack : -1;
-        return tracks.map((track, index) => ({
-          value: index,
-          label: trackLabel(track, index, t("player.track.audio")),
-          selected: selectedIndex === index || selectedIndex < 0 && !!track.default
-        }));
-      }
-      function getRenditionAudioOptions() {
-        const renditions = listToArray(mediaEl.audioRenditions);
-        if (renditions.length <= 1) return null;
-        return renditions.map((track, index) => ({
-          value: index,
-          label: trackLabel(track, index, t("player.track.audio")),
-          selected: !!track.selected || !!track.enabled
-        }));
-      }
       function getExternalAudioOptions() {
         const tracks = Array.isArray(externalLanguagePack == null ? void 0 : externalLanguagePack.audioTracks) ? externalLanguagePack.audioTracks : [];
         if (tracks.length <= 1) return null;
@@ -1033,19 +1045,6 @@
           label: trackLabel(track, index, t("player.track.audio")),
           selected: track.useNative ? externalAudioIndex < 0 : externalAudioIndex === index
         }));
-      }
-      function getAudioMenuState() {
-        const nativeOptions = getNativeAudioOptions();
-        if (nativeOptions) return { source: "native", options: nativeOptions };
-        const hlsOptions = getHlsAudioOptions();
-        if (hlsOptions) return { source: "hls", options: hlsOptions };
-        const renditionOptions = getRenditionAudioOptions();
-        if (renditionOptions)
-          return { source: "rendition", options: renditionOptions };
-        const externalOptions = getExternalAudioOptions();
-        if (externalOptions)
-          return { source: "external", options: externalOptions };
-        return { source: "none", options: [] };
       }
       function getExternalAudioTrack() {
         var _a;
@@ -1099,10 +1098,7 @@
         externalAudio.removeAttribute("src");
         externalAudio.load();
         externalAudioIndex = -1;
-        mediaEl.muted = audibleMuted;
-        muteBtn.textContent = t(
-          audibleMuted ? "player.label.muted" : "player.label.sound"
-        );
+        silencer.restore();
         shell.dataset.vpAudioSource = "native";
         shell.dataset.vpAudioTrack = "native";
         updateExternalAudioDriftBadge(0);
@@ -1123,11 +1119,9 @@
         }
         updateExternalAudioDriftBadge(force ? 0 : drift);
         externalAudio.playbackRate = mediaEl.playbackRate || 1;
-        externalAudio.muted = audibleMuted;
-        mediaEl.muted = true;
-        muteBtn.textContent = t(
-          audibleMuted ? "player.label.muted" : "player.label.sound"
-        );
+        silencer.silence();
+        externalAudio.muted = !!mediaEl.muted;
+        externalAudio.volume = Number.isFinite(mediaEl.volume) ? mediaEl.volume : 1;
         if (mediaEl.paused || mediaEl.ended) {
           externalAudio.pause();
           clearExternalAudioSyncTimer();
@@ -1161,100 +1155,6 @@
         }
         syncExternalAudio(true);
       }
-      function setAudioTrack(source, value) {
-        const index = Number(value);
-        if (!Number.isInteger(index)) return;
-        if (source !== "external" && externalAudioIndex >= 0) stopExternalAudio();
-        if (source === "external") {
-          setExternalAudioTrack(value);
-          return;
-        }
-        if (source === "native") {
-          listToArray(mediaEl.audioTracks).forEach((track, i) => {
-            track.enabled = i === index;
-          });
-          return;
-        }
-        if (source === "hls") {
-          const hls = getHlsApi(mediaEl);
-          if (hls) hls.audioTrack = index;
-          return;
-        }
-        if (source === "rendition") {
-          const rendition = listToArray(mediaEl.audioRenditions)[index];
-          try {
-            if (rendition) rendition.selected = true;
-          } catch {
-          }
-          const hls = getHlsApi(mediaEl);
-          if (hls && Array.isArray(hls.audioTracks) && hls.audioTracks[index])
-            hls.audioTrack = index;
-        }
-      }
-      function getNativeSubtitleOptions() {
-        const tracks = listToArray(mediaEl.textTracks).filter(
-          (track) => track.kind === "subtitles" || track.kind === "captions" || track.kind === "descriptions"
-        );
-        if (!tracks.length) return null;
-        const options = [
-          {
-            value: "off",
-            label: t("player.label.off"),
-            selected: !tracks.some((track) => track.mode === "showing")
-          }
-        ];
-        tracks.forEach((track, index) => {
-          options.push({
-            value: index,
-            label: trackLabel(track, index, t("player.track.subtitle")),
-            selected: track.mode === "showing"
-          });
-        });
-        return options;
-      }
-      function getHlsSubtitleOptions() {
-        const hls = getHlsApi(mediaEl);
-        const tracks = Array.isArray(hls == null ? void 0 : hls.subtitleTracks) ? hls.subtitleTracks : [];
-        if (!tracks.length) return null;
-        const selectedIndex = typeof (hls == null ? void 0 : hls.subtitleTrack) === "number" ? hls.subtitleTrack : -1;
-        const display = (hls == null ? void 0 : hls.subtitleDisplay) !== false;
-        const options = [
-          {
-            value: "off",
-            label: t("player.label.off"),
-            selected: selectedIndex < 0 || !display
-          }
-        ];
-        tracks.forEach((track, index) => {
-          options.push({
-            value: index,
-            label: trackLabel(track, index, t("player.track.subtitle")),
-            selected: display && selectedIndex === index
-          });
-        });
-        return options;
-      }
-      function getLearningSuiteSubtitleOptions() {
-        const tracks = getLearningSuiteTranscriptTracks(mediaEl);
-        if (!tracks.length) return null;
-        if (learningSuiteSubtitleIndex >= tracks.length)
-          learningSuiteSubtitleIndex = -1;
-        const options = [
-          {
-            value: "off",
-            label: t("player.label.off"),
-            selected: learningSuiteSubtitleIndex < 0
-          }
-        ];
-        tracks.forEach((track, index) => {
-          options.push({
-            value: index,
-            label: trackLabel(track, index, t("player.track.subtitle")),
-            selected: learningSuiteSubtitleIndex === index
-          });
-        });
-        return options;
-      }
       function getExternalSubtitleOptions() {
         const tracks = Array.isArray(externalLanguagePack == null ? void 0 : externalLanguagePack.subtitleTracks) ? externalLanguagePack.subtitleTracks : [];
         if (!tracks.length) return null;
@@ -1275,19 +1175,6 @@
         });
         return options;
       }
-      function getSubtitleMenuState() {
-        const externalOptions = getExternalSubtitleOptions();
-        if (externalOptions)
-          return { source: "external", options: externalOptions };
-        const hlsOptions = getHlsSubtitleOptions();
-        if (hlsOptions) return { source: "hls", options: hlsOptions };
-        const nativeOptions = getNativeSubtitleOptions();
-        if (nativeOptions) return { source: "native", options: nativeOptions };
-        const learningSuiteOptions = getLearningSuiteSubtitleOptions();
-        if (learningSuiteOptions)
-          return { source: "learningSuite", options: learningSuiteOptions };
-        return { source: "none", options: [] };
-      }
       function renderSubtitleCue(track, time) {
         var _a;
         const cue = track == null ? void 0 : track.cues.find(
@@ -1301,45 +1188,22 @@
           subtitleLayer.hidden = true;
           return;
         }
-        const el = document.createElement("span");
-        el.className = "vp-subtitle-cue";
-        el.textContent = nextText;
-        subtitleLayer.appendChild(el);
+        const el2 = document.createElement("span");
+        el2.className = "vp-subtitle-cue";
+        el2.textContent = nextText;
+        subtitleLayer.appendChild(el2);
         subtitleLayer.hidden = false;
       }
       function renderActiveSubtitle(time) {
         var _a;
-        if (externalSubtitleIndex >= 0) {
-          renderSubtitleCue(
-            (_a = externalLanguagePack == null ? void 0 : externalLanguagePack.subtitleTracks) == null ? void 0 : _a[externalSubtitleIndex],
-            time
-          );
-          return;
-        }
-        const track = learningSuiteSubtitleIndex >= 0 ? getLearningSuiteTranscriptTracks(mediaEl)[learningSuiteSubtitleIndex] : null;
-        renderSubtitleCue(track, time);
-      }
-      function setSubtitleTrack(source, value) {
-        var _a, _b, _c;
-        const nativeTracks = listToArray(mediaEl.textTracks).filter(
-          (track2) => track2.kind === "subtitles" || track2.kind === "captions" || track2.kind === "descriptions"
+        renderSubtitleCue(
+          externalSubtitleIndex >= 0 ? (_a = externalLanguagePack == null ? void 0 : externalLanguagePack.subtitleTracks) == null ? void 0 : _a[externalSubtitleIndex] : null,
+          time
         );
-        nativeTracks.forEach((track2) => {
-          track2.mode = "disabled";
-        });
+      }
+      function setExternalSubtitleTrack(value) {
+        var _a, _b;
         if (value === "off") {
-          const hls = getHlsApi(mediaEl);
-          if (hls) {
-            try {
-              hls.subtitleTrack = -1;
-            } catch {
-            }
-            try {
-              hls.subtitleDisplay = false;
-            } catch {
-            }
-          }
-          learningSuiteSubtitleIndex = -1;
           externalSubtitleIndex = -1;
           shell.dataset.vpSubtitleSource = "off";
           shell.dataset.vpSubtitleTrack = "off";
@@ -1348,207 +1212,42 @@
         }
         const index = Number(value);
         if (!Number.isInteger(index)) return;
-        learningSuiteSubtitleIndex = -1;
-        externalSubtitleIndex = -1;
-        if (source === "hls") {
-          const hls = getHlsApi(mediaEl);
-          if (hls) {
-            try {
-              hls.subtitleDisplay = true;
-            } catch {
-            }
-            hls.subtitleTrack = index;
-          }
-          return;
-        }
-        if (source === "external") {
-          const hls = getHlsApi(mediaEl);
-          if (hls) {
-            try {
-              hls.subtitleTrack = -1;
-            } catch {
-            }
-            try {
-              hls.subtitleDisplay = false;
-            } catch {
-            }
-          }
-          externalSubtitleIndex = index;
-          shell.dataset.vpSubtitleSource = "external";
-          shell.dataset.vpSubtitleTrack = ((_b = (_a = externalLanguagePack == null ? void 0 : externalLanguagePack.subtitleTracks) == null ? void 0 : _a[index]) == null ? void 0 : _b.id) || String(index);
-          renderActiveSubtitle(mediaEl.currentTime || 0);
-          return;
-        }
-        if (source === "learningSuite") {
-          const hls = getHlsApi(mediaEl);
-          if (hls) {
-            try {
-              hls.subtitleTrack = -1;
-            } catch {
-            }
-            try {
-              hls.subtitleDisplay = false;
-            } catch {
-            }
-          }
-          learningSuiteSubtitleIndex = index;
-          shell.dataset.vpSubtitleSource = "learningSuite";
-          shell.dataset.vpSubtitleTrack = ((_c = getLearningSuiteTranscriptTracks(mediaEl)[index]) == null ? void 0 : _c.language) || String(index);
-          renderActiveSubtitle(mediaEl.currentTime || 0);
-          return;
-        }
-        const track = nativeTracks[index];
-        if (track) track.mode = "showing";
-        shell.dataset.vpSubtitleSource = "native";
-        shell.dataset.vpSubtitleTrack = (track == null ? void 0 : track.language) || (track == null ? void 0 : track.label) || String(index);
+        externalSubtitleIndex = index;
+        shell.dataset.vpSubtitleSource = "external";
+        shell.dataset.vpSubtitleTrack = ((_b = (_a = externalLanguagePack == null ? void 0 : externalLanguagePack.subtitleTracks) == null ? void 0 : _a[index]) == null ? void 0 : _b.id) || String(index);
         renderActiveSubtitle(mediaEl.currentTime || 0);
       }
-      function updateTrackMenus() {
-        bindHlsTrackEvents();
-        const audioState = getAudioMenuState();
-        audioBtn.disabled = audioState.options.length <= 1;
-        audioBtn.title = audioBtn.disabled ? t("player.title.noAudio") : t("player.title.audio", {
-          track: (audioState.options.find((o) => o.selected) || audioState.options[0]).label
+      let langpackControl = null;
+      function mountLanguagePackControl() {
+        if (disposed || langpackControl) return;
+        langpackControl = createLanguagePackControl({
+          playerHost: host,
+          audioOptions: getExternalAudioOptions,
+          subtitleOptions: getExternalSubtitleOptions,
+          onSelectAudio: setExternalAudioTrack,
+          onSelectSubtitle: setExternalSubtitleTrack,
+          onCleanup: (fn) => pushCleanup(CLEANUP_KEY, fn)
         });
-        renderMenu(
-          audioMenu,
-          t("player.tracks.audio"),
-          audioState.options,
-          (value) => setAudioTrack(audioState.source, value)
-        );
-        if (audioBtn.disabled) audioMenu.hidden = true;
-        const subtitleState = getSubtitleMenuState();
-        captionsBtn.disabled = subtitleState.options.length <= 1;
-        captionsBtn.title = captionsBtn.disabled ? t("player.title.noSubtitles") : t("player.title.subtitles", {
-          track: (subtitleState.options.find((o) => o.selected) || subtitleState.options[0]).label
-        });
-        renderMenu(
-          captionsMenu,
-          t("player.tracks.subtitles"),
-          subtitleState.options,
-          (value) => setSubtitleTrack(subtitleState.source, value)
-        );
-        if (captionsBtn.disabled) captionsMenu.hidden = true;
-      }
-      let boundHlsApi = null;
-      let unbindHlsTrackEvents = null;
-      function bindHlsTrackEvents() {
-        var _a;
-        const hls = getHlsApi(mediaEl);
-        if (hls === boundHlsApi) return;
-        if (unbindHlsTrackEvents) unbindHlsTrackEvents();
-        boundHlsApi = hls;
-        unbindHlsTrackEvents = null;
-        const events = (_a = window.Hls) == null ? void 0 : _a.Events;
-        if (!(hls == null ? void 0 : hls.on) || !(hls == null ? void 0 : hls.off) || !events) return;
-        const eventNames = [
-          events.AUDIO_TRACKS_UPDATED,
-          events.AUDIO_TRACK_SWITCHED,
-          events.SUBTITLE_TRACKS_UPDATED,
-          events.SUBTITLE_TRACK_SWITCH,
-          events.NON_NATIVE_TEXT_TRACKS_FOUND
-        ].filter(Boolean);
-        eventNames.forEach((eventName) => {
-          var _a2;
-          return (_a2 = hls.on) == null ? void 0 : _a2.call(hls, eventName, updateTrackMenus);
-        });
-        unbindHlsTrackEvents = () => eventNames.forEach((eventName) => {
-          var _a2;
-          try {
-            (_a2 = hls.off) == null ? void 0 : _a2.call(hls, eventName, updateTrackMenus);
-          } catch {
-          }
-        });
-      }
-      function addListListener(list, event, handler) {
-        if (!list) return () => {
-        };
-        list.addEventListener(event, handler);
-        return () => list.removeEventListener(event, handler);
       }
       loadLanguagePackForMedia(mediaEl).then((pack) => {
         var _a;
         if (disposed || !pack) return;
         externalLanguagePack = pack;
         shell.dataset.vpLanguagePack = pack.videoId || getBunnyVideoId((mediaEl == null ? void 0 : mediaEl.src) || ((_a = mediaEl == null ? void 0 : mediaEl.getAttribute) == null ? void 0 : _a.call(mediaEl, "src")));
-        updateTrackMenus();
+        mountLanguagePackControl();
         renderActiveSubtitle(mediaEl.currentTime || 0);
       });
-      playPauseBtn.onclick = () => {
-        setActive();
-        if (mediaEl.paused) mediaEl.play();
-        else mediaEl.pause();
-      };
-      seekInput.oninput = (e) => {
-        setActive();
-        mediaEl.currentTime = +e.target.value;
-        syncExternalAudio(true);
-      };
-      audioBtn.onclick = (e) => {
-        e.stopPropagation();
-        setActive();
-        toggleTrackMenu("audio");
-      };
-      captionsBtn.onclick = (e) => {
-        e.stopPropagation();
-        setActive();
-        toggleTrackMenu("captions");
-      };
-      muteBtn.onclick = () => {
-        setActive();
-        audibleMuted = !audibleMuted;
-        if (externalAudioIndex >= 0) {
-          mediaEl.muted = true;
-          externalAudio.muted = audibleMuted;
-        } else {
-          mediaEl.muted = audibleMuted;
-        }
-        muteBtn.textContent = t(
-          audibleMuted ? "player.label.muted" : "player.label.sound"
-        );
-      };
-      fsBtn.onclick = () => {
-        var _a, _b;
-        setActive();
-        if (!document.fullscreenElement) (_a = host.requestFullscreen) == null ? void 0 : _a.call(host);
-        else (_b = document.exitFullscreen) == null ? void 0 : _b.call(document);
-      };
-      const onMeta = () => {
-        seekInput.max = String(mediaEl.duration || 0);
-        updateTrackMenus();
-      };
       const onTime = () => {
-        var _a, _b, _c;
-        seekInput.value = String(mediaEl.currentTime);
-        timeLabel.textContent = `${fmt(mediaEl.currentTime)} / ${fmt(mediaEl.duration)}`;
         const t2 = mediaEl.currentTime;
         renderActiveSubtitle(t2);
-        for (const o of overlays) {
-          const should = t2 >= o.from && t2 < o.to;
-          const isActive = activeOverlays.has(o.id);
-          if (should && !isActive) {
-            activeOverlays.add(o.id);
-            const wrap = document.createElement("div");
-            wrap.dataset.vpOverlay = o.id;
-            wrap.innerHTML = (_b = (_a = o.render) == null ? void 0 : _a.call(o, { time: t2, duration: mediaEl.duration })) != null ? _b : "";
-            overlayLayer.appendChild(wrap);
-            bus.emit("any", { type: "overlay-show", id: o.id, time: t2 });
-          } else if (!should && isActive) {
-            activeOverlays.delete(o.id);
-            (_c = overlayLayer.querySelector(`[data-vp-overlay="${o.id}"]`)) == null ? void 0 : _c.remove();
-            bus.emit("any", { type: "overlay-hide", id: o.id, time: t2 });
-          }
-        }
         bus.emit("any", { type: "time", time: t2, duration: mediaEl.duration });
       };
       const onPlay = () => {
         setActive();
-        playPauseBtn.textContent = t("player.label.pause");
         syncExternalAudio();
         bus.emit("any", { type: "play", time: mediaEl.currentTime });
       };
       const onPause = () => {
-        playPauseBtn.textContent = t("player.label.play");
         externalAudio.pause();
         clearExternalAudioSyncTimer();
         bus.emit("any", { type: "pause", time: mediaEl.currentTime });
@@ -1566,35 +1265,12 @@
       const onWaiting = () => updateExternalAudioDrift();
       const onPlaying = () => syncExternalAudio();
       const onVolumeChange = () => {
-        if (externalAudioIndex >= 0) {
-          externalAudio.muted = audibleMuted;
-          mediaEl.muted = true;
-          return;
-        }
-        audibleMuted = !!mediaEl.muted;
-        muteBtn.textContent = t(
-          audibleMuted ? "player.label.muted" : "player.label.sound"
-        );
+        if (externalAudioIndex < 0) return;
+        externalAudio.muted = !!mediaEl.muted;
+        externalAudio.volume = Number.isFinite(mediaEl.volume) ? mediaEl.volume : 1;
       };
-      const onDocumentClick = (e) => {
-        if (!shell.contains(e.target)) closeTrackMenus();
-      };
-      const onDocumentKeydown = (e) => {
-        if (e.key === "Escape") closeTrackMenus();
-      };
-      const cleanups = [
-        addListListener(mediaEl.audioTracks, "addtrack", updateTrackMenus),
-        addListListener(mediaEl.audioTracks, "removetrack", updateTrackMenus),
-        addListListener(mediaEl.audioTracks, "change", updateTrackMenus),
-        addListListener(mediaEl.textTracks, "addtrack", updateTrackMenus),
-        addListListener(mediaEl.textTracks, "removetrack", updateTrackMenus),
-        addListListener(mediaEl.textTracks, "change", updateTrackMenus)
-      ];
       shell.addEventListener("pointerdown", setActive);
       shell.addEventListener("focusin", setActive);
-      mediaEl.addEventListener("loadedmetadata", onMeta);
-      mediaEl.addEventListener("loadeddata", updateTrackMenus);
-      mediaEl.addEventListener("durationchange", onMeta);
       mediaEl.addEventListener("timeupdate", onTime);
       mediaEl.addEventListener("play", onPlay);
       mediaEl.addEventListener("pause", onPause);
@@ -1605,26 +1281,17 @@
       mediaEl.addEventListener("waiting", onWaiting);
       mediaEl.addEventListener("playing", onPlaying);
       mediaEl.addEventListener("volumechange", onVolumeChange);
-      document.addEventListener("click", onDocumentClick);
-      document.addEventListener("keydown", onDocumentKeydown);
       const teardown = () => {
         disposed = true;
-        if (unbindHlsTrackEvents) unbindHlsTrackEvents();
+        langpackControl == null ? void 0 : langpackControl.destroy();
+        langpackControl = null;
+        silencer.dispose();
         clearExternalAudioSyncTimer();
         externalAudio.pause();
         externalAudio.removeAttribute("src");
         externalAudio.load();
-        cleanups.forEach((fn) => {
-          try {
-            fn();
-          } catch {
-          }
-        });
         shell.removeEventListener("pointerdown", setActive);
         shell.removeEventListener("focusin", setActive);
-        mediaEl.removeEventListener("loadedmetadata", onMeta);
-        mediaEl.removeEventListener("loadeddata", updateTrackMenus);
-        mediaEl.removeEventListener("durationchange", onMeta);
         mediaEl.removeEventListener("timeupdate", onTime);
         mediaEl.removeEventListener("play", onPlay);
         mediaEl.removeEventListener("pause", onPause);
@@ -1635,8 +1302,6 @@
         mediaEl.removeEventListener("waiting", onWaiting);
         mediaEl.removeEventListener("playing", onPlaying);
         mediaEl.removeEventListener("volumechange", onVolumeChange);
-        document.removeEventListener("click", onDocumentClick);
-        document.removeEventListener("keydown", onDocumentKeydown);
         shell.remove();
         delete host.dataset.vpReskinned;
         delete hlsEl.__vpAttached;
@@ -1651,18 +1316,16 @@
         ro.observe(mediaEl);
         pushCleanup(CLEANUP_KEY, () => ro.disconnect());
       }
-      updateTrackMenus();
-      if (!Number.isNaN(mediaEl.duration)) onMeta();
       if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => {
           var _a;
           if (disposed) return;
           const mediaBox = mediaEl.getBoundingClientRect();
           if (mediaBox.width <= 0 || mediaBox.height <= 0) return;
-          const layerBox = overlayLayer.getBoundingClientRect();
+          const layerBox = shell.getBoundingClientRect();
           if (layerBox.width > 0 && layerBox.height > 0) return;
           console.error(
-            "[vp] reskin overlay layer has a zero box over a visible player; rolling back"
+            "[vp] reskin shell has a zero box over a visible player; rolling back"
           );
           teardown();
           reportFailure(
@@ -1675,7 +1338,7 @@
     const scan = () => {
       const { players, strategy } = scanPlayers();
       noteDiscovery(strategy);
-      players.forEach((el) => attach(el));
+      players.forEach((el2) => attach(el2));
       refreshIframeTargets();
     };
     scan();

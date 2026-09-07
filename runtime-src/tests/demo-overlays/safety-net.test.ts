@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerApi } from "../../common/types";
 
-function installPlayerStub(opts: { throwOnSetOverlays?: boolean } = {}): void {
+function installPlayerStub(opts: { throwOnSubscribe?: boolean } = {}): void {
   const stub: PlayerApi = {
     get current() {
       return 0;
@@ -10,12 +10,14 @@ function installPlayerStub(opts: { throwOnSetOverlays?: boolean } = {}): void {
     play() {},
     pause() {},
     seek() {},
-    on: () => () => {},
-    setOverlays() {
-      // Fault injection point for the rollback test: setOverlays is called at the
-      // very end of the mount, so a throw here guarantees the slots and sidebar
-      // already exist and must be swept back up.
-      if (opts.throwOnSetOverlays) throw new Error("injected mount failure");
+    // Fault injection point for the rollback test. It used to be setOverlays(),
+    // which ran last in the mount; that member was removed from PlayerApi on
+    // 2026-09-07 along with the overlay layer it fed. `on()` inherits the role —
+    // it is now the last player-API call in mountInner, so a throw here still
+    // guarantees the slots and sidebar already exist and must be swept back up.
+    on: () => {
+      if (opts.throwOnSubscribe) throw new Error("injected mount failure");
+      return () => {};
     },
   };
   (window as unknown as { player: PlayerApi }).player = stub;
@@ -93,7 +95,7 @@ afterEach(() => {
 
 describe("demo applySetup rollback (F2)", () => {
   it("AC2: a throw during setup removes the slots + sidebar it mounted", async () => {
-    installPlayerStub({ throwOnSetOverlays: true });
+    installPlayerStub({ throwOnSubscribe: true });
     vi.spyOn(console, "error").mockImplementation(() => {});
     addConfig(VALID_CONFIG);
 

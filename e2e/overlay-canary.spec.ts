@@ -13,7 +13,8 @@ import {
   attachDiag,
   demoScriptRan,
   expectDemoMounted,
-  expectNativeChromeHidden,
+  expectHostChromePresent,
+  expectHostMuteWorks,
   expectPlaybackAdvances,
   expectReskinMounted,
   waitForReskinSettled,
@@ -57,8 +58,16 @@ for (const video of videos) {
       await expectReskinMounted(page, testInfo);
     });
 
-    test("native player chrome is hidden", async ({ page }) => {
-      await expectNativeChromeHidden(page);
+    test("LearningSuite's own player chrome is present and usable", async ({
+      page,
+    }) => {
+      await expectHostChromePresent(page);
+    });
+
+    test("LearningSuite's own mute works while the runtime is mounted", async ({
+      page,
+    }) => {
+      await expectHostMuteWorks(page);
     });
 
     test("pressing play advances playback", async ({ page }, testInfo) => {

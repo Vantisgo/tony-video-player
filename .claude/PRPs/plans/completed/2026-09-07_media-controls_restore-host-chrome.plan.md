@@ -46,8 +46,8 @@ Stop replacing the host's chrome; augment it.
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-07
-- **Modified:** 2026-09-07
-- **Commits:** _(none yet)_
+- **Modified:** 2026-09-07, 2026-09-07 (implemented)
+- **Commits:** see the implementation commit on `feature/e2e-canary-playwright`
 - **Agent / Session:** Claude Opus 5 (1M context) — planning session 2026-09-07
 - **Back refs:** `docs/superpowers/specs/2026-09-07-media-controls-hijack-design.md` — approved design this plan implements
 - **Forward refs:** _(none yet)_
@@ -306,7 +306,7 @@ Execute in order. Each task is atomic and independently verifiable.
 
 **Status markers** — prefix EVERY task header with one; the build agent updates it inline as it works: `[ ]` idle · `[wip]` in progress · `[x]` complete · `[f]` failed. All tasks start `[ ]`. If a task cannot be made to pass, mark it `[f]`, record why in Agent Notes, and move on if the rest of the plan can still proceed.
 
-### `[ ]` Task 1: MEASURE on the live tenant (throwaway probe)
+### `[x]` Task 1: MEASURE on the live tenant (throwaway probe)
 
 - **ACTION**: Write a temporary `e2e/_probe.spec.ts`, run it, record the numbers in Agent Notes, then DELETE the file.
 - **IMPLEMENT**: Route `/runtime/*.js` to the working tree's bundles (URL predicate, never a glob — the tenant's tags carry `?x-vercel-protection-bypass=…`). Then measure, after pressing play and revealing the host chrome (`document.getElementById("__custom-player-style")?.remove()`):
@@ -317,7 +317,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: already measured, do not re-derive — a `z-index:20; inset:0` overlay on the host DOES win `elementFromPoint` over the host bar (its `z-index` is `auto`). That is what makes Task 7 a deletion.
 - **VALIDATE**: `bunx playwright test e2e/_probe.spec.ts --project=canary` passes and the three values are written into Agent Notes; `git status --short` is clean afterwards.
 
-### `[ ]` Task 2: UPDATE `runtime-src/reskin-player/styles.ts`
+### `[x]` Task 2: UPDATE `runtime-src/reskin-player/styles.ts`
 
 - **ACTION**: DELETE the chrome-hiding rules and the control-bar CSS; re-tune the remaining offsets.
 - **IMPLEMENT**: Remove all four `[data-vp-reskinned="true"] …` hiding rules (lines 4-10), including the `media-*` ones — measured: **no `media-*` elements exist under the player on this tenant**, so those rules match nothing. Remove `.vp-controls`, `.vp-seek`, `.vp-time`, `.vp-menu-wrap`, `.vp-menu*` blocks. Keep `.vp-shell`, `.vp-subtitle-layer`, `.vp-sync-badge`. Re-tune `.vp-overlay-layer`'s `inset: 0 0 60px 0` (line 13), `.vp-subtitle-layer`'s `bottom: 58px` (line 15) and `.vp-sync-badge`'s `bottom: 56px` (line 18) to clear the host's real bar, using Task 1's measurement.
@@ -325,7 +325,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: `.vp-overlay-layer` is deleted entirely in Task 5; if Task 5 lands first, drop its rule instead of re-tuning it.
 - **VALIDATE**: `bun run typecheck:runtime && bun run test runtime-src/tests/reskin-player/styles.test.ts` (expected RED until Task 11 inverts that test — record it, do not "fix" it here).
 
-### `[ ]` Task 3: UPDATE `runtime-src/reskin-player/index.ts` — delete the control bar
+### `[x]` Task 3: UPDATE `runtime-src/reskin-player/index.ts` — delete the control bar
 
 - **ACTION**: DELETE the `.vp-controls` markup and every control's wiring.
 - **IMPLEMENT**: From the shell template (lines 258-272) remove the whole `<div class="vp-controls">` block, keeping `.vp-overlay-layer` (until Task 5), `.vp-subtitle-layer` and `.vp-sync-badge`. Remove the `q()` lookups and the `playPauseBtn` / `seekInput` / `timeLabel` / `audioBtn` / `captionsBtn` / `muteBtn` / `fsBtn` consts (277-286) and every handler that writes them: `playPauseBtn.onclick` (981-985), `seekInput.oninput` (986-990), `audioBtn.onclick`, `captionsBtn.onclick`, `muteBtn.onclick` (1001-1013), `fsBtn.onclick`, and every `…Btn.textContent = tr(...)` write in `onPlay`/`onPause`/`onVolumeChange`/`stopExternalAudio`/`syncExternalAudio`.
@@ -334,7 +334,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: `mediaEl.controls = false` (line 238) and its `undo` entry are NOT part of the bar — they handle the plain-`<video>` case. Keep both.
 - **VALIDATE**: `bun run typecheck:runtime` — exit 0, no unused-variable errors.
 
-### `[ ]` Task 4: UPDATE `runtime-src/reskin-player/index.ts` — delete the track menus and host-owned sources
+### `[x]` Task 4: UPDATE `runtime-src/reskin-player/index.ts` — delete the track menus and host-owned sources
 
 - **ACTION**: DELETE the menu machinery and the option builders the host now owns.
 - **IMPLEMENT**: Remove `renderMenu` (348-389), `toggleTrackMenu`, `closeTrackMenus`, `updateTrackMenus`, `audioMenu`/`captionsMenu` lookups, `onDocumentClick` (the menu-closing document listener) and its registration/removal. Remove `getNativeSubtitleOptions` (626-649), `getHlsSubtitleOptions` (651-675), `getLearningSuiteSubtitleOptions` (677-697), the native/HLS/rendition audio builders, `getSubtitleMenuState` (722-738), and the `"native"`/`"hls"` branches of `setSubtitleTrack` (783-889). **Keep** `getExternalAudioOptions` (425) and `getExternalSubtitleOptions` (699) — the pack's own sources.
@@ -344,7 +344,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: this is what removes the last caller of `getLearningSuiteTranscriptTracks`, which does `apollo.cache.extract()` — a full store snapshot. `runtime-src/tests/reskin-player/index.test.ts` has a perf guard asserting it is NOT called on `timeupdate`; that guard becomes vacuous and is handled in Task 11.
 - **VALIDATE**: `bun run typecheck:runtime` — exit 0.
 
-### `[ ]` Task 5: UPDATE `runtime-src/common/types.ts` and the overlay layer
+### `[x]` Task 5: UPDATE `runtime-src/common/types.ts` and the overlay layer
 
 - **ACTION**: DELETE `setOverlays` from `PlayerApi`, and the `.vp-overlay-layer` machinery it feeds.
 - **IMPLEMENT**: Remove `setOverlays` from `PlayerApi` (`common/types.ts:149-158`) and `OverlaySlot` (142-147) if nothing else references it. In `index.ts` remove the `api.setOverlays` implementation (160-163), the `overlays` array (127-128), the `.vp-overlay-layer` div from the shell template, its lookup, and the overlay add/remove block inside `onTime` (1029-1045) including its `overlay-show`/`overlay-hide` bus emits. Remove `activeOverlays` from `_diag()`.
@@ -352,14 +352,14 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: every `PlayerApi` test stub implements `setOverlays` (`locale-surface.test.ts:29`, `demo-overlays/{audio,render,lifecycle,safety-net}.test.ts`). They all stop type-checking. `safety-net.test.ts:14-17` additionally **uses it as its fault-injection point** — Task 12 must give it a new one.
 - **VALIDATE**: `bun run typecheck:runtime` — exit 0 (test files included in `tsconfig.runtime.json`).
 
-### `[ ]` Task 6: UPDATE `runtime-src/demo-overlays/index.ts`
+### `[x]` Task 6: UPDATE `runtime-src/demo-overlays/index.ts`
 
 - **ACTION**: DELETE the play/pause interception and the `setOverlays` call; re-tune the slot offsets.
 - **IMPLEMENT**: Remove `onCaptureClick` (931-940) and its registration/cleanup — the button it targets no longer exists. **Keep `onCaptureKeydown`**: it is a bare document listener with a form-field guard and has no dependency on the bar, which is what lets Space keep driving the voice-over. Remove `window.player.setOverlays([])` (1649). Re-tune `vp-slot-br`'s and `vp-slot-lt`'s `bottom:70px` (419, 428) against Task 1's measurement of the host bar.
 - **GOTCHA**: `slotBR` and `slotLowerThird` share the bottom-right corner, and `recomputeActive`'s `clearMetaPill()` call is load-bearing for that layout — not housekeeping. Do not remove it while re-anchoring.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/` — all pass.
 
-### `[ ]` Task 7: UPDATE `runtime-src/demo-overlays/quiz.ts`
+### `[x]` Task 7: UPDATE `runtime-src/demo-overlays/quiz.ts`
 
 - **ACTION**: DELETE the control-bar interaction guard.
 - **IMPLEMENT**: Remove `inControls` (603-606), `onGlobalClick` (608-612), `onGlobalPointerDown` (616-621) and their `addEventListener`/`onCleanup` pairs (623-624, 628-630). **Keep `onGlobalKeydown`** — it guards keyboard shortcuts, not the bar.
@@ -367,7 +367,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: re-verify this in Task 16's browser pass with a quiz actually open. If the scrim does NOT block the host's bar, restore an equivalent guard keyed on `[class*="PlayerControlsAbsoluteContainer"]` and record the fragility in `docs/feature-context.md`.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/quiz.test.ts` — all pass.
 
-### `[ ]` Task 8: CREATE `runtime-src/reskin-player/silence.ts`
+### `[x]` Task 8: CREATE `runtime-src/reskin-player/silence.ts`
 
 - **ACTION**: CREATE the video silencer.
 - **IMPLEMENT**: `createSilencer(mediaEl)` returning `{ silence(): void, restore(): void, mode: "webaudio" | "reassert" | "none" }`. Primary path: one `AudioContext` per element, `createMediaElementSource(mediaEl)` → `GainNode` → `destination`; `silence()` sets `gain.value = 0`, `restore()` sets it to 1. Fallback when `AudioContext` or `createMediaElementSource` is unavailable or throws: the capped re-assertion of `mediaEl.muted = true` on `volumechange`.
@@ -378,7 +378,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: do NOT route the external dub `<audio>` through Web Audio. It deliberately carries no `crossorigin`, so a cross-origin GCS response is opaque → CORS-cross-origin → the node would output **silence**.
 - **VALIDATE**: `bun run test runtime-src/tests/reskin-player/silence.test.ts`
 
-### `[ ]` Task 9: UPDATE `runtime-src/reskin-player/index.ts` — silence the video through the silencer, mirror the host's volume
+### `[x]` Task 9: UPDATE `runtime-src/reskin-player/index.ts` — silence the video through the silencer, mirror the host's volume
 
 - **ACTION**: REPLACE the `mediaEl.muted` writes with the silencer, and mirror the host's volume onto the dub.
 - **IMPLEMENT**: At the three sites that force the video silent for a dub — `syncExternalAudio` (`index.ts:550`), `muteBtn.onclick` (1005, deleted in Task 3) and `onVolumeChange` (1075) — call `silencer.silence()` instead of `mediaEl.muted = true`. `stopExternalAudio` (520) calls `silencer.restore()`. In `onVolumeChange`, mirror the host's state onto the dub: `externalAudio.muted = mediaEl.muted; externalAudio.volume = mediaEl.volume`. That is what makes the host's own mute and volume controls drive the dubbed track.
@@ -387,7 +387,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: `audibleMuted` (315, 1003, 1078) tracked the learner's intent through _our_ button. With the host owning mute, `mediaEl.muted` is the source of truth; remove the shadow variable rather than letting the two disagree.
 - **VALIDATE**: `bun run typecheck:runtime && bun run test runtime-src/tests/reskin-player/`
 
-### `[ ]` Task 10: CREATE `runtime-src/reskin-player/language-pack-control.ts`
+### `[x]` Task 10: CREATE `runtime-src/reskin-player/language-pack-control.ts`
 
 - **ACTION**: CREATE the one new control.
 - **IMPLEMENT**: `createLanguagePackControl({ pack, playerHost, onSelectAudio, onSelectSubtitle, onCleanup })`. A button opening a menu with two groups — **Audio** from `pack.audioTracks`, **Untertitel** from `pack.subtitleTracks` plus an Off entry. Built entirely with `createElement`/`textContent`.
@@ -400,7 +400,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: never `innerHTML` here, and never add `esc()` to the builder — it would double-escape. Pack labels are third-party strings.
 - **VALIDATE**: `bun run test runtime-src/tests/reskin-player/language-pack-control.test.ts`
 
-### `[ ]` Task 11: UPDATE `runtime-src/reskin-player/index.ts` — mount the control
+### `[x]` Task 11: UPDATE `runtime-src/reskin-player/index.ts` — mount the control
 
 - **ACTION**: WIRE the control into the attach path.
 - **IMPLEMENT**: In the existing `loadLanguagePackForMedia(mediaEl).then((pack) => {…})` block (971-979), when a pack resolves, create the control and push its removal onto the `undo` list and the teardown path.
@@ -408,7 +408,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: the pack resolves **asynchronously**, after `attachInner` has returned, so its `undo` entry is registered late. Make sure a teardown that has already run does not leave an orphan control — check the mount is still alive before appending.
 - **VALIDATE**: `bun run typecheck:runtime && bun run test runtime-src/tests/reskin-player/`
 
-### `[ ]` Task 12: UPDATE `runtime-src/common/i18n/player.ts`
+### `[x]` Task 12: UPDATE `runtime-src/common/i18n/player.ts`
 
 - **ACTION**: DELETE dead keys, ADD the control's keys.
 - **IMPLEMENT**: Delete keys with no remaining call site — `player.aria.playPause`, `player.aria.mute`, `player.aria.fullscreen`, `player.label.play`, `player.label.pause`, `player.label.sound`, `player.label.muted`, `player.label.fullscreen`, `player.label.audio`, `player.label.captions`, `player.title.*`. **Keep** `player.tracks.audio`, `player.tracks.subtitles`, `player.label.off`, `player.label.current`, `player.track.audio`, `player.track.subtitle` and `player.drift.*` — the new control and the drift badge still use them. Add any new keys in **both** `en` and `de`.
@@ -416,7 +416,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: German copy has one source of truth — `admin-toggle/prompt.ts`'s house vocabulary. Match it rather than translating afresh.
 - **VALIDATE**: `bun run typecheck:runtime && bun run test runtime-src/tests/common/i18n.test.ts`
 
-### `[ ]` Task 13: UPDATE the runtime unit tests
+### `[x]` Task 13: UPDATE the runtime unit tests
 
 - **ACTION**: UPDATE the suites that assert the deleted surface.
 - **IMPLEMENT**:
@@ -429,7 +429,7 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: `no-bare-strings.test.ts` is a **two-way** guard — a literal must be absent from the entry files AND present in a catalogue. Deleting a key without updating it fails from the other direction.
 - **VALIDATE**: `bun run test` — full suite green.
 
-### `[ ]` Task 14: UPDATE `e2e/support/assertions.ts` and the canary spec
+### `[x]` Task 14: UPDATE `e2e/support/assertions.ts` and the canary spec
 
 - **ACTION**: INVERT the chrome assertions and add a host-mute test.
 - **IMPLEMENT**: Replace `expectNativeChromeHidden` with `expectHostChromePresent`, asserting `[class*="PlayerControlsAbsoluteContainer"]` is present **and visible** inside `HOST`. Drop `NATIVE_CHROME_IN_PLAYER` (its `media-*` selectors match nothing on this tenant). In `expectReskinMounted`, drop the `.vp-shell .vp-controls`, `[data-vp="playpause"]` and `[data-vp="time"]` assertions (201-209) and assert the `PlayerApi`, `_diag()` and the overlay slots instead. `expectPlaybackAdvances` (279-281) clicks `[data-vp="playpause"]` — re-point it at **the host's own play button** (user decision, 2026-09-07, choosing a real gesture over `window.player.play()`). Add a test that the host's own mute works while our runtime is mounted.
@@ -440,14 +440,14 @@ Execute in order. Each task is atomic and independently verifiable.
 - **GOTCHA**: assert only surfaces the runtime already publishes, otherwise. Do not add a `data-testid` to the host's markup.
 - **VALIDATE**: `bun run e2e` — 4/4 (plus the new test) green.
 
-### `[ ]` Task 15: REBUILD the bundles
+### `[x]` Task 15: REBUILD the bundles
 
 - **ACTION**: REGENERATE `public/runtime/*.js`.
 - **IMPLEMENT**: `bun run build:runtime`.
 - **GOTCHA**: the generated `.js` are committed and CI drift-checks them with `git diff --exit-code -- public/runtime`. A change that forgets this fails CI for a reason the diff does not explain.
 - **VALIDATE**: `bun run build:runtime && git diff --exit-code -- public/runtime` after committing — exit 0.
 
-### `[ ]` Task 16: VERIFY in a real browser, then UPDATE `docs/feature-context.md`
+### `[f]` Task 16: VERIFY in a real browser, then UPDATE `docs/feature-context.md`
 
 - **ACTION**: VALIDATE on the tenant and record the durable decisions.
 - **IMPLEMENT**: On the live lesson, confirm: the host's bar is visible and its mute, CC, speed and fullscreen work; our overlays (pills, voice-over card) do not collide with it; a quiz break still blocks interaction with the host's bar; and — with a pack injected via `window.__vpLanguagePacks` — the dub plays, the video is silent, and the host's volume/mute drive the dub. Then add a `docs/feature-context.md` entry.
@@ -614,7 +614,22 @@ Chosen over `window.player.play()` **against the planning recommendation**, deli
 
 ## Agent Notes
 
-**Measurements on the live tenant, 2026-09-07** (record Task 1's numbers here too):
+**Task 1 measurements (2026-09-07, gate PASSED):**
+
+| Measurement                | Value                                                               | Consequence                                                             |
+| -------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `hls-video` own `src`      | `https://vz-12f1059a-6c7.b-cdn.net/…`                               | NOT a blob — the custom element is not the MSE holder                   |
+| **inner `<video>` `src`**  | **`blob:https://robbins.greator.com/…`**                            | **Gate passes.** hls.js attaches the MediaSource to the _inner_ element |
+| Visible control row        | **36px tall**, needs **47px** clearance from the host's bottom edge | Overlay offsets tuned to 58px (47 + 11px margin)                        |
+| Full-bleed container       | 258px in a 260px player                                             | Confirms: never measure the container for bar height                    |
+| First button in the bar    | `<svg data-icon="play">` (FontAwesome)                              | A semantic locator for Task 14, better than DOM order                   |
+| Bar `z-index` / `position` | `auto` / `absolute`                                                 | The quiz scrim at `z-index:20` covers it                                |
+
+**Refinement forced by the gate:** the Web Audio graph must be built on the **inner `<video>`**, not on `<hls-video>`. The custom element is not an `HTMLMediaElement` (measured: `isHTMLMediaElement: false`), so `createMediaElementSource()` could not accept it, and it is the inner element that holds the MSE blob which makes the media CORS-same-origin. Task 8 resolves the inner element and falls back to the outer one only for the capped-re-assertion path.
+
+**Refinement available for Task 14:** the host's play button is locatable as `button:has(svg[data-icon="play"])` / `[data-icon="pause"]` inside the controls container — FontAwesome's `data-icon` is far more durable than "first button in DOM order". Use it, keep the DOM-order note as the fallback.
+
+**Earlier measurements on the live tenant, 2026-09-07:**
 
 | Observation                                        | Value                                                                                                    |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -631,6 +646,24 @@ Chosen over `window.player.play()` **against the planning recommendation**, deli
 **The MSE detail that makes it work.** Per the HTML spec's media resource fetch algorithm, a `blob:` URL backed by a `MediaSource` is a _media provider object_, so mode is `local`, and such media data is **unconditionally CORS-same-origin** — regardless of Bunny's CORS headers, whose segment fetches hls.js performs itself and which this algorithm never sees. That is why `createMediaElementSource` on the hls.js-backed video will not be silenced by the Web Audio cross-origin rule. On a native-HLS fallback (Safari) the normal fetch algorithm applies and the node _would_ be silenced — harmless here, since silence is the goal, but it means the graph cannot be relied on for anything else on that path.
 
 **Approaches rejected.** Restyling our bar to match the host's: keeps every broken line and leaves mute close to unfixable, since holding it needs a re-assertion war per control. Injecting the language-pack control into the host's bar: looks native, but their buttons carry no `aria-label`, `data-testid` or `title` — only hashed MUI classes (`css-1gauxy4`) — so anything keyed on them rots at their next restyle.
+
+**Implementation outcome (2026-09-07).** Tasks 1-15 complete; Task 16 partial — see
+the report. Three findings changed the plan as written:
+
+1. **The gate passed on the inner element, not the outer one.** `<hls-video>`'s own
+   `src` is the CDN `.m3u8`; the inner `<video>` holds `blob:…`. The Web Audio graph
+   is therefore built on the inner element, which is also the only one
+   `createMediaElementSource()` would accept (the custom element is not an
+   `HTMLMediaElement`).
+2. **The host's mute sets `volume = 0`, never `muted`.** Measured: icon goes
+   `volume-high` → `volume-xmark`, both outer and inner `volume` 1 → 0, `muted`
+   stays false throughout. That is the real reason our old mute button lost — it
+   wrote a property their state machine normalises back — and it retroactively
+   validates choosing a gain node over `volume = 0`, which would have fought them
+   head-on.
+3. **Tasks 3-5 were executed as one pass.** Their symbols are mutually dependent;
+   removing the bar without the menus (or vice versa) leaves the file
+   untypecheckable, so there was no intermediate state worth committing.
 
 **Follow-up spike (not in scope here).** Inject the pack's VTTs as native `<track>` elements so the host's own CC control lists and renders them. That would collapse two subtitle UIs into one and delete `.vp-subtitle-layer`, `renderSubtitleCue` and `parseVtt` entirely. `next.config.ts` already sends `Access-Control-Allow-Origin: *` on `/runtime/:path*`, so the CORS side is plausible. Unknowns: setting `crossorigin` on the media element can force a media reload (risking HLS playback on a live tenant), and whether their React CC menu enumerates a `<track>` we add is untested.
 

@@ -1,11 +1,9 @@
 import { createBus } from "../common/bus";
 import { pushCleanup, resetCleanup } from "../common/cleanup";
-import { listToArray } from "../common/dom";
-import { esc } from "../common/escape";
 // Aliased to `tr`: `t` is this file's name for the current playback time.
 import { t as tr } from "../common/i18n/player";
 import { getTrustedOrigins } from "../common/origins";
-import { getBunnyVideoId, getHlsApi, trackLabel } from "../common/tracks";
+import { getBunnyVideoId, trackLabel } from "../common/tracks";
 import {
   type DiscoveryStrategy,
   findPlayers,
@@ -20,17 +18,17 @@ import type {
   ExternalAudioTrack,
   LanguagePack,
   MediaEl,
-  OverlaySlot,
   PlayerApi,
   PlayerEvent,
   TrackOption,
 } from "../common/types";
-import { RESKIN_CSS } from "./styles";
 import {
-  getLearningSuiteTranscriptTracks,
-  getTrackDiagnostics,
-  loadLanguagePackForMedia,
-} from "./language-pack";
+  createLanguagePackControl,
+  type LanguagePackControl,
+} from "./language-pack-control";
+import { createSilencer } from "./silence";
+import { RESKIN_CSS } from "./styles";
+import { getTrackDiagnostics, loadLanguagePackForMedia } from "./language-pack";
 
 const CLEANUP_KEY = "__vpReskinCleanup";
 
@@ -53,17 +51,6 @@ function ensureReskinStyle(): void {
   styleEl.id = styleId;
   styleEl.textContent = RESKIN_CSS;
   if (!styleEl.parentNode) document.head.appendChild(styleEl);
-}
-
-type AudioSource = "native" | "hls" | "rendition" | "external" | "none";
-type SubtitleSource = "external" | "hls" | "native" | "learningSuite" | "none";
-interface AudioMenuState {
-  source: AudioSource;
-  options: TrackOption[];
-}
-interface SubtitleMenuState {
-  source: SubtitleSource;
-  options: TrackOption[];
 }
 
 function main(): string {
@@ -124,8 +111,6 @@ function main(): string {
     }
   });
 
-  const overlays: OverlaySlot[] = [];
-  const activeOverlays = new Set<string>();
   let lastDiscovery: DiscoveryStrategy = "none";
   let reportedDiscovery: DiscoveryStrategy | null = null;
   function noteDiscovery(strategy: DiscoveryStrategy): void {
@@ -157,10 +142,6 @@ function main(): string {
       if (videoEl) videoEl.currentTime = t;
     },
     on: bus.on,
-    setOverlays: (next) => {
-      overlays.length = 0;
-      overlays.push(...next);
-    },
     _diag: () => ({
       runtime: {
         build: runtimeBuild,
@@ -173,7 +154,6 @@ function main(): string {
       duration: videoEl?.duration,
       paused: videoEl?.paused,
       readyState: videoEl?.readyState,
-      activeOverlays: [...activeOverlays],
       tracks: getTrackDiagnostics(videoEl),
     }),
   };
@@ -251,176 +231,43 @@ function main(): string {
 
     const shell = document.createElement("div");
     shell.className = "vp-shell";
+    // No control bar: LearningSuite's own chrome is no longer hidden and owns
+    // play/pause, seeking, time, volume, captions, speed and fullscreen. What
+    // remains are the two passive layers the host cannot provide — external
+    // (language-pack) subtitles and the external-audio drift badge.
     shell.innerHTML = `
-      <div class="vp-overlay-layer" data-vp-overlays></div>
       <div class="vp-subtitle-layer" data-vp-subtitles hidden></div>
       <div class="vp-sync-badge" data-vp-sync-drift hidden></div>
-      <div class="vp-controls">
-        <button data-vp="playpause" aria-label="${esc(tr("player.aria.playPause"))}">${esc(tr("player.label.play"))}</button>
-        <input  data-vp="seek" class="vp-seek" type="range" min="0" max="0" step="0.1" value="0" />
-        <span   data-vp="time" class="vp-time">0:00 / 0:00</span>
-        <div class="vp-menu-wrap" data-vp-track-menu="audio">
-          <button data-vp="audio" aria-label="${esc(tr("player.tracks.audio"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(tr("player.label.audio"))}</button>
-          <div data-vp-menu="audio" class="vp-menu" role="menu" hidden></div>
-        </div>
-        <div class="vp-menu-wrap" data-vp-track-menu="captions">
-          <button data-vp="captions" aria-label="${esc(tr("player.tracks.subtitles"))}" aria-haspopup="menu" aria-expanded="false" disabled>${esc(tr("player.label.captions"))}</button>
-          <div data-vp-menu="captions" class="vp-menu" role="menu" hidden></div>
-        </div>
-        <button data-vp="mute" aria-label="${esc(tr("player.aria.mute"))}">${esc(tr("player.label.sound"))}</button>
-        <button data-vp="fs" aria-label="${esc(tr("player.aria.fullscreen"))}">${esc(tr("player.label.fullscreen"))}</button>
-      </div>
     `;
     host.appendChild(shell);
     undo.push(() => shell.remove());
 
-    const q = <T extends HTMLElement>(sel: string): T =>
-      shell.querySelector(`[data-vp="${sel}"]`) as T;
-    const playPauseBtn = q<HTMLButtonElement>("playpause");
-    const seekInput = q<HTMLInputElement>("seek");
-    const timeLabel = q<HTMLSpanElement>("time");
-    const audioBtn = q<HTMLButtonElement>("audio");
-    const captionsBtn = q<HTMLButtonElement>("captions");
-    const muteBtn = q<HTMLButtonElement>("mute");
-    const fsBtn = q<HTMLButtonElement>("fs");
-
-    const overlayLayer = shell.querySelector(
-      "[data-vp-overlays]",
-    ) as HTMLElement;
     const subtitleLayer = shell.querySelector(
       "[data-vp-subtitles]",
     ) as HTMLElement;
     const syncDriftBadge = shell.querySelector(
       "[data-vp-sync-drift]",
     ) as HTMLElement;
-    const audioMenu = shell.querySelector(
-      '[data-vp-menu="audio"]',
-    ) as HTMLElement;
-    const captionsMenu = shell.querySelector(
-      '[data-vp-menu="captions"]',
-    ) as HTMLElement;
     // Precondition: bail (→ rollback) before wiring handlers if the shell
     // template didn't produce its required nodes (a future host/template break).
-    if (!playPauseBtn || !seekInput || !timeLabel || !overlayLayer)
+    if (!subtitleLayer || !syncDriftBadge)
       throw new Error("[vp] reskin shell is missing required nodes");
     const setActive = () => {
       videoEl = mediaEl;
     };
-    let learningSuiteSubtitleIndex = -1;
     let externalLanguagePack: LanguagePack | null = null;
     let externalAudioIndex = -1;
     let externalSubtitleIndex = -1;
     let renderedCueText = "";
     let externalAudioSyncTimer: ReturnType<typeof setInterval> | null = null;
-    let audibleMuted = !!mediaEl.muted;
     let disposed = false;
     const externalAudio = new Audio();
     externalAudio.preload = "metadata";
+    const silencer = createSilencer(mediaEl);
     shell.dataset.vpAudioSource = "native";
     shell.dataset.vpAudioTrack = "native";
     shell.dataset.vpSubtitleSource = "off";
     shell.dataset.vpSubtitleTrack = "off";
-
-    const fmt = (s: number): string => {
-      if (!isFinite(s)) return "0:00";
-      const n = Math.max(0, s | 0);
-      return `${(n / 60) | 0}:${String(n % 60).padStart(2, "0")}`;
-    };
-
-    function closeTrackMenus(): void {
-      audioMenu.hidden = true;
-      captionsMenu.hidden = true;
-      audioBtn.setAttribute("aria-expanded", "false");
-      captionsBtn.setAttribute("aria-expanded", "false");
-    }
-
-    function toggleTrackMenu(name: "audio" | "captions"): void {
-      const targetMenu = name === "audio" ? audioMenu : captionsMenu;
-      const targetButton = name === "audio" ? audioBtn : captionsBtn;
-      const willOpen = targetMenu.hidden;
-      closeTrackMenus();
-      if (willOpen && !targetButton.disabled) {
-        targetMenu.hidden = false;
-        targetButton.setAttribute("aria-expanded", "true");
-      }
-    }
-
-    function renderMenu(
-      menu: HTMLElement,
-      title: string,
-      options: TrackOption[],
-      onSelect: (value: number | string) => void,
-    ): void {
-      menu.replaceChildren();
-      const heading = document.createElement("div");
-      heading.className = "vp-menu-title";
-      heading.textContent = title;
-      menu.appendChild(heading);
-
-      for (const option of options) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "vp-menu-option";
-        btn.setAttribute("role", "menuitemradio");
-        btn.setAttribute("aria-checked", option.selected ? "true" : "false");
-        btn.dataset.value = String(option.value);
-
-        const label = document.createElement("span");
-        label.className = "vp-menu-label";
-        label.textContent = option.label;
-        btn.appendChild(label);
-
-        if (option.selected) {
-          const current = document.createElement("span");
-          current.className = "vp-menu-current";
-          current.textContent = tr("player.label.current");
-          btn.appendChild(current);
-        }
-
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          setActive();
-          onSelect(option.value);
-          closeTrackMenus();
-          updateTrackMenus();
-        };
-        menu.appendChild(btn);
-      }
-    }
-
-    function getNativeAudioOptions(): TrackOption[] | null {
-      const tracks = listToArray(mediaEl.audioTracks);
-      if (tracks.length <= 1) return null;
-      return tracks.map((track, index) => ({
-        value: index,
-        label: trackLabel(track, index, tr("player.track.audio")),
-        selected: !!track.enabled,
-      }));
-    }
-
-    function getHlsAudioOptions(): TrackOption[] | null {
-      const hls = getHlsApi(mediaEl);
-      const tracks = Array.isArray(hls?.audioTracks) ? hls.audioTracks : [];
-      if (tracks.length <= 1) return null;
-      const selectedIndex =
-        typeof hls?.audioTrack === "number" ? hls.audioTrack : -1;
-      return tracks.map((track, index) => ({
-        value: index,
-        label: trackLabel(track, index, tr("player.track.audio")),
-        selected:
-          selectedIndex === index || (selectedIndex < 0 && !!track.default),
-      }));
-    }
-
-    function getRenditionAudioOptions(): TrackOption[] | null {
-      const renditions = listToArray(mediaEl.audioRenditions);
-      if (renditions.length <= 1) return null;
-      return renditions.map((track, index) => ({
-        value: index,
-        label: trackLabel(track, index, tr("player.track.audio")),
-        selected: !!track.selected || !!track.enabled,
-      }));
-    }
 
     function getExternalAudioOptions(): TrackOption[] | null {
       const tracks = Array.isArray(externalLanguagePack?.audioTracks)
@@ -434,24 +281,6 @@ function main(): string {
           ? externalAudioIndex < 0
           : externalAudioIndex === index,
       }));
-    }
-
-    function getAudioMenuState(): AudioMenuState {
-      const nativeOptions = getNativeAudioOptions();
-      if (nativeOptions) return { source: "native", options: nativeOptions };
-
-      const hlsOptions = getHlsAudioOptions();
-      if (hlsOptions) return { source: "hls", options: hlsOptions };
-
-      const renditionOptions = getRenditionAudioOptions();
-      if (renditionOptions)
-        return { source: "rendition", options: renditionOptions };
-
-      const externalOptions = getExternalAudioOptions();
-      if (externalOptions)
-        return { source: "external", options: externalOptions };
-
-      return { source: "none", options: [] };
     }
 
     function getExternalAudioTrack(): ExternalAudioTrack | null | undefined {
@@ -517,10 +346,7 @@ function main(): string {
       externalAudio.removeAttribute("src");
       externalAudio.load();
       externalAudioIndex = -1;
-      mediaEl.muted = audibleMuted;
-      muteBtn.textContent = tr(
-        audibleMuted ? "player.label.muted" : "player.label.sound",
-      );
+      silencer.restore();
       shell.dataset.vpAudioSource = "native";
       shell.dataset.vpAudioTrack = "native";
       updateExternalAudioDriftBadge(0);
@@ -546,11 +372,14 @@ function main(): string {
       updateExternalAudioDriftBadge(force ? 0 : drift);
 
       externalAudio.playbackRate = mediaEl.playbackRate || 1;
-      externalAudio.muted = audibleMuted;
-      mediaEl.muted = true;
-      muteBtn.textContent = tr(
-        audibleMuted ? "player.label.muted" : "player.label.sound",
-      );
+      // The video is silenced in our own audio graph, never with `mediaEl.muted`
+      // — the host reverts that write within ~600ms (see silence.ts). The dub
+      // instead mirrors whatever the host's own mute/volume controls say.
+      silencer.silence();
+      externalAudio.muted = !!mediaEl.muted;
+      externalAudio.volume = Number.isFinite(mediaEl.volume)
+        ? mediaEl.volume
+        : 1;
 
       if (mediaEl.paused || mediaEl.ended) {
         externalAudio.pause();
@@ -589,113 +418,6 @@ function main(): string {
       syncExternalAudio(true);
     }
 
-    function setAudioTrack(source: AudioSource, value: number | string): void {
-      const index = Number(value);
-      if (!Number.isInteger(index)) return;
-
-      if (source !== "external" && externalAudioIndex >= 0) stopExternalAudio();
-
-      if (source === "external") {
-        setExternalAudioTrack(value);
-        return;
-      }
-      if (source === "native") {
-        listToArray(mediaEl.audioTracks).forEach((track, i) => {
-          track.enabled = i === index;
-        });
-        return;
-      }
-      if (source === "hls") {
-        const hls = getHlsApi(mediaEl);
-        if (hls) hls.audioTrack = index;
-        return;
-      }
-      if (source === "rendition") {
-        const rendition = listToArray(mediaEl.audioRenditions)[index];
-        try {
-          if (rendition) rendition.selected = true;
-        } catch {
-          /* ignore */
-        }
-        const hls = getHlsApi(mediaEl);
-        if (hls && Array.isArray(hls.audioTracks) && hls.audioTracks[index])
-          hls.audioTrack = index;
-      }
-    }
-
-    function getNativeSubtitleOptions(): TrackOption[] | null {
-      const tracks = listToArray(mediaEl.textTracks).filter(
-        (track) =>
-          track.kind === "subtitles" ||
-          track.kind === "captions" ||
-          track.kind === "descriptions",
-      );
-      if (!tracks.length) return null;
-      const options: TrackOption[] = [
-        {
-          value: "off",
-          label: tr("player.label.off"),
-          selected: !tracks.some((track) => track.mode === "showing"),
-        },
-      ];
-      tracks.forEach((track, index) => {
-        options.push({
-          value: index,
-          label: trackLabel(track, index, tr("player.track.subtitle")),
-          selected: track.mode === "showing",
-        });
-      });
-      return options;
-    }
-
-    function getHlsSubtitleOptions(): TrackOption[] | null {
-      const hls = getHlsApi(mediaEl);
-      const tracks = Array.isArray(hls?.subtitleTracks)
-        ? hls.subtitleTracks
-        : [];
-      if (!tracks.length) return null;
-      const selectedIndex =
-        typeof hls?.subtitleTrack === "number" ? hls.subtitleTrack : -1;
-      const display = hls?.subtitleDisplay !== false;
-      const options: TrackOption[] = [
-        {
-          value: "off",
-          label: tr("player.label.off"),
-          selected: selectedIndex < 0 || !display,
-        },
-      ];
-      tracks.forEach((track, index) => {
-        options.push({
-          value: index,
-          label: trackLabel(track, index, tr("player.track.subtitle")),
-          selected: display && selectedIndex === index,
-        });
-      });
-      return options;
-    }
-
-    function getLearningSuiteSubtitleOptions(): TrackOption[] | null {
-      const tracks = getLearningSuiteTranscriptTracks(mediaEl);
-      if (!tracks.length) return null;
-      if (learningSuiteSubtitleIndex >= tracks.length)
-        learningSuiteSubtitleIndex = -1;
-      const options: TrackOption[] = [
-        {
-          value: "off",
-          label: tr("player.label.off"),
-          selected: learningSuiteSubtitleIndex < 0,
-        },
-      ];
-      tracks.forEach((track, index) => {
-        options.push({
-          value: index,
-          label: trackLabel(track, index, tr("player.track.subtitle")),
-          selected: learningSuiteSubtitleIndex === index,
-        });
-      });
-      return options;
-    }
-
     function getExternalSubtitleOptions(): TrackOption[] | null {
       const tracks = Array.isArray(externalLanguagePack?.subtitleTracks)
         ? externalLanguagePack.subtitleTracks
@@ -717,24 +439,6 @@ function main(): string {
         });
       });
       return options;
-    }
-
-    function getSubtitleMenuState(): SubtitleMenuState {
-      const externalOptions = getExternalSubtitleOptions();
-      if (externalOptions)
-        return { source: "external", options: externalOptions };
-
-      const hlsOptions = getHlsSubtitleOptions();
-      if (hlsOptions) return { source: "hls", options: hlsOptions };
-
-      const nativeOptions = getNativeSubtitleOptions();
-      if (nativeOptions) return { source: "native", options: nativeOptions };
-
-      const learningSuiteOptions = getLearningSuiteSubtitleOptions();
-      if (learningSuiteOptions)
-        return { source: "learningSuite", options: learningSuiteOptions };
-
-      return { source: "none", options: [] };
     }
 
     function renderSubtitleCue(
@@ -763,209 +467,50 @@ function main(): string {
       subtitleLayer.hidden = false;
     }
 
+    // Only the language pack's own cues render here. LearningSuite renders its
+    // own subtitles through its own CC control, which this runtime no longer
+    // hides — the two are independent sources and either can be switched off.
     function renderActiveSubtitle(time: number): void {
-      if (externalSubtitleIndex >= 0) {
-        renderSubtitleCue(
-          externalLanguagePack?.subtitleTracks?.[externalSubtitleIndex],
-          time,
-        );
-        return;
-      }
-      const track =
-        learningSuiteSubtitleIndex >= 0
-          ? getLearningSuiteTranscriptTracks(mediaEl)[
-              learningSuiteSubtitleIndex
-            ]
-          : null;
-      renderSubtitleCue(track, time);
+      renderSubtitleCue(
+        externalSubtitleIndex >= 0
+          ? externalLanguagePack?.subtitleTracks?.[externalSubtitleIndex]
+          : null,
+        time,
+      );
     }
 
-    function setSubtitleTrack(
-      source: SubtitleSource,
-      value: number | string,
-    ): void {
-      const nativeTracks = listToArray(mediaEl.textTracks).filter(
-        (track) =>
-          track.kind === "subtitles" ||
-          track.kind === "captions" ||
-          track.kind === "descriptions",
-      );
-      nativeTracks.forEach((track) => {
-        track.mode = "disabled";
-      });
-
+    function setExternalSubtitleTrack(value: number | string): void {
       if (value === "off") {
-        const hls = getHlsApi(mediaEl);
-        if (hls) {
-          try {
-            hls.subtitleTrack = -1;
-          } catch {
-            /* ignore */
-          }
-          try {
-            hls.subtitleDisplay = false;
-          } catch {
-            /* ignore */
-          }
-        }
-        learningSuiteSubtitleIndex = -1;
         externalSubtitleIndex = -1;
         shell.dataset.vpSubtitleSource = "off";
         shell.dataset.vpSubtitleTrack = "off";
         renderActiveSubtitle(mediaEl.currentTime || 0);
         return;
       }
-
       const index = Number(value);
       if (!Number.isInteger(index)) return;
-
-      learningSuiteSubtitleIndex = -1;
-      externalSubtitleIndex = -1;
-
-      if (source === "hls") {
-        const hls = getHlsApi(mediaEl);
-        if (hls) {
-          try {
-            hls.subtitleDisplay = true;
-          } catch {
-            /* ignore */
-          }
-          hls.subtitleTrack = index;
-        }
-        return;
-      }
-
-      if (source === "external") {
-        const hls = getHlsApi(mediaEl);
-        if (hls) {
-          try {
-            hls.subtitleTrack = -1;
-          } catch {
-            /* ignore */
-          }
-          try {
-            hls.subtitleDisplay = false;
-          } catch {
-            /* ignore */
-          }
-        }
-        externalSubtitleIndex = index;
-        shell.dataset.vpSubtitleSource = "external";
-        shell.dataset.vpSubtitleTrack =
-          externalLanguagePack?.subtitleTracks?.[index]?.id || String(index);
-        renderActiveSubtitle(mediaEl.currentTime || 0);
-        return;
-      }
-
-      if (source === "learningSuite") {
-        const hls = getHlsApi(mediaEl);
-        if (hls) {
-          try {
-            hls.subtitleTrack = -1;
-          } catch {
-            /* ignore */
-          }
-          try {
-            hls.subtitleDisplay = false;
-          } catch {
-            /* ignore */
-          }
-        }
-        learningSuiteSubtitleIndex = index;
-        shell.dataset.vpSubtitleSource = "learningSuite";
-        shell.dataset.vpSubtitleTrack =
-          getLearningSuiteTranscriptTracks(mediaEl)[index]?.language ||
-          String(index);
-        renderActiveSubtitle(mediaEl.currentTime || 0);
-        return;
-      }
-
-      const track = nativeTracks[index];
-      if (track) track.mode = "showing";
-      shell.dataset.vpSubtitleSource = "native";
+      externalSubtitleIndex = index;
+      shell.dataset.vpSubtitleSource = "external";
       shell.dataset.vpSubtitleTrack =
-        track?.language || track?.label || String(index);
+        externalLanguagePack?.subtitleTracks?.[index]?.id || String(index);
       renderActiveSubtitle(mediaEl.currentTime || 0);
     }
 
-    function updateTrackMenus(): void {
-      bindHlsTrackEvents();
-
-      const audioState = getAudioMenuState();
-      audioBtn.disabled = audioState.options.length <= 1;
-      audioBtn.title = audioBtn.disabled
-        ? tr("player.title.noAudio")
-        : tr("player.title.audio", {
-            track: (
-              audioState.options.find((o) => o.selected) ||
-              audioState.options[0]
-            ).label,
-          });
-      renderMenu(
-        audioMenu,
-        tr("player.tracks.audio"),
-        audioState.options,
-        (value) => setAudioTrack(audioState.source, value),
-      );
-      if (audioBtn.disabled) audioMenu.hidden = true;
-
-      const subtitleState = getSubtitleMenuState();
-      captionsBtn.disabled = subtitleState.options.length <= 1;
-      captionsBtn.title = captionsBtn.disabled
-        ? tr("player.title.noSubtitles")
-        : tr("player.title.subtitles", {
-            track: (
-              subtitleState.options.find((o) => o.selected) ||
-              subtitleState.options[0]
-            ).label,
-          });
-      renderMenu(
-        captionsMenu,
-        tr("player.tracks.subtitles"),
-        subtitleState.options,
-        (value) => setSubtitleTrack(subtitleState.source, value),
-      );
-      if (captionsBtn.disabled) captionsMenu.hidden = true;
-    }
-
-    let boundHlsApi: ReturnType<typeof getHlsApi> = null;
-    let unbindHlsTrackEvents: (() => void) | null = null;
-    function bindHlsTrackEvents(): void {
-      const hls = getHlsApi(mediaEl);
-      if (hls === boundHlsApi) return;
-      if (unbindHlsTrackEvents) unbindHlsTrackEvents();
-      boundHlsApi = hls;
-      unbindHlsTrackEvents = null;
-      const events = (
-        window as unknown as { Hls?: { Events?: Record<string, string> } }
-      ).Hls?.Events;
-      if (!hls?.on || !hls?.off || !events) return;
-      const eventNames = [
-        events.AUDIO_TRACKS_UPDATED,
-        events.AUDIO_TRACK_SWITCHED,
-        events.SUBTITLE_TRACKS_UPDATED,
-        events.SUBTITLE_TRACK_SWITCH,
-        events.NON_NATIVE_TEXT_TRACKS_FOUND,
-      ].filter(Boolean);
-      eventNames.forEach((eventName) => hls.on?.(eventName, updateTrackMenus));
-      unbindHlsTrackEvents = () =>
-        eventNames.forEach((eventName) => {
-          try {
-            hls.off?.(eventName, updateTrackMenus);
-          } catch {
-            /* ignore */
-          }
-        });
-    }
-
-    function addListListener(
-      list: EventTarget | null | undefined,
-      event: string,
-      handler: () => void,
-    ): () => void {
-      if (!list) return () => {};
-      list.addEventListener(event, handler);
-      return () => list.removeEventListener(event, handler);
+    // Created only once a pack actually resolves for this video, so a lesson
+    // without one gets no controls of ours at all. The pack resolves AFTER
+    // attachInner has returned, so `disposed` is the guard against a teardown
+    // that already ran leaving an orphan node behind.
+    let langpackControl: LanguagePackControl | null = null;
+    function mountLanguagePackControl(): void {
+      if (disposed || langpackControl) return;
+      langpackControl = createLanguagePackControl({
+        playerHost: host as HTMLElement,
+        audioOptions: getExternalAudioOptions,
+        subtitleOptions: getExternalSubtitleOptions,
+        onSelectAudio: setExternalAudioTrack,
+        onSelectSubtitle: setExternalSubtitleTrack,
+        onCleanup: (fn) => pushCleanup(CLEANUP_KEY, fn),
+      });
     }
 
     loadLanguagePackForMedia(mediaEl).then((pack) => {
@@ -974,85 +519,21 @@ function main(): string {
       shell.dataset.vpLanguagePack =
         pack.videoId ||
         getBunnyVideoId(mediaEl?.src || mediaEl?.getAttribute?.("src"));
-      updateTrackMenus();
+      mountLanguagePackControl();
       renderActiveSubtitle(mediaEl.currentTime || 0);
     });
 
-    playPauseBtn.onclick = () => {
-      setActive();
-      if (mediaEl.paused) mediaEl.play();
-      else mediaEl.pause();
-    };
-    seekInput.oninput = (e) => {
-      setActive();
-      mediaEl.currentTime = +(e.target as HTMLInputElement).value;
-      syncExternalAudio(true);
-    };
-    audioBtn.onclick = (e) => {
-      e.stopPropagation();
-      setActive();
-      toggleTrackMenu("audio");
-    };
-    captionsBtn.onclick = (e) => {
-      e.stopPropagation();
-      setActive();
-      toggleTrackMenu("captions");
-    };
-    muteBtn.onclick = () => {
-      setActive();
-      audibleMuted = !audibleMuted;
-      if (externalAudioIndex >= 0) {
-        mediaEl.muted = true;
-        externalAudio.muted = audibleMuted;
-      } else {
-        mediaEl.muted = audibleMuted;
-      }
-      muteBtn.textContent = tr(
-        audibleMuted ? "player.label.muted" : "player.label.sound",
-      );
-    };
-    fsBtn.onclick = () => {
-      setActive();
-      if (!document.fullscreenElement) host.requestFullscreen?.();
-      else document.exitFullscreen?.();
-    };
-
-    const onMeta = () => {
-      seekInput.max = String(mediaEl.duration || 0);
-      updateTrackMenus();
-    };
     const onTime = () => {
-      seekInput.value = String(mediaEl.currentTime);
-      timeLabel.textContent = `${fmt(mediaEl.currentTime)} / ${fmt(mediaEl.duration)}`;
       const t = mediaEl.currentTime;
       renderActiveSubtitle(t);
-      for (const o of overlays) {
-        const should = t >= o.from && t < o.to;
-        const isActive = activeOverlays.has(o.id);
-        if (should && !isActive) {
-          activeOverlays.add(o.id);
-          const wrap = document.createElement("div");
-          wrap.dataset.vpOverlay = o.id;
-          wrap.innerHTML =
-            o.render?.({ time: t, duration: mediaEl.duration }) ?? "";
-          overlayLayer.appendChild(wrap);
-          bus.emit("any", { type: "overlay-show", id: o.id, time: t });
-        } else if (!should && isActive) {
-          activeOverlays.delete(o.id);
-          overlayLayer.querySelector(`[data-vp-overlay="${o.id}"]`)?.remove();
-          bus.emit("any", { type: "overlay-hide", id: o.id, time: t });
-        }
-      }
       bus.emit("any", { type: "time", time: t, duration: mediaEl.duration });
     };
     const onPlay = () => {
       setActive();
-      playPauseBtn.textContent = tr("player.label.pause");
       syncExternalAudio();
       bus.emit("any", { type: "play", time: mediaEl.currentTime });
     };
     const onPause = () => {
-      playPauseBtn.textContent = tr("player.label.play");
       externalAudio.pause();
       clearExternalAudioSyncTimer();
       bus.emit("any", { type: "pause", time: mediaEl.currentTime });
@@ -1069,38 +550,20 @@ function main(): string {
     const onRateChange = () => syncExternalAudio();
     const onWaiting = () => updateExternalAudioDrift();
     const onPlaying = () => syncExternalAudio();
+    // The host owns mute and volume now. Mirror whatever it decides onto the
+    // dub, so its own controls drive the track the learner is actually hearing.
+    // The video itself is silenced by the gain node, not by `muted` — see
+    // silence.ts for why writing `mediaEl.muted` here would be pointless.
     const onVolumeChange = () => {
-      if (externalAudioIndex >= 0) {
-        externalAudio.muted = audibleMuted;
-        mediaEl.muted = true;
-        return;
-      }
-      audibleMuted = !!mediaEl.muted;
-      muteBtn.textContent = tr(
-        audibleMuted ? "player.label.muted" : "player.label.sound",
-      );
+      if (externalAudioIndex < 0) return;
+      externalAudio.muted = !!mediaEl.muted;
+      externalAudio.volume = Number.isFinite(mediaEl.volume)
+        ? mediaEl.volume
+        : 1;
     };
-    const onDocumentClick = (e: MouseEvent) => {
-      if (!shell.contains(e.target as Node)) closeTrackMenus();
-    };
-    const onDocumentKeydown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeTrackMenus();
-    };
-
-    const cleanups = [
-      addListListener(mediaEl.audioTracks, "addtrack", updateTrackMenus),
-      addListListener(mediaEl.audioTracks, "removetrack", updateTrackMenus),
-      addListListener(mediaEl.audioTracks, "change", updateTrackMenus),
-      addListListener(mediaEl.textTracks, "addtrack", updateTrackMenus),
-      addListListener(mediaEl.textTracks, "removetrack", updateTrackMenus),
-      addListListener(mediaEl.textTracks, "change", updateTrackMenus),
-    ];
 
     shell.addEventListener("pointerdown", setActive);
     shell.addEventListener("focusin", setActive);
-    mediaEl.addEventListener("loadedmetadata", onMeta);
-    mediaEl.addEventListener("loadeddata", updateTrackMenus);
-    mediaEl.addEventListener("durationchange", onMeta);
     mediaEl.addEventListener("timeupdate", onTime);
     mediaEl.addEventListener("play", onPlay);
     mediaEl.addEventListener("pause", onPause);
@@ -1111,27 +574,17 @@ function main(): string {
     mediaEl.addEventListener("waiting", onWaiting);
     mediaEl.addEventListener("playing", onPlaying);
     mediaEl.addEventListener("volumechange", onVolumeChange);
-    document.addEventListener("click", onDocumentClick);
-    document.addEventListener("keydown", onDocumentKeydown);
     const teardown = () => {
       disposed = true;
-      if (unbindHlsTrackEvents) unbindHlsTrackEvents();
+      langpackControl?.destroy();
+      langpackControl = null;
+      silencer.dispose();
       clearExternalAudioSyncTimer();
       externalAudio.pause();
       externalAudio.removeAttribute("src");
       externalAudio.load();
-      cleanups.forEach((fn) => {
-        try {
-          fn();
-        } catch {
-          /* ignore */
-        }
-      });
       shell.removeEventListener("pointerdown", setActive);
       shell.removeEventListener("focusin", setActive);
-      mediaEl.removeEventListener("loadedmetadata", onMeta);
-      mediaEl.removeEventListener("loadeddata", updateTrackMenus);
-      mediaEl.removeEventListener("durationchange", onMeta);
       mediaEl.removeEventListener("timeupdate", onTime);
       mediaEl.removeEventListener("play", onPlay);
       mediaEl.removeEventListener("pause", onPause);
@@ -1142,8 +595,6 @@ function main(): string {
       mediaEl.removeEventListener("waiting", onWaiting);
       mediaEl.removeEventListener("playing", onPlaying);
       mediaEl.removeEventListener("volumechange", onVolumeChange);
-      document.removeEventListener("click", onDocumentClick);
-      document.removeEventListener("keydown", onDocumentKeydown);
       shell.remove();
       delete (host as HTMLElement).dataset.vpReskinned;
       delete hlsEl.__vpAttached;
@@ -1161,22 +612,22 @@ function main(): string {
       ro.observe(mediaEl);
       pushCleanup(CLEANUP_KEY, () => ro.disconnect());
     }
-    updateTrackMenus();
-    if (!Number.isNaN(mediaEl.duration)) onMeta();
 
-    // Post-attach self-verification: if the overlay layer collapsed to a zero
-    // box over a *visible* player (a host change removed the positioning
-    // context), the reskin mounted but is broken — tear down so native controls
-    // return. An off-screen player (both boxes zero) is left for a later scan.
+    // Post-attach self-verification: if OUR SHELL collapsed to a zero box over a
+    // *visible* player (a host change removed the positioning context), the
+    // mount is broken — tear down. Previously this measured `.vp-overlay-layer`,
+    // which no longer exists; the shell is the equivalent anchor and is what the
+    // subtitle layer and drift badge are positioned against.
+    // An off-screen player (both boxes zero) is left for a later scan.
     if (typeof requestAnimationFrame !== "undefined") {
       requestAnimationFrame(() => {
         if (disposed) return;
         const mediaBox = mediaEl.getBoundingClientRect();
         if (mediaBox.width <= 0 || mediaBox.height <= 0) return;
-        const layerBox = overlayLayer.getBoundingClientRect();
+        const layerBox = shell.getBoundingClientRect();
         if (layerBox.width > 0 && layerBox.height > 0) return;
         console.error(
-          "[vp] reskin overlay layer has a zero box over a visible player; rolling back",
+          "[vp] reskin shell has a zero box over a visible player; rolling back",
         );
         teardown();
         reportFailure(

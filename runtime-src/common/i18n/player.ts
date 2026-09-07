@@ -9,30 +9,18 @@ import { createT, type Locale } from "./core";
 
 const EN = {
   // Control aria-labels — the accessibility surface
-  "player.aria.playPause": "Play/Pause",
-  "player.aria.mute": "Mute",
-  "player.aria.fullscreen": "Fullscreen",
   // Track menus: used for both the button's aria-label and the menu heading
   "player.tracks.audio": "Audio tracks",
   "player.tracks.subtitles": "Subtitles",
+  "player.langpack.button": "Language",
+  "player.langpack.aria": "Audio and subtitle language",
   // Visible control labels
-  "player.label.play": "Play",
-  "player.label.pause": "Pause",
-  "player.label.audio": "Audio",
-  "player.label.captions": "CC",
-  "player.label.sound": "Sound",
-  "player.label.muted": "Muted",
-  "player.label.fullscreen": "Full",
   "player.label.current": "Current",
   "player.label.off": "Off",
   // Fallback names for unlabelled tracks
   "player.track.audio": "Audio",
   "player.track.subtitle": "Subtitle",
   // Track-button tooltips
-  "player.title.audio": "Audio: {track}",
-  "player.title.noAudio": "No alternate audio tracks available",
-  "player.title.subtitles": "Subtitles: {track}",
-  "player.title.noSubtitles": "No subtitles available",
   // External-audio drift badge
   "player.drift.badge": "Audio {offset}s",
   "player.drift.ahead": "External audio is ahead of the video timeline",
@@ -43,26 +31,14 @@ export type PlayerKey = keyof typeof EN;
 
 // Annotated, not inferred: omitting a key here is a compile error.
 const DE: Record<PlayerKey, string> = {
-  "player.aria.playPause": "Wiedergabe/Pause",
-  "player.aria.mute": "Stumm schalten",
-  "player.aria.fullscreen": "Vollbild",
   "player.tracks.audio": "Tonspuren",
   "player.tracks.subtitles": "Untertitel",
-  "player.label.play": "Start",
-  "player.label.pause": "Pause",
-  "player.label.audio": "Audio",
-  "player.label.captions": "CC",
-  "player.label.sound": "Ton",
-  "player.label.muted": "Stumm",
-  "player.label.fullscreen": "Voll",
+  "player.langpack.button": "Sprache",
+  "player.langpack.aria": "Ton- und Untertitelsprache",
   "player.label.current": "Aktuell",
   "player.label.off": "Aus",
   "player.track.audio": "Tonspur",
   "player.track.subtitle": "Untertitel",
-  "player.title.audio": "Tonspur: {track}",
-  "player.title.noAudio": "Keine alternativen Tonspuren verfügbar",
-  "player.title.subtitles": "Untertitel: {track}",
-  "player.title.noSubtitles": "Keine Untertitel verfügbar",
   "player.drift.badge": "Audio {offset}s",
   "player.drift.ahead": "Externes Audio läuft dem Video voraus",
   "player.drift.behind": "Externes Audio läuft dem Video nach",

@@ -231,9 +231,6 @@ describe("t", () => {
     expect(demo.t("demo.section.progress", { done: 2, total: 5 })).toBe(
       "2 of 5 completed",
     );
-    expect(player.t("player.title.audio", { track: "Deutsch" })).toBe(
-      "Audio: Deutsch",
-    );
     expect(player.t("player.drift.badge", { offset: "+1.4" })).toBe(
       "Audio +1.4s",
     );

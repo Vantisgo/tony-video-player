@@ -600,34 +600,16 @@ export function createQuizController(deps: QuizControllerDeps): QuizController {
     }
   }
 
-  const inControls = (e: Event): boolean => {
-    const target = e.target;
-    return target instanceof Element && !!target.closest(".vp-controls");
-  };
-
-  function onGlobalClick(e: MouseEvent): void {
-    if (!isActive() || !inControls(e)) return;
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  // Range inputs (seek / volume) commit on pointer drag before any click fires,
-  // so the click guard alone is too late for them.
-  function onGlobalPointerDown(e: Event): void {
-    if (!isActive() || !inControls(e)) return;
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
+  // The click/pointerdown guards that used to sit here swallowed interactions
+  // with our own `.vp-controls` bar while a quiz was open. That bar is gone, and
+  // the guards are not re-pointed at LearningSuite's markup: measured on the
+  // tenant, `.vp-quiz-scrim` (position:absolute; inset:0; pointer-events:auto,
+  // inside #vp-slot-quiz at z-index:20) already wins elementFromPoint over the
+  // host's control container, whose computed z-index is `auto`. The keyboard
+  // guard stays — it guards shortcuts, not the bar.
   document.addEventListener("keydown", onGlobalKeydown, true);
-  document.addEventListener("click", onGlobalClick, true);
-  document.addEventListener("pointerdown", onGlobalPointerDown, true);
   onCleanup(() =>
     document.removeEventListener("keydown", onGlobalKeydown, true),
-  );
-  onCleanup(() => document.removeEventListener("click", onGlobalClick, true));
-  onCleanup(() =>
-    document.removeEventListener("pointerdown", onGlobalPointerDown, true),
   );
 
   // ─── State machine ───

@@ -26,7 +26,6 @@ function installPlayerStub(): void {
       busHandlers.push(fn);
       return () => {};
     },
-    setOverlays() {},
   };
   (window as unknown as { player: PlayerApi }).player = stub;
 }
@@ -321,100 +320,91 @@ describe("demo-overlays on a German page", () => {
 });
 
 // ─── reskin-player: the accessibility surface ───
+//
+// The reskin's own control bar was deleted on 2026-09-07: LearningSuite's chrome
+// owns play/pause, seeking, volume, captions, speed and fullscreen again, and
+// those labels are the platform's, not ours. The only player-surface copy this
+// runtime still renders is the language-pack control, so that is what this
+// asserts. The old esc()-into-a-quoted-attribute test went with the bar — the
+// control builds its DOM with textContent/setAttribute, where breaking out of an
+// attribute is not expressible.
 
-interface StubMedia {
-  play(): void;
-  pause(): void;
-  currentTime: number;
-  duration: number;
-  paused: boolean;
-  muted: boolean;
-  playbackRate: number;
-  ended: boolean;
-}
-
-// Mounts reskin-player under a locale and returns its control shell.
-async function mountReskin(lang: string): Promise<HTMLElement> {
+async function mountLangpackControl(lang: string): Promise<HTMLElement> {
   document.documentElement.lang = lang;
   setBrowserLanguages(NO_BROWSER_PREFERENCE);
-
-  const cfg = document.createElement("pre");
-  cfg.setAttribute("data-vp-config", "");
-  cfg.textContent = "{}";
-  document.body.appendChild(cfg);
-
   const host = document.createElement("div");
-  const video = document.createElement("hls-video");
-  video.setAttribute(
-    "src",
-    "https://vz.example.com/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/playlist.m3u8",
-  );
-  const v = video as unknown as StubMedia;
-  v.play = () => {};
-  v.pause = () => {};
-  v.currentTime = 0;
-  v.duration = 100;
-  v.paused = true;
-  v.muted = false;
-  v.playbackRate = 1;
-  v.ended = false;
-  host.appendChild(video);
   document.body.appendChild(host);
 
-  await import("../../reskin-player/index");
-  await Promise.resolve();
-  const shell = document.querySelector(".vp-controls");
-  expect(shell, "reskin control shell did not mount").not.toBeNull();
-  return shell as HTMLElement;
+  const { createLanguagePackControl } =
+    await import("../../reskin-player/language-pack-control");
+  const control = createLanguagePackControl({
+    playerHost: host,
+    audioOptions: () => [
+      { value: 0, label: "Deutsch", selected: true },
+      { value: 1, label: "English", selected: false },
+    ],
+    subtitleOptions: () => [{ value: "off", label: "Aus", selected: true }],
+    onSelectAudio: () => {},
+    onSelectSubtitle: () => {},
+    onCleanup: () => {},
+  });
+  expect(control, "language-pack control did not mount").not.toBeNull();
+  return host.querySelector(".vp-langpack") as HTMLElement;
 }
 
-const ariaLabels = (shell: HTMLElement): string[] =>
-  [...shell.querySelectorAll("[aria-label]")].map(
-    (el) => el.getAttribute("aria-label") ?? "",
-  );
+const langpackButton = (root: HTMLElement): HTMLButtonElement =>
+  root.querySelector(".vp-langpack-btn") as HTMLButtonElement;
 
-describe("reskin-player control labels", () => {
-  it("announces German aria-labels on a German page", async () => {
-    const shell = await mountReskin("de");
-    const labels = ariaLabels(shell);
+describe("language-pack control labels", () => {
+  it("announces German labels on a German page", async () => {
+    const root = await mountLangpackControl("de");
+    const button = langpackButton(root);
 
-    expect(labels).toContain("Wiedergabe/Pause");
-    expect(labels).toContain("Tonspuren");
-    expect(labels).toContain("Untertitel");
-    expect(labels).toContain("Stumm schalten");
-    expect(labels).toContain("Vollbild");
+    expect(button.textContent).toBe("Sprache");
+    expect(button.getAttribute("aria-label")).toBe(
+      "Ton- und Untertitelsprache",
+    );
 
-    // Visible labels follow, kept short so the seek slider keeps its room.
-    expect(shell.textContent).toContain("Start");
-    expect(shell.textContent).toContain("Ton");
-    expect(shell.textContent).toContain("Voll");
-
-    // No English label survived.
-    for (const english of ["Play/Pause", "Audio tracks", "Subtitles", "Mute"]) {
-      expect(labels, `English aria-label "${english}" leaked`).not.toContain(
-        english,
-      );
-    }
+    button.click();
+    expect(root.textContent).toContain("Tonspuren");
+    expect(root.textContent).toContain("Untertitel");
+    expect(root.textContent).not.toContain("Audio tracks");
   });
 
-  it("keeps English aria-labels on an English page", async () => {
-    const shell = await mountReskin("en");
-    const labels = ariaLabels(shell);
+  it("keeps English labels on an English page", async () => {
+    const root = await mountLangpackControl("en");
+    const button = langpackButton(root);
 
-    expect(labels).toContain("Play/Pause");
-    expect(labels).toContain("Audio tracks");
-    expect(labels).toContain("Subtitles");
-    expect(labels).toContain("Mute");
-    expect(labels).toContain("Fullscreen");
-    expect(shell.textContent).toContain("Sound");
+    expect(button.textContent).toBe("Language");
+    expect(button.getAttribute("aria-label")).toBe(
+      "Audio and subtitle language",
+    );
+
+    button.click();
+    expect(root.textContent).toContain("Audio tracks");
+    expect(root.textContent).toContain("Subtitles");
   });
 
-  it("escapes the aria-label into its attribute rather than breaking out of it", async () => {
-    // The labels are interpolated into a quoted attribute in a template
-    // literal, so esc() must cover `"`. A regression here would silently drop
-    // or split the attribute — assert the count survives, not just the values.
-    const shell = await mountReskin("de");
-    expect(ariaLabels(shell)).toHaveLength(5);
-    expect(shell.querySelectorAll("button")).toHaveLength(5);
+  it("renders a hostile track label as text, never as markup", async () => {
+    document.documentElement.lang = "en";
+    setBrowserLanguages(NO_BROWSER_PREFERENCE);
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const { createLanguagePackControl } =
+      await import("../../reskin-player/language-pack-control");
+    createLanguagePackControl({
+      playerHost: host,
+      audioOptions: () => [
+        { value: 0, label: '<img src=x onerror="alert(1)">', selected: true },
+      ],
+      subtitleOptions: () => null,
+      onSelectAudio: () => {},
+      onSelectSubtitle: () => {},
+      onCleanup: () => {},
+    });
+    const root = host.querySelector(".vp-langpack") as HTMLElement;
+    langpackButton(root).click();
+    expect(root.querySelector("img")).toBeNull();
+    expect(root.textContent).toContain('<img src=x onerror="alert(1)">');
   });
 });

@@ -17,7 +17,6 @@ function installPlayerStub(): void {
     pause() {},
     seek() {},
     on: () => () => {},
-    setOverlays() {},
   };
   (window as unknown as { player?: PlayerApi }).player = stub;
 }

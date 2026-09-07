@@ -21,7 +21,6 @@ function installPlayerStub(): void {
       busHandlers.push(fn);
       return () => {};
     },
-    setOverlays() {},
   };
   (window as unknown as { player: PlayerApi }).player = stub;
 }

@@ -7,7 +7,7 @@
 // any other hook added for tests — if an assertion ever seems to need one, the
 // more likely reading is that it is reaching past what the runtime promises.
 import { expect } from "@playwright/test";
-import type { Locator, Page, TestInfo } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import { describeDiag, diagSchema, type Diag } from "./diag";
 
 // --- the runtime's published surface ---------------------------------------
@@ -22,22 +22,110 @@ const DEMO_KILLED = "demo: disabled by kill-switch";
 
 const HOST = '[data-vp-reskinned="true"]';
 
-// Mirrors runtime-src/reskin-player/styles.ts:4-10. Kept as a list rather than
-// as prose so a CSS change and this list diverge visibly.
-const NATIVE_CHROME_IN_PLAYER: readonly string[] = [
-  "media-controls",
-  "media-poster",
-  "media-play-button",
-  "media-gesture",
-  "media-time-display",
-  "media-volume-slider",
-  "media-time-slider",
-  "media-fullscreen-button",
-  "media-captions-button",
-  "media-menu",
-  '[slot="ui"]',
-  '[slot="layer"]',
-];
+// LearningSuite's own control bar: a MUI box that is a direct child of the host.
+const HOST_BAR = '[class*="PlayerControlsAbsoluteContainer"]';
+
+// Their buttons. A DELIBERATE dependency on third-party markup, taken so the
+// canary keeps proving a REAL user gesture reaches the player rather than
+// driving window.player.play(). They carry no aria-label, data-testid or title
+// — only hashed MUI classes — so these key on FontAwesome's `data-icon`, which
+// is the most durable hook available. Measured 2026-09-07, in order:
+// play · volume-high · "1x" · subtitles · sliders · fullscreen.
+// Their controls, addressed by FontAwesome's `data-icon`. Measured 2026-09-07:
+// play · volume-high · "1x" · subtitles · sliders · fullscreen.
+const HOST_BAR_BUTTONS = "svg[data-icon]";
+const HOST_VOLUME_BUTTON = 'button:has(svg[data-icon^="volume"])';
+
+// Pressing one of LearningSuite's controls.
+//
+// Deliberate coupling: the canary drives their real controls rather than
+// window.player.play(), so it keeps proving a genuine user gesture reaches the
+// media element. But their affordances cannot be clicked through a Playwright
+// locator — their own wrapper divs sit on top of the icons, so actionability
+// checks refuse. (Hit-tested: nothing of OURS intercepts them; this is their
+// layering, not ours.) So the icon is used only to FIND the point, and the click
+// is a real mouse event at that point — which is both a truer gesture and
+// coupled to nothing but the icon name.
+async function pressHostControl(
+  page: Page,
+  selector: string,
+  what: string,
+): Promise<void> {
+  const target = page.locator(HOST).locator(selector).first();
+  // getBoundingClientRect via evaluate, NOT locator.boundingBox(): the latter
+  // returns null for an element Playwright judges invisible, and their icons sit
+  // in a subtree it reads that way even while the browser lays them out and
+  // elementsFromPoint returns them.
+  //
+  // Polled, because their bar renders asynchronously: reading the rect once can
+  // catch the control before React has laid it out, which is a race, not a
+  // missing control.
+  const readBox = async (): Promise<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null> =>
+    target
+      .evaluate((node) => {
+        const r = (node as Element).getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
+      })
+      .catch(() => null);
+
+  let box = await readBox();
+  const deadline = Date.now() + 15_000;
+  while ((!box || box.w === 0 || box.h === 0) && Date.now() < deadline) {
+    await page.waitForTimeout(250);
+    box = await readBox();
+  }
+  if (!box || box.w === 0 || box.h === 0)
+    throw new Error(
+      `LearningSuite's ${what} control (${selector}) never took a layout box. ` +
+        "Their control markup changed shape; this canary's locators need updating.",
+    );
+  await page.mouse.click(box.x + box.w / 2, box.y + box.h / 2);
+}
+
+// LearningSuite renders its full control bar only once playback has started —
+// before that the player shows a poster and a centre play affordance. So every
+// bar assertion has to start the video first.
+async function startHostPlayback(page: Page): Promise<void> {
+  const isPaused = () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            player?: { _diag?: () => { paused?: boolean } };
+          }
+        ).player?._diag?.()?.paused !== false,
+    );
+  if (!(await isPaused())) return;
+  // Two `play` icons coexist: the 36px one in their initial-play overlay and a
+  // 16px one in the bar. Prefer the overlay's — it is the affordance a learner
+  // actually presses first, and the bar's has no layout box until the bar has
+  // rendered, which is what made this flaky.
+  const overlayPlay =
+    '[class*="VideoInitialPlayOverlay"] svg[data-icon="play"]';
+  const anyPlay = 'svg[data-icon="play"]';
+  const hasOverlay =
+    (await page.locator(HOST).locator(overlayPlay).count()) > 0;
+  await pressHostControl(page, hasOverlay ? overlayPlay : anyPlay, "play");
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as { player?: { _diag?: () => { paused?: boolean } } }
+      ).player?._diag?.()?.paused === false,
+    undefined,
+    { timeout: 20_000 },
+  );
+}
+
+// The bar fades with inactivity; a pointer move over the player brings it back.
+async function revealHostBar(page: Page): Promise<void> {
+  await page.locator(HOST).first().hover();
+  await page.waitForTimeout(400);
+}
 
 // The demo mount creates these unconditionally, so their absence means it did
 // not mount (as opposed to `#vp-demo-sidebar`, which the config can legitimately
@@ -203,10 +291,9 @@ export async function expectReskinMounted(
     "The reskinned host carries no .vp-shell",
   ).toHaveCount(1);
 
-  // The positive half of the safety-net invariant: our controls are actually
-  // usable, not merely present in the DOM.
-  await expect(hosts.locator('[data-vp="playpause"]')).toBeVisible();
-  await expect(hosts.locator('[data-vp="time"]')).toBeVisible();
+  // The control bar we used to assert here no longer exists — LearningSuite's
+  // own chrome owns playback again. What is still ours is the shell above, the
+  // PlayerApi, and _diag() below.
 
   const diag = await requireDiag(page, testInfo);
   expect(
@@ -232,77 +319,84 @@ export async function expectReskinMounted(
   }
 }
 
-export async function expectNativeChromeHidden(page: Page): Promise<void> {
+// The inverse of the old expectNativeChromeHidden. Until 2026-09-07 the runtime
+// hid LearningSuite's chrome and replaced it with a bar of its own; two of that
+// bar's controls did not work (mute, subtitles) and it re-implemented what the
+// host already does. The host's chrome is now left alone, and THAT is what has
+// to be true on a healthy page.
+export async function expectHostChromePresent(page: Page): Promise<void> {
   const host = page.locator(HOST);
   await expect(host).toHaveCount(1);
 
-  // Anchor first. A "chrome is hidden" suite that only checks for absence passes
-  // perfectly on a page where our runtime never ran at all — this is the check
-  // that makes the rest of the helper mean something.
+  // Their bar only renders its controls once playback has started.
+  await startHostPlayback(page);
+  await revealHostBar(page);
+
+  // Anchor first. An assertion that only checks the host's bar is visible would
+  // pass perfectly on a page where our runtime never ran at all — this is what
+  // makes the rest mean something.
   await expect(
-    host.locator(".vp-shell .vp-controls"),
-    "Our own controls are not visible, so 'native chrome is hidden' would pass vacuously",
+    host.locator(".vp-shell"),
+    "Our own shell is not present, so 'the host's chrome is visible' would pass vacuously",
+  ).toHaveCount(1);
+
+  await expect(
+    host.locator(HOST_BAR).first(),
+    "LearningSuite's own control bar is missing or hidden. The runtime must not " +
+      "hide it — check that no chrome-hiding rule crept back into RESKIN_CSS.",
   ).toBeVisible();
 
-  for (const selector of NATIVE_CHROME_IN_PLAYER) {
-    const chrome = host.locator(`hls-video ${selector}`);
-    const count = await chrome.count();
-    // count === 0 is a pass: LearningSuite is free to stop rendering an element.
-    // What must never happen is it being present AND visible on top of our shell.
-    for (let i = 0; i < count; i++) {
-      await expect(
-        chrome.nth(i),
-        `Native player chrome is visible over our shell: ${selector} (#${i + 1} of ${count}). ` +
-          "The chrome-hiding CSS in runtime-src/reskin-player/styles.ts no longer matches this markup.",
-      ).toBeHidden();
-    }
-  }
+  // Their bar is populated and interactive, not merely a present container.
+  await expect(
+    host.locator(HOST_BAR).locator(HOST_BAR_BUTTONS).first(),
+    "LearningSuite's control bar rendered no icon buttons after playback started. " +
+      "Their control markup changed shape; this canary's locators need updating.",
+  ).toBeVisible();
+}
 
-  // LearningSuite's own absolutely-positioned control container, a direct child
-  // of the host rather than of the player element.
-  const overlayControls = host.locator(
-    '> [class*="PlayerControlsAbsoluteContainer"]',
-  );
-  const overlayCount = await overlayControls.count();
-  for (let i = 0; i < overlayCount; i++) {
-    await expect(
-      overlayControls.nth(i),
-      "LearningSuite's PlayerControlsAbsoluteContainer is visible over our shell",
-    ).toBeHidden();
-  }
+// Their mute must work while we are mounted. This is the assertion that would
+// have caught the defect this whole change came from: our own mute wrote
+// `muted`, it read back as false moments later, and nothing noticed for months.
+//
+// Measured 2026-09-07: LearningSuite's mute sets `volume = 0` and never touches
+// `muted` at all (their icon goes volume-high → volume-xmark). That is also why
+// our old button lost — it wrote a property their state machine normalises back.
+// So audibility, not `muted`, is what this asserts.
+export async function expectHostMuteWorks(page: Page): Promise<void> {
+  const audible = () =>
+    page.evaluate(() => {
+      const el = document.querySelector("hls-video") as {
+        muted?: boolean;
+        volume?: number;
+      } | null;
+      return !el?.muted && (el?.volume ?? 0) > 0;
+    });
+
+  await startHostPlayback(page);
+  await revealHostBar(page);
+
+  const before = await audible();
+  await pressHostControl(page, HOST_VOLUME_BUTTON, "mute");
+  await page.waitForTimeout(1000);
+
+  expect(
+    await audible(),
+    "Pressing LearningSuite's own mute did not change whether the media element " +
+      "is audible (it sets volume, not muted). Either their bar changed shape and " +
+      "the wrong control was pressed, or something in our runtime is fighting it.",
+  ).toBe(!before);
 }
 
 export async function expectPlaybackAdvances(
   page: Page,
   testInfo: TestInfo,
 ): Promise<void> {
-  const playPause: Locator = page
-    .locator(HOST)
-    .locator('[data-vp="playpause"]');
-  await expect(playPause).toBeVisible();
-
-  // Autoplay is permitted in this browser (--autoplay-policy), so the video may
-  // already be running. Clicking blindly would then *pause* it and the assertion
-  // would fail for the wrong reason — start from a known paused state.
-  if ((await requireDiag(page, testInfo)).paused === false) {
-    await playPause.click();
-    await page
-      .waitForFunction(
-        () =>
-          (
-            window as unknown as {
-              player?: { _diag?: () => { paused?: boolean } };
-            }
-          ).player?._diag?.()?.paused === true,
-        undefined,
-        { timeout: 10_000 },
-      )
-      .catch(() => {});
-  }
-
+  // Driven through LearningSuite's own play affordance, never window.player —
+  // the point of this test is that a real user gesture reaches the media
+  // element. See startHostPlayback for why the first press is the centre of the
+  // player rather than a bar button.
   const before = await currentTime(page);
-
-  await playPause.click();
+  await startHostPlayback(page);
 
   try {
     await page.waitForFunction(
@@ -317,11 +411,12 @@ export async function expectPlaybackAdvances(
     const diag = await attachDiag(page, testInfo);
     throw new Error(
       `Playback did not advance: window.player.current stayed at ~${before}s for 45s after ` +
-        "clicking our play button.\n" +
+        "pressing LearningSuite's own play control.\n" +
         `_diag(): ${describeDiag(diag)}\n` +
         "readyState < 2 points at the media never loading (expired signed manifest, CDN, or a " +
-        "codec the browser lacks); a moving readyState with a frozen currentTime points at our " +
-        "play button no longer being wired to the media element.",
+        "codec the browser lacks). A moving readyState with a frozen currentTime points at " +
+        "their play control no longer driving the media element — or at this test's locators " +
+        "having matched the wrong thing after a restyle.",
       { cause },
     );
   }

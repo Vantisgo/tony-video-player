@@ -47,11 +47,14 @@ function addPlayer(faultyAudioTracks = false): HTMLElement {
   v.muted = false;
   v.playbackRate = 1;
   v.ended = false;
+  // See safety-net.test.ts: the attach-time fault is now a throwing
+  // `shadowRoot`, which the silencer touches while resolving the inner <video>.
+  // audioTracks is no longer read anywhere in the reskin.
   if (faultyAudioTracks)
-    Object.defineProperty(video, "audioTracks", {
+    Object.defineProperty(video, "shadowRoot", {
       configurable: true,
       get() {
-        throw new Error("host audioTracks blew up");
+        throw new Error("host shadowRoot blew up");
       },
     });
   host.appendChild(video);
@@ -136,7 +139,7 @@ describe("reskin failure telemetry (F6)", () => {
     stubFlagFetch("error");
     addRuntimeScript();
     addConfig();
-    addPlayer(true); // audioTracks getter throws during attach
+    addPlayer(true); // shadowRoot getter throws during attach
 
     await import("../../reskin-player/index");
     await settle();

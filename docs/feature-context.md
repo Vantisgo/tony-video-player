@@ -34,13 +34,24 @@
   is the durable, structure-independent hook when tags shift. (`admin-toggle`
   still queries `hls-video` directly — its editor-only launch button is
   intentionally not migrated.)
-- **Native-chrome hiding must be gated on the `[data-vp-reskinned="true"]`
-  success marker.** The `RESKIN_CSS` rules that `display:none` the native
-  Vidstack/Mux controls are all scoped under that marker (set on the host only
-  after `attach()` mounts, removed on teardown). Never add an _unconditional_
-  chrome-hiding rule — a failed/aborted attach must leave the native player fully
-  operable, never hidden-chrome-with-no-controls. `attach()`/`applySetup()` wrap
-  their bodies in try/catch with rollback to preserve this invariant.
+- **The runtime hides NONE of LearningSuite's chrome (since 2026-09-07).**
+  `RESKIN_CSS` used to `display:none` the host's controls so our own bar could
+  replace it; the bar is deleted and the host's controls — which work, including
+  their subtitles — are back. Do not add a chrome-hiding rule. `styles.test.ts`
+  guards this by asserting no selector in `RESKIN_CSS` mentions `hls-video` or
+  `PlayerControlsAbsoluteContainer`. The `[data-vp-reskinned="true"]` marker
+  stays (the canary, the CSS and `demo-overlays` all key on it) and is now a
+  deliberate misnomer. `attach()` still wraps its body in try/catch with an
+  `undo` rollback — every host mutation must register its inverse.
+- **LearningSuite owns `muted` and `volume`; we cannot.** Their mute sets
+  **`volume = 0`** and never touches `muted`, and their state machine normalises
+  `muted` back to false. Any code that needs the video silent must do it where
+  the host has no handle — the Web Audio gain node in
+  `reskin-player/silence.ts`, built on the **inner `<video>`** (the outer
+  `<hls-video>` is not an `HTMLMediaElement` and its `src` is the CDN `.m3u8`;
+  the inner one holds the MSE `blob:`, which is what makes the media
+  CORS-same-origin for Web Audio). Never reach for `muted` or `volume` to
+  silence the video.
 - **The demo overlay mount is a controller, not a one-shot.** A permanent
   200ms-debounced `MutationObserver` + debounced `popstate` drive `evaluate()`, which
   remounts when the config JSON changes or `mountState.checkAlive()` reports our nodes
@@ -763,3 +774,37 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   lesson with progress a `t:0` cue may not fire at all, and when it does fire the cue's
   `videoResumeTime` (~0) overrides the host's restore at cue end. Cue anchoring vs. the host's
   resume feature is unresolved and was out of scope here.
+
+## 2026-09-07 · media-controls · Restore LearningSuite's chrome, augment it
+
+- **Decision**: the runtime no longer replaces the host's player chrome. Our control bar,
+  both track menus, the native/HLS/LearningSuite subtitle sources, `setOverlays` and the
+  `.vp-overlay-layer` are deleted (~600 lines); the host's own controls handle play/pause,
+  seeking, time, volume, captions, speed and fullscreen. Two of our controls did not work at
+  all (mute, subtitles) and the rest re-implemented what the host already does.
+- **Decision**: the **language pack** (dubbed audio + external VTT) is the one capability the
+  host lacks, so it survives as a single `.vp-langpack` control anchored **bottom-left** —
+  the only region where nothing else of ours renders. It is created ONLY when
+  `loadLanguagePackForMedia` resolves a pack; on every other lesson the runtime adds no
+  controls at all.
+- **Decision**: `mediaEl.muted` is never written. See the new Standing Constraint — the host
+  owns `muted`/`volume`, so the video is silenced by a gain node instead, and the host's own
+  volume is mirrored onto the dub element in `onVolumeChange`.
+- **User feedback (2026-09-07)**: the canary drives **LearningSuite's own controls**, not
+  `window.player.play()`, chosen against the planning recommendation so it keeps proving a
+  real user gesture reaches the player. Accepted cost: a dependency on their markup, mitigated
+  by named "they restyled" diagnostics on every locator.
+- **Gotcha**: their controls are **not `<button>` elements** before playback and cannot be
+  clicked through a Playwright locator — their own wrapper divs sit on top (hit-tested:
+  nothing of ours intercepts, so learners are unaffected). Read the icon's rect with
+  `getBoundingClientRect` and issue a real `page.mouse.click`. Two `play` icons coexist (36px
+  overlay, 16px bar); prefer `[class*="VideoInitialPlayOverlay"]`. Their bar renders its full
+  button set only **after** playback starts.
+- **Gotcha**: `bun run e2e` exercises the **deployed** bundle, so these assertions stay red
+  until the tenant's tag moves to a deployment containing this change. Verify locally by
+  routing `/runtime/*.js` to the working tree. This is the 2026-08-27 deployment-freshness
+  property again — read a red canary that way before suspecting the host.
+- **Gotcha (coverage)**: three things are now unguarded — the language-pack dub path (the
+  canary's video has no pack; `window.__vpLanguagePacks` is the hook), `renderSubtitleCue`'s
+  dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
+  host's bar" (moved from a JS guard to CSS stacking, which happy-dom cannot test).
