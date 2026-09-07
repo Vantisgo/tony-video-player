@@ -382,7 +382,7 @@ Execute in order. Each task is atomic and independently verifiable.
 
 - **ACTION**: REPLACE the `mediaEl.muted` writes with the silencer, and mirror the host's volume onto the dub.
 - **IMPLEMENT**: At the three sites that force the video silent for a dub — `syncExternalAudio` (`index.ts:550`), `muteBtn.onclick` (1005, deleted in Task 3) and `onVolumeChange` (1075) — call `silencer.silence()` instead of `mediaEl.muted = true`. `stopExternalAudio` (520) calls `silencer.restore()`. In `onVolumeChange`, mirror the host's state onto the dub: `externalAudio.muted = mediaEl.muted; externalAudio.volume = mediaEl.volume`. That is what makes the host's own mute and volume controls drive the dubbed track.
-- **PATTERN**: Still set `mediaEl.muted = true` alongside the gain node — cheap, and it keeps the platform-visible mute state honest for the Media Session API, Picture-in-Picture and screen readers, none of which can see a private `GainNode`. Expect the host to revert it; that is no longer where the silence comes from.
+- **PATTERN**: Do **not** write `mediaEl.muted` at all (user decision, 2026-09-07). The research's general advice is to set it alongside the gain node so the platform-visible mute state stays honest for the Media Session API, Picture-in-Picture and screen readers — but that advice assumes the write sticks, and on this host it is reverted in ~600ms. The benefit lasts 600ms and then evaporates, while the write costs a `volumechange` round-trip (ours, then the host's revert) every time. The accessible path is the host's own mute button, which still reaches the dub through the mirror below.
 - **GOTCHA**: `onVolumeChange` today re-asserts `mediaEl.muted = true` **uncapped** whenever `externalAudioIndex >= 0` (line 1075). That is an existing, unbounded fight with the host — replace it, do not keep it alongside the silencer.
 - **GOTCHA**: `audibleMuted` (315, 1003, 1078) tracked the learner's intent through _our_ button. With the host owning mute, `mediaEl.muted` is the source of truth; remove the shadow variable rather than letting the two disagree.
 - **VALIDATE**: `bun run typecheck:runtime && bun run test runtime-src/tests/reskin-player/`
@@ -394,7 +394,8 @@ Execute in order. Each task is atomic and independently verifiable.
 - **MIRROR**: `runtime-src/demo-overlays/quiz.ts:50-53` for the element builder; `runtime-src/reskin-player/index.ts:348-389` for option rendering; `runtime-src/demo-overlays/index.ts:389-412` for anchoring and cleanup registration.
 - **TYPES**: Reuse `TrackOption` (`common/types.ts:228-233`) for menu options and `LanguagePack` (197-226) for the input.
 - **PATTERN**: **Render nothing at all when there is no pack.** On a lesson without one, the runtime must add zero controls, so the player is entirely LearningSuite's.
-- **GOTCHA**: placement is constrained on all four sides — `vp-slot-tr` (top-right, science pill), `vp-slot-br` and `vp-slot-lt` (bottom-right, meta pill and voice-over card), and the host's bar along the bottom. Pick a free corner and verify against all three in Task 16.
+- **PATTERN**: anchor it **bottom-left**, on the same baseline as the host's bar (user decision, 2026-09-07). Every other edge is taken or unstable: `vp-slot-tl` is `top:14px; left:14px; right:14px` and therefore spans the **full width** despite its pill painting narrow; `vp-slot-tr` (science pill) and `vp-slot-br`/`vp-slot-lt` (meta pill, voice-over card) all appear and disappear with playback position, so anything stacked under them would jump mid-lesson. Bottom-left is the only region where nothing else of ours ever renders.
+- **GOTCHA**: it still has to clear the host's bar vertically — use Task 1's measurement of the visible control row, not the full-bleed container.
 - **GOTCHA**: any id beginning `vp-slot-` is swept as a stray slot element on remount. If this control injects a stylesheet, give it a `__vp-`-prefixed id (see `__vp-slot-style`).
 - **GOTCHA**: never `innerHTML` here, and never add `esc()` to the builder — it would double-escape. Pack labels are third-party strings.
 - **VALIDATE**: `bun run test runtime-src/tests/reskin-player/language-pack-control.test.ts`
@@ -431,9 +432,12 @@ Execute in order. Each task is atomic and independently verifiable.
 ### `[ ]` Task 14: UPDATE `e2e/support/assertions.ts` and the canary spec
 
 - **ACTION**: INVERT the chrome assertions and add a host-mute test.
-- **IMPLEMENT**: Replace `expectNativeChromeHidden` with `expectHostChromePresent`, asserting `[class*="PlayerControlsAbsoluteContainer"]` is present **and visible** inside `HOST`. Drop `NATIVE_CHROME_IN_PLAYER` (its `media-*` selectors match nothing on this tenant). In `expectReskinMounted`, drop the `.vp-shell .vp-controls`, `[data-vp="playpause"]` and `[data-vp="time"]` assertions (201-209) and assert the `PlayerApi`, `_diag()` and the overlay slots instead. `expectPlaybackAdvances` (279-281) clicks `[data-vp="playpause"]` — re-point it at the host's play control or drive playback through `window.player.play()`. Add a test that the host's own mute works while our runtime is mounted.
+- **IMPLEMENT**: Replace `expectNativeChromeHidden` with `expectHostChromePresent`, asserting `[class*="PlayerControlsAbsoluteContainer"]` is present **and visible** inside `HOST`. Drop `NATIVE_CHROME_IN_PLAYER` (its `media-*` selectors match nothing on this tenant). In `expectReskinMounted`, drop the `.vp-shell .vp-controls`, `[data-vp="playpause"]` and `[data-vp="time"]` assertions (201-209) and assert the `PlayerApi`, `_diag()` and the overlay slots instead. `expectPlaybackAdvances` (279-281) clicks `[data-vp="playpause"]` — re-point it at **the host's own play button** (user decision, 2026-09-07, choosing a real gesture over `window.player.play()`). Add a test that the host's own mute works while our runtime is mounted.
 - **PATTERN**: An absence assertion on third-party markup passes vacuously. Every such check must be paired with a positive assertion that something of ours is present — otherwise a page where the runtime never ran reports green.
-- **GOTCHA**: assert only surfaces the runtime already publishes. Do not add a `data-testid` to the host's markup.
+- **PATTERN**: locating the host's play button. It carries no `aria-label`, `data-testid` or `title` — only hashed MUI classes. Measured DOM order of the interactive children inside `[class*="PlayerControlsAbsoluteContainer"]` is: `input` (scrubber), **`button` (play/pause)**, `button` (volume), `input` (volume slider), `button` ("1x"), `button` (CC), `button` (settings), `button` (fullscreen). Take the **first `button`** inside that container — the most durable of the available heuristics.
+- **PATTERN**: make the rot LOUD. This is a deliberate, user-approved dependency on third-party markup, so it must fail diagnosably rather than silently: after clicking, assert `paused` actually flipped, and on failure emit a message naming the cause — "LearningSuite's control bar changed shape; the canary's play-button locator needs updating" — plus a dump of the buttons that were found. A silent rot here reads as "our runtime broke" when it means "they restyled".
+- **GOTCHA**: this knowingly departs from the canary's founding rule (`docs/feature-context.md`, 2026-08-07): _"the canary asserts only surfaces the runtime already publishes… if an assertion seems to need a new hook, it is reaching past what the runtime promises."_ The trade was made deliberately — proving a real user gesture reaches the player was judged worth the coupling. Record it in `feature-context.md` in Task 16 so the next person does not "fix" it back.
+- **GOTCHA**: assert only surfaces the runtime already publishes, otherwise. Do not add a `data-testid` to the host's markup.
 - **VALIDATE**: `bun run e2e` — 4/4 (plus the new test) green.
 
 ### `[ ]` Task 15: REBUILD the bundles
@@ -570,36 +574,39 @@ bun run e2e
 | The host's bar auto-hides, leaving no visible controls at some moments                                               | MED        | LOW    | Their behaviour, not ours — and it is what every other lesson on the platform does                                                                                             |
 | External subtitle rendering was never verified and may be broken too                                                 | MED        | MED    | Task 16 treats it as unproven; the LS-transcript path was measured not rendering                                                                                               |
 | Web Audio is untestable in happy-dom                                                                                 | HIGH       | LOW    | Task 8 mandates an injectable seam; real verification in Task 16                                                                                                               |
+| The canary's host play-button locator rots on a LearningSuite restyle                                                | MED        | LOW    | Accepted deliberately (user decision). Task 14 requires a named diagnostic on failure so it reads as "they restyled", not "we broke"                                           |
 
 ---
 
 ## Questionables
 
-<details>
-<summary>Where exactly does the language-pack control sit?</summary>
+_All four open questions were resolved with the user on 2026-09-07. Kept as a record of what was decided and why._
 
-All four edges are taken: `vp-slot-tr` (science pill), `vp-slot-br` / `vp-slot-lt` (meta pill and voice-over card), and the host's bar along the bottom. The assumption taken is **top-left**, beneath `vp-slot-tl` (the section indicator, which is `top:14px; left:14px; right:14px`), because it is the only edge without a persistent interactive element. This needs a real-browser look in Task 16, and the user may simply prefer a different corner.
+<details>
+<summary>RESOLVED — Where the language-pack control sits → bottom-left</summary>
+
+The plan first assumed top-left. That was wrong: `vp-slot-tl` spans the full width (`left:14px; right:14px`), and the science and meta pills come and go with playback position, so anything stacked under them shifts mid-lesson. Bottom-left is the only region where nothing else of ours ever renders. See Task 10.
 
 </details>
 
 <details>
-<summary>Should `mediaEl.muted = true` still be written alongside the gain node?</summary>
+<summary>RESOLVED — `mediaEl.muted` is NOT written alongside the gain node</summary>
 
-The plan says yes: it keeps the platform-visible mute state honest for Media Session, Picture-in-Picture and screen readers, which cannot see a private `GainNode`. The cost is that the host will visibly revert it, so the host's mute button may show "unmuted" while a dub plays silently. If that inconsistency is worse than the accessibility benefit, drop the write.
-
-</details>
-
-<details>
-<summary>The host's own CC and the pack's subtitles can both be on at once</summary>
-
-They are independent sources — the host renders its tracks, we render pack tracks in `.vp-subtitle-layer`. Two subtitle lines could appear simultaneously if a learner enables both. Assumed acceptable, since either can be turned off. Suppressing one would mean reading or driving the host's CC state, which is exactly the fragile coupling this design exists to avoid.
+The research advised writing it for platform-visible mute state (Media Session, PiP, screen readers). That advice assumes the write sticks; measured on this host it is reverted in ~600ms, so the benefit evaporates while the cost — a `volumechange` round-trip per write, on a hot path — remains. The host's own mute button is the accessible path and reaches the dub through the `volumechange` mirror. See Task 9.
 
 </details>
 
 <details>
-<summary>`expectPlaybackAdvances` needs a new way to start playback</summary>
+<summary>RESOLVED — Host CC and pack subtitles may both be on; accepted</summary>
 
-It currently clicks `[data-vp="playpause"]`. The assumption taken is to drive playback through `window.player.play()` rather than the host's button, keeping the canary off third-party markup. The cost is that it no longer proves a real user gesture reaches the player.
+They are independent sources and either can be switched off, so two simultaneous lines require a learner to deliberately enable both. The alternative considered — injecting pack VTTs as native `<track>` elements so the host's own CC renders them — is more elegant and would delete `.vp-subtitle-layer`, `renderSubtitleCue` and `parseVtt` outright, but it needs `crossorigin` on the media element, which can force a media reload and risk HLS playback itself. Recorded as a follow-up spike in Agent Notes rather than taken here.
+
+</details>
+
+<details>
+<summary>RESOLVED — The canary clicks the host's own play button</summary>
+
+Chosen over `window.player.play()` **against the planning recommendation**, deliberately: driving the API would stop the canary proving that a real user gesture reaches the player. The cost is a dependency on MUI markup carrying no stable hook, which departs from the canary's founding rule. Mitigated in Task 14 by locating the first `button` in the controls container and failing with an explicit "they restyled" diagnostic rather than silently. See Task 14.
 
 </details>
 
@@ -625,6 +632,8 @@ It currently clicks `[data-vp="playpause"]`. The assumption taken is to drive pl
 
 **Approaches rejected.** Restyling our bar to match the host's: keeps every broken line and leaves mute close to unfixable, since holding it needs a re-assertion war per control. Injecting the language-pack control into the host's bar: looks native, but their buttons carry no `aria-label`, `data-testid` or `title` — only hashed MUI classes (`css-1gauxy4`) — so anything keyed on them rots at their next restyle.
 
+**Follow-up spike (not in scope here).** Inject the pack's VTTs as native `<track>` elements so the host's own CC control lists and renders them. That would collapse two subtitle UIs into one and delete `.vp-subtitle-layer`, `renderSubtitleCue` and `parseVtt` entirely. `next.config.ts` already sends `Access-Control-Allow-Origin: *` on `/runtime/:path*`, so the CORS side is plausible. Unknowns: setting `crossorigin` on the media element can force a media reload (risking HLS playback on a live tenant), and whether their React CC menu enumerates a `<track>` we add is untested.
+
 **Spec gap found during planning.** `quiz.ts:603-630` guards `.vp-controls` against clicks and pointerdowns while a quiz is open — a second dependency on the control bar that the approved design did not mention. Measurement turned it into a deletion rather than a re-pointing.
 
 ---
@@ -632,3 +641,10 @@ It currently clicks `[data-vp="playpause"]`. The assumption taken is to drive pl
 ## Amendments
 
 _Append-only history of changes made **after** this plan was first built (newest at the bottom)._
+
+<details>
+<summary>2026-09-07 — Four open questions resolved with the user</summary>
+
+Language-pack control anchored bottom-left (Task 10). `mediaEl.muted` no longer written alongside the gain node (Task 9). Host CC and pack subtitles may both be active; accepted, with native-`<track>` injection recorded as a follow-up spike. The canary clicks the host's own play button rather than driving `window.player.play()` — chosen against the planning recommendation, with a required "they restyled" diagnostic as mitigation (Task 14).
+
+</details>
