@@ -35,6 +35,21 @@ const AUDIO_EL_ID = "vp-audio-el";
 // underneath it. See enforceCuePause() for why this is capped and not endless.
 const MAX_CUE_REPAUSES = 3;
 
+// Stacking against LearningSuite's own chrome. Their control container is
+// full-bleed over the player and its inner stack computes to z-index 11
+// (measured on the tenant, 2026-09-07). While the runtime hid their chrome this
+// did not matter; since it no longer hides it, anything of ours that must be
+// clickable has to sit ABOVE 11 — at 8 their gesture layer swallowed every
+// click meant for the voice-over card's transport buttons.
+//
+// The quiz scrim is a modal and must cover our own overlays too, so it gets its
+// own higher value. NOTE it has to be passed as makeSlot's `zIndex` argument:
+// a `z-index` inside the `posCss` string is overridden by the declaration
+// makeSlot appends after it, which is how the scrim silently sat at the default
+// for as long as it has existed.
+const SLOT_Z = 15;
+const QUIZ_SLOT_Z = 20;
+
 // Inline SVG for the voice-over transport, replacing the emoji glyphs (▶ ⏸ ⏭)
 // and the 🎙️ badge: emoji render differently per platform and cannot take
 // `currentColor`. Paths are lucide's, the icon set the reference player uses.
@@ -386,7 +401,11 @@ function main(): string {
       "touchstart",
       "touchend",
     ];
-    function makeSlot(id: string, posCss: string): HTMLElement {
+    function makeSlot(
+      id: string,
+      posCss: string,
+      zIndex = SLOT_Z,
+    ): HTMLElement {
       const el = document.createElement("div");
       el.id = id;
       // Carries SLOT_CSS's white-space reset to every slot and its subtree. A
@@ -395,7 +414,15 @@ function main(): string {
       // .vp-admin-dialog), which are class-scoped too. The ids stay the public
       // surface — the e2e canary asserts #vp-slot-* and checkAlive() reads them.
       el.className = "vp-slot";
-      el.style.cssText = `position:absolute; ${posCss}; pointer-events:none; z-index:8;`;
+      // z-index 15, not 8: LearningSuite's own control container is full-bleed
+      // over the player and its inner stack computes to z-index 11 (measured on
+      // the tenant). While the runtime hid their chrome that did not matter;
+      // since 2026-09-07 it does not hide it, and at z-index 8 their gesture
+      // layer sat on top of every card and pill we own — the voice-over card's
+      // transport buttons were unclickable, with the click landing on their
+      // player instead. Stays below the quiz scrim's 20, which is a modal and
+      // must cover our overlays as well as theirs.
+      el.style.cssText = `position:absolute; ${posCss}; pointer-events:none; z-index:${zIndex};`;
       const swallow = (e: Event) => {
         if (e.target !== el) e.stopPropagation();
       };
@@ -432,7 +459,8 @@ function main(): string {
     const slotQuiz = showQuiz
       ? makeSlot(
           "vp-slot-quiz",
-          "inset:0; z-index:20; display:flex; align-items:center; justify-content:center;",
+          "inset:0; display:flex; align-items:center; justify-content:center;",
+          QUIZ_SLOT_Z,
         )
       : null;
 

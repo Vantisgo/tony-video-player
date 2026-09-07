@@ -1686,6 +1686,8 @@
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
   var MAX_CUE_REPAUSES = 3;
+  var SLOT_Z = 15;
+  var QUIZ_SLOT_Z = 20;
   var ICON_PLAY = '<svg class="vp-audio-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
   var ICON_PAUSE = '<svg class="vp-audio-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   var ICON_SKIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/></svg>';
@@ -1902,11 +1904,11 @@
         "touchstart",
         "touchend"
       ];
-      function makeSlot(id, posCss) {
+      function makeSlot(id, posCss, zIndex = SLOT_Z) {
         const el = document.createElement("div");
         el.id = id;
         el.className = "vp-slot";
-        el.style.cssText = `position:absolute; ${posCss}; pointer-events:none; z-index:8;`;
+        el.style.cssText = `position:absolute; ${posCss}; pointer-events:none; z-index:${zIndex};`;
         const swallow = (e) => {
           if (e.target !== el) e.stopPropagation();
         };
@@ -1930,7 +1932,8 @@
       );
       const slotQuiz = showQuiz ? makeSlot(
         "vp-slot-quiz",
-        "inset:0; z-index:20; display:flex; align-items:center; justify-content:center;"
+        "inset:0; display:flex; align-items:center; justify-content:center;",
+        QUIZ_SLOT_Z
       ) : null;
       const sectionStyleId = "__vp-section-style";
       (_g = document.getElementById(sectionStyleId)) == null ? void 0 : _g.remove();

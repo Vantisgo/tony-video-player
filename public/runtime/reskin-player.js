@@ -614,7 +614,7 @@
       .vp-subtitle-cue { max-width: 100%; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.72); color: #fff; font: 600 16px/1.35 system-ui, sans-serif; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,.75); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
       .vp-sync-badge { position: absolute; right: 12px; bottom: 56px; z-index: 7; padding: 4px 7px; border-radius: 6px; background: rgba(180, 83, 9, .92); color: #fff; font: 600 12px/1.2 system-ui, sans-serif; letter-spacing: 0; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,.28); }
       .vp-sync-badge[hidden] { display: none !important; }
-      .vp-langpack { position: absolute; left: 14px; bottom: 58px; z-index: 8; display: inline-flex; pointer-events: auto; }
+      .vp-langpack { position: absolute; left: 14px; bottom: 58px; z-index: 15; display: inline-flex; pointer-events: auto; }
       .vp-langpack-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(17,17,20,.82); border: 1px solid rgba(255,255,255,.18); color: #fff; cursor: pointer; padding: 6px 10px; border-radius: 8px; font: 13px system-ui, sans-serif; backdrop-filter: blur(6px); }
       .vp-langpack-btn:hover { background: rgba(17,17,20,.94); }
       .vp-menu { position: absolute; left: 0; bottom: calc(100% + 8px); min-width: 190px; max-width: min(260px, 70vw); max-height: 240px; overflow: auto; padding: 6px; background: rgba(17, 17, 20, .96); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; box-shadow: 0 16px 40px rgba(0,0,0,.38); color: #fff; pointer-events: auto; }

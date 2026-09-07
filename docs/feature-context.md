@@ -804,6 +804,19 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   until the tenant's tag moves to a deployment containing this change. Verify locally by
   routing `/runtime/*.js` to the working tree. This is the 2026-08-27 deployment-freshness
   property again — read a red canary that way before suspecting the host.
+- **Gotcha (regression found in manual verification)**: restoring their chrome broke every
+  interactive overlay we own. Their control container is full-bleed over the player and its
+  inner stack computes to **z-index 11**; our slots were at 8, so their gesture layer sat on
+  top and swallowed clicks — the voice-over card's transport buttons did nothing and the
+  learner hit their play/pause instead. Slots are now **15** (`SLOT_Z`) and the quiz scrim
+  **20** (`QUIZ_SLOT_Z`), with `.vp-langpack` at 15 too. **Anything of ours that must be
+  clickable has to sit above 11.** Guarded by `tests/demo-overlays/stacking.test.ts`.
+- **Gotcha**: `makeSlot` appends its own `z-index` **after** the caller's `posCss`, so a
+  `z-index` written inside that string is silently overridden. The quiz scrim carried
+  `z-index:20` in its `posCss` and had therefore been sitting at the slot default for its
+  whole existence. It is now passed as makeSlot's third argument. (Consequence: the
+  measurement that justified deleting the quiz's `.vp-controls` guard used a synthetic
+  z-index-20 overlay, not the real scrim — the conclusion holds only _because_ of this fix.)
 - **Gotcha (coverage)**: three things are now unguarded — the language-pack dub path (the
   canary's video has no pack; `window.__vpLanguagePacks` is the hook), `renderSubtitleCue`'s
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
