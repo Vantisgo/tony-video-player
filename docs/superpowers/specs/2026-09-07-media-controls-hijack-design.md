@@ -1,7 +1,8 @@
 # Media controls: restore LearningSuite's chrome, augment it
 
-Status: approved design, not yet planned
+Status: approved design, planned
 Date: 2026-09-07
+Forward ref: `.claude/PRPs/plans/2026-09-07_media-controls_restore-host-chrome.plan.md` — implementation plan
 
 ## Problem
 
