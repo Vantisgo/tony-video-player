@@ -1705,6 +1705,7 @@
   // runtime-src/demo-overlays/index.ts
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
+  var MAX_CUE_REPAUSES = 3;
   var ICON_PLAY = '<svg class="vp-audio-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
   var ICON_PAUSE = '<svg class="vp-audio-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   var ICON_SKIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/></svg>';
@@ -2835,6 +2836,28 @@
         if (videoEl && !videoEl.paused) playbackStarted = true;
         return playbackStarted;
       }
+      let repauses = 0;
+      let repausedFor = null;
+      function enforceCuePause() {
+        var _a2, _b2;
+        const live = (_b2 = (_a2 = audioCtrl.active) == null ? void 0 : _a2.id) != null ? _b2 : (quizCtrl == null ? void 0 : quizCtrl.isActive()) === true ? "quiz" : null;
+        if (!live) {
+          repauses = 0;
+          repausedFor = null;
+          return;
+        }
+        if (live !== repausedFor) {
+          repausedFor = live;
+          repauses = 0;
+        }
+        if (!videoEl || videoEl.paused) return;
+        if (repauses >= MAX_CUE_REPAUSES) return;
+        repauses += 1;
+        try {
+          videoEl.pause();
+        } catch {
+        }
+      }
       function recomputeActive(t2) {
         var _a2;
         const phase = phases.find((p) => t2 >= p.startTimeSec && t2 < p.endTimeSec) || null;
@@ -2883,6 +2906,7 @@
         if (e.type === "play") quizCtrl == null ? void 0 : quizCtrl.onPlay();
         if (e.type === "time" || e.type === "overlay-show" || e.type === "overlay-hide" || e.type === "play" || e.type === "pause") {
           recomputeActive((_b2 = (_a2 = e.time) != null ? _a2 : window.player.current) != null ? _b2 : 0);
+          if (e.type === "play") enforceCuePause();
         }
         if (e.type === "ended") quizCtrl == null ? void 0 : quizCtrl.onEnded();
       });

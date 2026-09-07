@@ -31,6 +31,10 @@ import { createQuizController } from "./quiz";
 const CLEANUP_KEY = "__vpDemoCleanup";
 const AUDIO_EL_ID = "vp-audio-el";
 
+// How many times a single cue will re-park a video the host has restarted
+// underneath it. See enforceCuePause() for why this is capped and not endless.
+const MAX_CUE_REPAUSES = 3;
+
 // Inline SVG for the voice-over transport, replacing the emoji glyphs (▶ ⏸ ⏭)
 // and the 🎙️ badge: emoji render differently per platform and cannot take
 // `currentColor`. Paths are lucide's, the icon set the reference player uses.
@@ -1514,6 +1518,67 @@ function main(): string {
       return playbackStarted;
     }
 
+    // Keeping the video paused for as long as a cue is live.
+    //
+    // `activate()`'s pause is not the call that fails — measured on the tenant
+    // it returns with `paused === true` every time. LearningSuite's own React
+    // player owns a "should be playing" state and re-asserts it ~3ms later
+    // (`vendor.js` → play(), from React's unstable_runWithPriority, alongside
+    // its resume-position seek), silently undoing the pre-roll. Mid-lesson cues
+    // never showed this: they pause from a `time` event, long after the press
+    // has settled. Only the t:0 pre-roll pauses inside the host's own
+    // play-handling tick, and there the host wins the race.
+    //
+    // A one-shot pause cannot express "the video stays parked while a cue
+    // plays" on a page whose own player also drives the element, so the
+    // invariant is re-asserted on every play that arrives under a live cue.
+    // Deliberately covers the quiz as well: it pauses the same element from the
+    // same gated call site and has the identical race at t:0.
+    //
+    // Safe against `end({ resume: true })`: that sets `state` to "idle" BEFORE
+    // calling `videoEl.play()`, so a resume is never "a play under a live cue".
+    let repauses = 0;
+    let repausedFor: string | null = null;
+    function enforceCuePause(): void {
+      // Keyed on WHICH cue is live, not merely on whether one is, so the budget
+      // is reset by the next cue itself. Resetting only on a play that arrives
+      // with nothing live would leave the budget spent, because the resume in
+      // `end({ resume: true })` is not guaranteed to reach us as a bus event
+      // before the following cue activates. Quizzes share one token: the
+      // controller exposes no id, and two breaks are always separated by the
+      // resume in between, which clears the budget through the branch below.
+      const live =
+        audioCtrl.active?.id ?? (quizCtrl?.isActive() === true ? "quiz" : null);
+      if (!live) {
+        repauses = 0;
+        repausedFor = null;
+        return;
+      }
+      if (live !== repausedFor) {
+        repausedFor = live;
+        repauses = 0;
+      }
+      if (!videoEl || videoEl.paused) return;
+
+      // Capped rather than unconditional. The tenant re-asserts play exactly
+      // once per press, so three covers the measured behaviour with margin —
+      // but a host that fought back on *every* pause would turn an uncapped
+      // guard into a pause/play war at ~60ms intervals, and a stuttering (or
+      // wedged) player is a worse outcome for the learner than a voice-over
+      // that briefly talks over a running video. Past the cap we stop fighting
+      // and let the video run: the cue still plays out and its card stays up.
+      //
+      // The counter is reset per cue by the branch above, so a lesson with many
+      // cues gets three attempts each, not three in total.
+      if (repauses >= MAX_CUE_REPAUSES) return;
+      repauses += 1;
+      try {
+        videoEl.pause();
+      } catch {
+        /* ignore */
+      }
+    }
+
     function recomputeActive(t: number): void {
       const phase =
         phases.find((p) => t >= p.startTimeSec && t < p.endTimeSec) || null;
@@ -1593,6 +1658,12 @@ function main(): string {
         e.type === "pause"
       ) {
         recomputeActive(e.time ?? window.player.current ?? 0);
+        // After recompute, never before: on the learner's own press the cue is
+        // activated *by* that recompute, and only then is there an invariant to
+        // hold. On the host's re-assertion recompute is a no-op (a live cue
+        // makes maybeTriggerAudio early-return) and this is what parks the
+        // video again.
+        if (e.type === "play") enforceCuePause();
       }
       // `ended` was previously filtered out entirely; end-anchored quiz breaks
       // and the summary both hang off it.

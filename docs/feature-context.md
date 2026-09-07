@@ -627,11 +627,13 @@ NaN` CI reading was **only** the schema sampling the media before it had loaded,
   have **no call site outside it**, so an early return leaves the section, meta and science
   pills empty on a lesson nobody has started. Those two calls are the only ones there with
   playback-altering side effects.
-- **Decision**: the t:0 pre-roll needs **no extra wiring**. The bus already routes `play` into
-  `recomputeActive(e.time)`, `bus.emit` is synchronous from reskin-player's native `play`
-  listener, and the HTML spec sets `paused` false _before_ queuing that event — so the gate
-  opens and the due cue fires, pausing the video again, inside the same call stack as the
-  native play. Adding a second trigger call in the `play` branch would double-fire.
+- **Decision (half of it FALSIFIED 2026-09-07 — see the entry below)**: the t:0 pre-roll needs
+  **no extra wiring**. The bus already routes `play` into `recomputeActive(e.time)`,
+  `bus.emit` is synchronous from reskin-player's native `play` listener, and the HTML spec sets
+  `paused` false _before_ queuing that event — so the gate opens and the due cue fires inside
+  the same call stack as the native play. Adding a second trigger call in the `play` branch
+  would double-fire. What was WRONG: "…pausing the video again". The cue fires as described,
+  but the pause does not hold — that call stack is exactly where the host overrides it.
 - **User feedback (2026-09-04)**: a cue at `t: 0` must not play on load; the learner presses
   play once, the voice-over pre-rolls, and the video then continues **without a second press**.
   `end({resume:true})`'s automatic `videoEl.play()` is therefore deliberate, not incidental.
@@ -718,3 +720,46 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   two-way guard (absent from entries, present in a catalogue), so **editing dialog copy breaks
   it**. Prefer a stable fragment over a whole heading there, matching how the other entries
   are already written.
+
+## 2026-09-07 · vo-preroll · The host re-asserts play, so a one-shot pause cannot hold
+
+- **Root cause (measured on the tenant, not reasoned)**: `activate()`'s `pause()` is never the
+  call that fails — instrumented on the live page it returns with `paused === true` every
+  time. LearningSuite's own React player owns a "should be playing" state and re-asserts it
+  **~3ms later** (`vendor.js` → `play()`, from React's `unstable_runWithPriority`, together
+  with its resume-position seek), silently undoing the pre-roll. Symptom the user saw: press
+  play, the voice-over starts, the video keeps running under it — and then the play/pause
+  button only stops the voice-over, because `onCaptureClick` routes it to `togglePlay()` while
+  a cue is live. **One root cause, two symptoms.**
+- **Why only t:0**: mid-lesson cues pause from a `time` event, long after the press has
+  settled, and there the pause sticks — verified by contrast on the same page (cue at 45s:
+  video parked at 45.04 for the whole cue). Only the pre-roll pauses _inside the host's own
+  play-handling tick_, and there the host wins the race.
+- **Decision**: the contract is **not** "pause once on activate" but "the video stays parked
+  while a cue is live" — an invariant `enforceCuePause()` re-asserts on every bus `play` that
+  arrives under a live cue. On a third-party page a one-shot command cannot express an
+  invariant, because we do not own the element. Called **after** `recomputeActive`, never
+  before: on the learner's own press the cue is activated _by_ that recompute.
+- **Decision (user, 2026-09-07)**: capped at **`MAX_CUE_REPAUSES = 3` per cue**, not endless.
+  The tenant re-asserts exactly once, so three is margin; uncapped, a host that fought back on
+  every pause would produce a pause/play war at ~60ms, and a stuttering or wedged player is a
+  worse learner outcome than a voice-over briefly talking over a running video. Past the cap
+  the runtime stops fighting and the cue plays out over a running video.
+- **Decision**: the budget is keyed on **which** cue is live (`audioCtrl.active?.id`, or the
+  token `"quiz"`), not on whether one is. Resetting only on a play with nothing live would
+  leave it spent, because `end({resume:true})`'s resume is not guaranteed to reach us as a bus
+  event before the next cue activates.
+- **Scope**: the guard covers the **quiz** too, at the user's request. It pauses the same
+  element from the same gated call site, so a break authored at `t:0` had the identical latent
+  race. Safe against `end({resume:true})`: that sets `state` to `"idle"` _before_ calling
+  `videoEl.play()`, so a resume is never "a play under a live cue".
+- **Gotcha (tests)**: the happy-dom suite could not have caught this and still cannot see the
+  host. The pre-existing t:0 test does `await video.play()` **then** `emitPlay(0)`, which is
+  the _settled_ path; nothing in the harness re-plays the element. The new tests model the host
+  explicitly — `await video.play(); emitPlay(0)` a second time under a live cue. Anything about
+  who-wins-a-race with LearningSuite belongs in a browser, not in vitest.
+- **Gotcha (open, not fixed)**: this lesson restores a saved resume position on the first
+  press, and that seek can land _before_ the `play` event reaches `recomputeActive` — so on a
+  lesson with progress a `t:0` cue may not fire at all, and when it does fire the cue's
+  `videoResumeTime` (~0) overrides the host's restore at cue end. Cue anchoring vs. the host's
+  resume feature is unresolved and was out of scope here.

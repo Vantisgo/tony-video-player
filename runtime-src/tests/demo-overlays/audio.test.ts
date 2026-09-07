@@ -62,10 +62,16 @@ interface AudioCtrlProbe {
   mode: "tts" | "file";
   audioTime: number;
   audioEl: HTMLAudioElement | null;
+  active: { id: string } | null;
 }
 
 const ctrl = (): AudioCtrlProbe =>
   (window as unknown as { __audioCtrl?: AudioCtrlProbe }).__audioCtrl!;
+
+// Mirrors MAX_CUE_REPAUSES in demo-overlays/index.ts. Duplicated rather than
+// imported: the runtime keeps it module-private, and a test that reads the
+// production constant would pass for any value it happened to hold.
+const MAX_REPAUSES = 3;
 
 const audioConfig = (
   audio: Record<string, unknown>,
@@ -523,6 +529,95 @@ describe("audio cue: playback-start gate", () => {
     expect(video.paused).toBe(true);
   });
 
+  // Measured on the live tenant (2026-09-07): our pause() is never the call that
+  // fails — it returns with paused === true every time. LearningSuite's own
+  // React player owns a "should be playing" state and re-asserts it ~3ms later
+  // (`vendor.js` → play(), from React's unstable_runWithPriority, alongside its
+  // resume-position seek), which silently undoes the pre-roll. Mid-lesson cues
+  // are unaffected because they pause from a `time` event, long after the host
+  // has settled; only the t:0 pre-roll pauses inside the host's own
+  // play-handling tick, and there the host wins.
+  //
+  // So the contract is not "pause once on activate" but "the video stays paused
+  // for as long as a cue is live" — an invariant this runtime has to re-assert,
+  // because on a third-party page it does not own the element.
+  it("re-pauses the video when the host re-asserts play under a live cue", async () => {
+    const { video } = await mountOnly(audioConfig(CUE_AT_ZERO));
+    await video.play();
+    emitPlay(0);
+    expect(ctrl().state).toBe("playing");
+    expect(video.paused).toBe(true);
+
+    // The host, three milliseconds later.
+    await video.play();
+    emitPlay(0);
+
+    // The cue is untouched — this must not restart or skip it — and the video
+    // is paused again.
+    expect(ctrl().state).toBe("playing");
+    expect(ctrl().active?.id).toBe(CUE.id);
+    expect(video.paused).toBe(true);
+  });
+
+  it("stops re-pausing after three attempts instead of fighting forever", async () => {
+    // The cap exists for a host that re-asserts play on EVERY pause it did not
+    // initiate. The tenant does it once, so three is margin, not a fit — but
+    // uncapped this becomes a pause/play war at ~60ms and the learner gets a
+    // stuttering or wedged player. Degrading to "the voice-over talks over a
+    // running video" is the deliberate lesser evil.
+    const { video } = await mountOnly(audioConfig(CUE_AT_ZERO));
+    await video.play();
+    emitPlay(0);
+    expect(video.paused).toBe(true);
+
+    for (let i = 0; i < MAX_REPAUSES; i += 1) {
+      await video.play();
+      emitPlay(0);
+      expect(video.paused).toBe(true);
+    }
+
+    // The fourth is one too many: we stop fighting and leave the video running.
+    await video.play();
+    emitPlay(0);
+    expect(video.paused).toBe(false);
+    // Degraded, not broken — the cue is still playing and its card still up.
+    expect(ctrl().state).toBe("playing");
+    expect(
+      (document.getElementById("vp-slot-lt") as HTMLElement).dataset.kind,
+    ).toBe("audio");
+  });
+
+  it("gives each cue its own budget rather than three for the lesson", async () => {
+    // The budget is keyed on which cue is live. Were it keyed only on "some cue
+    // is live", a first cue that exhausted the cap would leave every later cue
+    // in the lesson defenceless.
+    const { video } = await mountOnly({
+      ...audioConfig({ ...CUE_AT_ZERO, asset: SIGNED_HREF }),
+      audios: [
+        { ...CUE_AT_ZERO, asset: SIGNED_HREF },
+        { ...CUE, id: "a2", t: 5, asset: SIGNED_HREF },
+      ],
+    });
+    await video.play();
+    emitPlay(0);
+    for (let i = 0; i < MAX_REPAUSES + 1; i += 1) {
+      await video.play();
+      emitPlay(0);
+    }
+    expect(video.paused).toBe(false); // first cue's budget spent
+
+    // End it (file mode, so `ended` is the real exit) and let the second fire.
+    const audio = document.getElementById("vp-audio-el") as HTMLAudioElement;
+    audio.dispatchEvent(new Event("ended"));
+    expect(ctrl().state).toBe("idle");
+    emitTime(5);
+    expect(ctrl().active?.id).toBe("a2");
+
+    await video.play();
+    emitPlay(5);
+    expect(video.paused).toBe(true);
+  });
+
   it("resumes the video after the pre-roll with no second press", async () => {
     // File mode on purpose: the cue has to end via the element's `ended` event,
     // and onAudioEnded is guarded on mode === "file". A TTS cue ends on its
@@ -592,6 +687,26 @@ describe("audio cue: playback-start gate", () => {
     emitPlay(0);
 
     expect(quizCtrl()?.isActive()).toBe(true);
+  });
+
+  it("re-pauses the video when the host re-asserts play under an open quiz", async () => {
+    // Same race, same guard: the quiz pauses the same element from the same
+    // gated call site, so a break authored at t:0 loses to the host exactly as
+    // the voice-over did.
+    const { video } = await mountOnly({
+      ...audioConfig({ ...CUE, t: 50 }),
+      quiz: QUIZ_AT_ZERO,
+    });
+    await video.play();
+    emitPlay(0);
+    expect(quizCtrl()?.isActive()).toBe(true);
+    expect(video.paused).toBe(true);
+
+    await video.play();
+    emitPlay(0);
+
+    expect(quizCtrl()?.isActive()).toBe(true);
+    expect(video.paused).toBe(true);
   });
 
   it("keeps the gate open once playback has started, across a pause", async () => {
