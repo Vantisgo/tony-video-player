@@ -58,7 +58,10 @@ const COPY = [
   // admin-toggle
   "Advanced Video Modus aktivieren",
   "Code-Block hinzufügen",
-  "Voice-Over-Dateien hochladen",
+  // Fragment, not the whole heading: step 2 also covers portraits now, and the
+  // guard is about where the copy lives, not how it is worded.
+  "Voice-Over-Dateien",
+  "Sprecher-Portraits",
   "Prompt an LLM",
   "Prompt kopieren",
   "Kopiert",

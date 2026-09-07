@@ -23,11 +23,11 @@ const EN = {
     'Add a <strong>"Code einbetten"</strong> block below the video — in the block sidebar on the left, under <em>Code-Elemente → Code einbetten</em>.',
   "admin.step1.noteHtml":
     'Set the block to <strong>"In Seite anzeigen"</strong> (the default).',
-  "admin.step2.heading": "Upload the voice-over files",
+  "admin.step2.heading": "Upload the voice-over files and speaker portraits",
   "admin.step2.bodyHtml":
-    'In the <strong>"Code einbetten"</strong> editor, upload the audio files as <strong>Assets</strong> and copy each reference (of the form <code>{{asset:file-name}}</code>) — you pass them into the prompt in the next step.',
+    'In the <strong>"Code einbetten"</strong> editor, upload the audio files as <strong>Assets</strong> and copy each reference (of the form <code>{{asset:file-name}}</code>) — you pass them into the prompt in the next step. Portrait images work the same way: upload one per speaker and give the file a name that says whose face it is, so the prompt can match it to the right voice.',
   "admin.step2.noteHtml":
-    "No audio files? Just skip this step: the inserts are then read aloud from <code>script</code> via text-to-speech.",
+    "No audio files? Just skip this step: the inserts are then read aloud from <code>script</code> via text-to-speech. Without a portrait the card shows the speaker's initials. A swapped-over portrait is nobody's error message, so check the faces in the preview.",
   "admin.step3.heading": "Prompt your LLM, then paste the answer",
   "admin.step3.bodyHtml":
     'Copy the prompt below and hand it to your LLM (ChatGPT, Claude, …) — together with the lesson transcript / script <em>and</em> the asset references from step 2. The answer is a ready-made <code>&lt;pre data-vp-config&gt;</code> block with the references already filled in — paste it verbatim into the "Code einbetten" modal, click <strong>Speichern</strong>, then <strong>Vorschau</strong> at the top to test it.',
@@ -50,11 +50,11 @@ const DE: Record<AdminKey, string> = {
     'Füge unter dem Video einen <strong>"Code einbetten"</strong>-Block hinzu — links in der Block-Sidebar unter <em>Code-Elemente → Code einbetten</em>.',
   "admin.step1.noteHtml":
     'Stelle den Block auf <strong>"In Seite anzeigen"</strong> (Standard).',
-  "admin.step2.heading": "Voice-Over-Dateien hochladen",
+  "admin.step2.heading": "Voice-Over-Dateien und Sprecher-Portraits hochladen",
   "admin.step2.bodyHtml":
-    'Lade im <strong>"Code einbetten"</strong>-Editor die Audio-Dateien als <strong>Assets</strong> hoch und kopiere jeden Verweis (Form <code>{{asset:datei-name}}</code>) — du gibst sie im nächsten Schritt mit in den Prompt.',
+    'Lade im <strong>"Code einbetten"</strong>-Editor die Audio-Dateien als <strong>Assets</strong> hoch und kopiere jeden Verweis (Form <code>{{asset:datei-name}}</code>) — du gibst sie im nächsten Schritt mit in den Prompt. Portrait-Bilder funktionieren genauso: eines pro Stimme, und benenne die Datei nach der Person, damit der Prompt sie der richtigen Stimme zuordnen kann.',
   "admin.step2.noteHtml":
-    "Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen.",
+    "Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen. Ohne Portrait zeigt die Karte die Initialen der Stimme. Ein vertauschtes Portrait meldet niemand — prüf die Gesichter in der Vorschau.",
   "admin.step3.heading": "Prompt an LLM, dann Antwort einfügen",
   "admin.step3.bodyHtml":
     'Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.',

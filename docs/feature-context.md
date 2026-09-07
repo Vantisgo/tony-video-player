@@ -692,3 +692,29 @@ NaN` CI reading was **only** the schema sampling the media before it had loaded,
   `console.warn` messages instead. Related: `vi.stubGlobal` is NOT undone by
   `vi.restoreAllMocks()` — a stubbed `navigator` leaks into later tests and breaks locale
   resolution.
+
+## 2026-09-04 · vo-avatar-authoring · Portraits as uploadable assets
+
+- **User feedback (2026-09-04)**: portraits are **one per speaker, matched by slug** — the
+  author uploads several and the LLM assigns each to a `voice` from the file name. The
+  lesson-wide single-portrait variant and an `assets`-table variant were both offered and not
+  taken. Accepted cost: a mismatch is silent, because nothing validates voice → portrait and
+  the runtime cannot. Hedged only by prompt wording ("write `voice` so the match is checkable
+  by skimming") and a dialog note telling the author to check faces in preview.
+- **Decision**: portraits get their **own** labelled prompt section (`═══ Verfügbare
+Portrait-Assets ═══`), never the audio list. Two existing audio rules would otherwise
+  misfire: "für JEDES gelistete Audio-Asset genau einen audios[]-Eintrag anlegen" would invent
+  a voice-over per portrait, and "jedes Token höchstens einmal verwenden" would forbid the
+  reuse that two cues by one speaker require. `avatar` is therefore explicitly exempted from
+  the once-only rule, and a rule states a portrait creates no `audios[]` entry.
+- **Decision**: the portrait upload lives in dialog **step 2**, extended rather than a new
+  step 4 — the ordering (assets before prompt) is deliberate, per 2026-09-01.
+- **Constraint**: no runtime change was needed. `avatar` already resolves both asset shapes
+  through `resolveAssetUrl` and falls back to initials, so this was purely an authoring
+  surface. The prompt is the ONLY thing that teaches the field exists — nothing validates it —
+  which is why `tests/common/prompt-assets.test.ts` now pins the load-bearing rules as data.
+  That file is the first prompt-content test; `prompt.ts` itself stays untranslated by design.
+- **Gotcha (tests)**: `no-bare-strings.test.ts`'s `COPY` list pins German literals and is a
+  two-way guard (absent from entries, present in a catalogue), so **editing dialog copy breaks
+  it**. Prefer a stable fragment over a whole heading there, matching how the other entries
+  are already written.

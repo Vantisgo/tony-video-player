@@ -704,6 +704,76 @@ describe("voice-over card", () => {
     expect(messages).toContain("speaking the script instead");
   });
 
+  // The shape admin-toggle's prompt now emits: one portrait per speaker, matched
+  // by slug, and the same token allowed on several cues by the same person.
+  const twoCues = (
+    a1: Record<string, unknown>,
+    a2: Record<string, unknown>,
+  ) => ({
+    ...audioConfig(a1),
+    audios: [a1, a2],
+  });
+  const PORTRAIT_A =
+    "https://storage.googleapis.com/ls/portrait-a?X-Goog-Expires=1";
+  const PORTRAIT_B =
+    "https://storage.googleapis.com/ls/portrait-b?X-Goog-Expires=1";
+
+  it("gives each speaker their own portrait across cues", async () => {
+    const { video, slot } = await mountAndTrigger(
+      twoCues(
+        { ...CUE, t: 2, voice: "Frederik", avatar: PORTRAIT_A },
+        { ...CUE, id: "a2", t: 20, voice: "Tony", avatar: PORTRAIT_B },
+      ),
+    );
+    expect(slot.querySelector(".vp-audio-portrait")?.getAttribute("src")).toBe(
+      PORTRAIT_A,
+    );
+
+    // Skip to the second cue: a different speaker, a different face.
+    (slot.querySelector('[data-action="audio-skip"]') as HTMLElement).click();
+    video.currentTime = 20;
+    emitTime(20);
+
+    expect(slot.querySelector(".vp-audio-portrait")?.getAttribute("src")).toBe(
+      PORTRAIT_B,
+    );
+    expect(slot.querySelector(".vp-audio-byline")?.textContent).toContain(
+      "Tony",
+    );
+  });
+
+  it("accepts the same portrait token on several cues by one speaker", async () => {
+    // `avatar` is deliberately exempt from the once-only rule that governs
+    // `asset`, so two inserts by the same person keep the same face.
+    const { video, slot } = await mountAndTrigger(
+      twoCues(
+        { ...CUE, t: 2, voice: "Frederik", avatar: PORTRAIT_A },
+        {
+          ...CUE,
+          id: "a2",
+          t: 20,
+          title: "Voice-Over: Zweiter Einschub",
+          voice: "Frederik",
+          avatar: PORTRAIT_A,
+        },
+      ),
+    );
+    (slot.querySelector('[data-action="audio-skip"]') as HTMLElement).click();
+    video.currentTime = 20;
+    emitTime(20);
+
+    // The distinct title is what makes this non-vacuous: both cues carry the
+    // same portrait URL, so without it the assertion below would also pass if
+    // the second cue had never fired at all.
+    expect(slot.dataset.activeAudio).toBe("a2");
+    expect(slot.querySelector(".vp-audio-title")?.textContent).toContain(
+      "Zweiter Einschub",
+    );
+    expect(slot.querySelector(".vp-audio-portrait")?.getAttribute("src")).toBe(
+      PORTRAIT_A,
+    );
+  });
+
   it("swaps the transport icon by attribute, without rebuilding the card", async () => {
     const { slot } = await mountAndTrigger(
       audioConfig({ ...CUE, asset: SIGNED_HREF }),

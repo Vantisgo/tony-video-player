@@ -42,6 +42,14 @@ audios[]:    (Voice-Over-Einschübe; pausieren das Video)
            Erfinde NIE ein Token und verändere kein Zeichen — ein falsches Token
            bedeutet: keine Audio-Datei. Ist die Liste leer oder passt zu einem
            Einschub kein Asset, lass asset bei diesem Eintrag komplett weg.
+  avatar — OPTIONAL: Asset-Verweis auf das Portrait der sprechenden Person,
+           ZEICHENGENAU aus der Liste unter "Verfügbare Portrait-Assets"
+           übernommen (Form: {{asset:datei-name}}). Ordne das Portrait über den
+           Datei-Namen der Person in voice zu. Anders als asset darf ein
+           Portrait-Token MEHRFACH vorkommen — mehrere Einschübe derselben Person
+           teilen dasselbe Portrait. Ist die Liste leer oder passt zu einer Stimme
+           kein Portrait, lass avatar bei diesem Eintrag weg; die Karte zeigt dann
+           die Initialen aus voice.
   script — MUSS immer gefüllt sein, auch wenn eine Audio-Datei existiert: er ist der
            Text-to-Speech-Fallback und die Textfassung des Einschubs.
 
@@ -77,7 +85,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
     { "id":"s1", "name":"...", "description":"...", "timestampsSec":[22] }
   ],
   "audios": [
-    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "script":"...", "asset":"{{asset:datei-name-aus-der-liste}}" }
+    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "script":"...", "asset":"{{asset:datei-name-aus-der-liste}}", "avatar":"{{asset:portrait-name-aus-der-liste}}" }
   ],
   "metaSteps": [
     { "id":"m1", "n":1, "title":"...", "t":4 }
@@ -122,6 +130,15 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
   (z.B. "…-intro" an den Anfang, "…-phase-1" in Phase 1); title so formulieren, dass die
   Zuordnung beim Drüberlesen prüfbar ist
 - Passt zu einem Einschub kein Asset, asset weglassen (dann greift Text-to-Speech)
+- Portrait-Assets erzeugen KEINEN eigenen audios[]-Eintrag — sie sind Bilder zu den
+  Stimmen, die es ohnehin schon gibt, und keine zusätzlichen Voice-Over-Einschübe
+- avatar-Token zeichengenau kopieren; dasselbe Portrait-Token darf bei mehreren
+  Einschüben stehen (jede Stimme behält über die ganze Lektion ihr Portrait)
+- Zuordnung Portrait → voice aus dem Datei-Namen ableiten und voice so schreiben,
+  dass die Zuordnung beim Drüberlesen prüfbar ist — ein vertauschtes Portrait fällt
+  sonst niemandem auf
+- Passt zu einer Stimme kein Portrait, avatar weglassen (dann zeigt die Karte die
+  Initialen der Stimme)
 - Antworte NUR mit dem <pre>-Block (keine Einleitung, keine Schluss-Erklärung)
 - Der Block wird 1:1 in den LearningSuite "Code einbetten"-Block eingefügt
 
@@ -134,6 +151,16 @@ audios[]-Eintrag ein asset-Feld und alles wird per Text-to-Speech vorgelesen).
 [FÜGE HIER DIE ASSET-VERWEISE AUS DEM "CODE EINBETTEN"-EDITOR EIN, Z.B.:
 {{asset:2025-12-22-at-00-22-27-intro}} — Intro, ganz an den Anfang
 {{asset:2025-12-22-at-00-50-40-voiceover-phase-1}} — Phase 1]
+
+═══ Verfügbare Portrait-Assets ═══
+
+Ein Asset pro Zeile, Format: {{asset:datei-name}} — optional " — " und der Name der
+Person. Leer lassen, wenn es keine Portrait-Bilder gibt (dann enthält kein
+audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
+
+[FÜGE HIER DIE PORTRAIT-VERWEISE AUS DEM "CODE EINBETTEN"-EDITOR EIN, Z.B.:
+{{asset:portrait-frederik-huemmeke}} — Dr. Frederik Hümmeke
+{{asset:portrait-tony-robbins}} — Tony Robbins]
 
 ═══ Lektions-Material ═══
 
