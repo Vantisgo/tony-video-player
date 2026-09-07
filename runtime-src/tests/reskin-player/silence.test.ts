@@ -71,16 +71,51 @@ describe("resolveAudioElement", () => {
   });
 });
 
+describe("silencer: leaves the audio path alone until it must not", () => {
+  // The defect this guards against: createSilencer used to build the graph
+  // eagerly at attach — before any user gesture and on every lesson, including
+  // the overwhelming majority that have no language pack at all. An AudioContext
+  // created without a gesture starts SUSPENDED, and a media element routed into
+  // a suspended graph cannot render audio, so its clock never advances: the
+  // video reports paused === false, readyState 4, fully buffered, and sits
+  // frozen. Measured on the tenant 2026-09-07 — the video advanced 0.1s and
+  // stopped. Nothing may touch the element's audio path until a dub actually
+  // needs the video silent, by which point playback has started and a gesture
+  // has certainly happened.
+  it("constructs no AudioContext at creation", () => {
+    const video = document.createElement("video");
+    const s = createSilencer(video as unknown as MediaEl, withAudio());
+    expect(created).toHaveLength(0);
+    expect(s.mode).toBe("idle");
+  });
+
+  it("builds the graph only on the first silence()", () => {
+    const video = document.createElement("video");
+    const s = createSilencer(video as unknown as MediaEl, withAudio());
+    expect(created).toHaveLength(0);
+
+    s.silence();
+    expect(created).toHaveLength(1);
+    expect(s.mode).toBe("webaudio");
+    expect(created[0].lastGain?.gain.value).toBe(0);
+  });
+
+  it("does nothing at all on restore() if it never silenced", () => {
+    const video = document.createElement("video");
+    const s = createSilencer(video as unknown as MediaEl, withAudio());
+    s.restore();
+    expect(created).toHaveLength(0);
+  });
+});
+
 describe("silencer: web audio path", () => {
   it("zeroes the gain to silence and restores it", () => {
     const video = document.createElement("video");
     const s = createSilencer(video as unknown as MediaEl, withAudio());
 
+    s.silence();
     expect(s.mode).toBe("webaudio");
     const ctx = created[0];
-    expect(ctx.lastGain?.gain.value).toBe(1);
-
-    s.silence();
     expect(ctx.lastGain?.gain.value).toBe(0);
 
     s.restore();
@@ -91,8 +126,8 @@ describe("silencer: web audio path", () => {
     // createMediaElementSource() throws InvalidStateError on a second call for
     // the same element, so the graph is cached against the instance.
     const video = document.createElement("video");
-    createSilencer(video as unknown as MediaEl, withAudio());
-    createSilencer(video as unknown as MediaEl, withAudio());
+    createSilencer(video as unknown as MediaEl, withAudio()).silence();
+    createSilencer(video as unknown as MediaEl, withAudio()).silence();
     expect(created).toHaveLength(1);
     expect(created[0].sources).toBe(1);
   });
@@ -109,8 +144,8 @@ describe("silencer: capped re-assertion fallback", () => {
   it("falls back to muting when Web Audio is unavailable", () => {
     const video = document.createElement("video");
     const s = createSilencer(video as unknown as MediaEl, withoutAudio());
-    expect(s.mode).toBe("reassert");
     s.silence();
+    expect(s.mode).toBe("reassert");
     expect(video.muted).toBe(true);
     s.restore();
     expect(video.muted).toBe(false);
@@ -137,7 +172,10 @@ describe("silencer: capped re-assertion fallback", () => {
     expect(video.muted).toBe(false);
   });
 
-  it("gives each silence() a fresh budget", () => {
+  it("gives each silence PERIOD a fresh budget, not each call", () => {
+    // syncExternalAudio calls silence() on every play/seeked/ratechange while a
+    // dub is active, so resetting per call would defeat the cap entirely. The
+    // budget resets when a new silence period begins — i.e. after a restore().
     const video = document.createElement("video");
     const s = createSilencer(video as unknown as MediaEl, withoutAudio());
     s.silence();
@@ -147,6 +185,14 @@ describe("silencer: capped re-assertion fallback", () => {
     }
     expect(video.muted).toBe(false);
 
+    // Same period: no new budget.
+    s.silence();
+    video.muted = false;
+    video.dispatchEvent(new Event("volumechange"));
+    expect(video.muted).toBe(false);
+
+    // New period: budget restored.
+    s.restore();
     s.silence();
     video.muted = false;
     video.dispatchEvent(new Event("volumechange"));

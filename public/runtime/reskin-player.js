@@ -530,49 +530,14 @@
   }
   function createSilencer(mediaEl, globals = window) {
     const audioEl = resolveAudioElement(mediaEl);
-    const Ctor = globals.AudioContext;
-    const graph = audioEl && Ctor ? buildGraph(audioEl, Ctor) : null;
-    if (graph) {
-      let silenced = false;
-      const apply = (value) => {
-        var _a, _b;
-        try {
-          graph.gain.gain.value = value;
-        } catch {
-        }
-        if (graph.ctx.state === "suspended") void ((_b = (_a = graph.ctx).resume) == null ? void 0 : _b.call(_a));
-      };
-      return {
-        mode: "webaudio",
-        silence() {
-          if (silenced) return;
-          silenced = true;
-          apply(0);
-        },
-        restore() {
-          if (!silenced) return;
-          silenced = false;
-          apply(1);
-        },
-        dispose() {
-          if (silenced) apply(1);
-        }
-      };
-    }
     const target = audioEl != null ? audioEl : mediaEl;
-    if (!target || typeof target.addEventListener !== "function")
-      return {
-        mode: "none",
-        silence() {
-        },
-        restore() {
-        },
-        dispose() {
-        }
-      };
+    let mode = "idle";
+    let graph = null;
+    let silenced = false;
     let want = false;
     let reasserts = 0;
-    const set = (value) => {
+    let listening = false;
+    const setMuted = (value) => {
       try {
         target.muted = value;
       } catch {
@@ -581,24 +546,66 @@
     const onVolumeChange = () => {
       if (!want || target.muted || reasserts >= MAX_MUTE_REASSERTS) return;
       reasserts += 1;
-      set(true);
+      setMuted(true);
     };
-    target.addEventListener("volumechange", onVolumeChange);
+    function engage() {
+      const Ctor = globals.AudioContext;
+      if (audioEl && Ctor) graph = buildGraph(audioEl, Ctor);
+      if (graph) {
+        mode = "webaudio";
+        return;
+      }
+      if (target && typeof target.addEventListener === "function") {
+        mode = "reassert";
+        if (!listening) {
+          target.addEventListener("volumechange", onVolumeChange);
+          listening = true;
+        }
+        return;
+      }
+      mode = "none";
+    }
+    function applyGain(value) {
+      var _a, _b;
+      if (!graph) return;
+      try {
+        graph.gain.gain.value = value;
+      } catch {
+      }
+      if (graph.ctx.state === "suspended") void ((_b = (_a = graph.ctx).resume) == null ? void 0 : _b.call(_a));
+    }
     return {
-      mode: "reassert",
+      get mode() {
+        return mode;
+      },
       silence() {
-        want = true;
-        reasserts = 0;
-        set(true);
+        if (silenced) return;
+        silenced = true;
+        if (mode === "idle") engage();
+        if (mode === "webaudio") applyGain(0);
+        else if (mode === "reassert") {
+          want = true;
+          reasserts = 0;
+          setMuted(true);
+        }
       },
       restore() {
-        want = false;
-        reasserts = 0;
-        set(false);
+        if (!silenced) return;
+        silenced = false;
+        if (mode === "webaudio") applyGain(1);
+        else if (mode === "reassert") {
+          want = false;
+          reasserts = 0;
+          setMuted(false);
+        }
       },
       dispose() {
+        if (silenced && mode === "webaudio") applyGain(1);
         want = false;
-        target.removeEventListener("volumechange", onVolumeChange);
+        if (listening) {
+          target.removeEventListener("volumechange", onVolumeChange);
+          listening = false;
+        }
       }
     };
   }

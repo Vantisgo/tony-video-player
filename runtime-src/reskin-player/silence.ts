@@ -35,9 +35,11 @@ export interface SilencerGlobals {
 }
 
 export interface Silencer {
-  // "webaudio" once a gain node is in place; "reassert" for the capped fallback;
-  // "none" when neither is possible (no reachable media element at all).
-  readonly mode: "webaudio" | "reassert" | "none";
+  // "idle" until something actually needs silence — see createSilencer for why
+  // nothing may touch the audio path before then. Then "webaudio" once a gain
+  // node is in place, "reassert" for the capped fallback, or "none" when neither
+  // is possible (no reachable media element at all).
+  readonly mode: "idle" | "webaudio" | "reassert" | "none";
   silence(): void;
   restore(): void;
   dispose(): void;
@@ -94,63 +96,34 @@ function buildGraph(
   }
 }
 
+// NOTHING here touches the element's audio path until `silence()` is called.
+//
+// The graph used to be built eagerly at attach. That broke playback outright on
+// lessons with no language pack — which is nearly all of them. An AudioContext
+// constructed without a user gesture starts SUSPENDED, and a media element
+// routed into a suspended graph cannot render audio, so its clock stops: the
+// video reports `paused === false`, `readyState 4`, fully buffered, and sits
+// frozen. Measured on the tenant 2026-09-07: it advanced 0.1s and stopped, and
+// the host's bar went on showing "pause" because `paused` really was false.
+//
+// Building lazily fixes both halves at once. A lesson without a dub never has
+// its audio rerouted at all, and by the time a dub does need silence the learner
+// has pressed play — so sticky activation exists and the context starts running.
 export function createSilencer(
   mediaEl: MediaEl,
   globals: SilencerGlobals = window as unknown as SilencerGlobals,
 ): Silencer {
   const audioEl = resolveAudioElement(mediaEl);
-  const Ctor = globals.AudioContext;
-  const graph = audioEl && Ctor ? buildGraph(audioEl, Ctor) : null;
-
-  if (graph) {
-    let silenced = false;
-    const apply = (value: number): void => {
-      try {
-        graph.gain.gain.value = value;
-      } catch {
-        /* ignore — a disposed context */
-      }
-      // An AudioContext constructed before any user gesture starts "suspended".
-      // Sticky activation persists for the document's lifetime once granted, and
-      // playback already required a gesture, so this resolves without one of its
-      // own. https://webaudio.github.io/web-audio-api/#allowed-to-start
-      if (graph.ctx.state === "suspended") void graph.ctx.resume?.();
-    };
-    return {
-      mode: "webaudio",
-      silence() {
-        if (silenced) return;
-        silenced = true;
-        apply(0);
-      },
-      restore() {
-        if (!silenced) return;
-        silenced = false;
-        apply(1);
-      },
-      dispose() {
-        if (silenced) apply(1);
-      },
-    };
-  }
-
-  // Fallback: no Web Audio (an old WebView, a hardened policy, or no reachable
-  // media element). Re-assert `muted` a bounded number of times, then stop.
-  // Capped rather than endless for the same reason enforceCuePause is: a host
-  // that fought back on every write would turn this into a mute/unmute war, and
-  // a stuttering player is worse for the learner than audible dub bleed.
   const target = audioEl ?? (mediaEl as unknown as HTMLMediaElement);
-  if (!target || typeof target.addEventListener !== "function")
-    return {
-      mode: "none",
-      silence() {},
-      restore() {},
-      dispose() {},
-    };
+  let mode: Silencer["mode"] = "idle";
+  let graph: Graph | null = null;
+  let silenced = false;
 
+  // Fallback state (see below): capped re-assertion of `muted`.
   let want = false;
   let reasserts = 0;
-  const set = (value: boolean): void => {
+  let listening = false;
+  const setMuted = (value: boolean): void => {
     try {
       target.muted = value;
     } catch {
@@ -160,24 +133,73 @@ export function createSilencer(
   const onVolumeChange = (): void => {
     if (!want || target.muted || reasserts >= MAX_MUTE_REASSERTS) return;
     reasserts += 1;
-    set(true);
+    setMuted(true);
   };
-  target.addEventListener("volumechange", onVolumeChange);
+
+  // Decide the mechanism on first use, never before.
+  function engage(): void {
+    const Ctor = globals.AudioContext;
+    if (audioEl && Ctor) graph = buildGraph(audioEl, Ctor);
+    if (graph) {
+      mode = "webaudio";
+      return;
+    }
+    if (target && typeof target.addEventListener === "function") {
+      mode = "reassert";
+      if (!listening) {
+        target.addEventListener("volumechange", onVolumeChange);
+        listening = true;
+      }
+      return;
+    }
+    mode = "none";
+  }
+
+  function applyGain(value: number): void {
+    if (!graph) return;
+    try {
+      graph.gain.gain.value = value;
+    } catch {
+      /* ignore — a disposed context */
+    }
+    // Should already be running (a gesture started playback), but a context can
+    // be interrupted — by a phone call on iOS, for instance.
+    // https://webaudio.github.io/web-audio-api/#allowed-to-start
+    if (graph.ctx.state === "suspended") void graph.ctx.resume?.();
+  }
+
   return {
-    mode: "reassert",
+    get mode() {
+      return mode;
+    },
     silence() {
-      want = true;
-      reasserts = 0;
-      set(true);
+      if (silenced) return;
+      silenced = true;
+      if (mode === "idle") engage();
+      if (mode === "webaudio") applyGain(0);
+      else if (mode === "reassert") {
+        want = true;
+        reasserts = 0;
+        setMuted(true);
+      }
     },
     restore() {
-      want = false;
-      reasserts = 0;
-      set(false);
+      if (!silenced) return;
+      silenced = false;
+      if (mode === "webaudio") applyGain(1);
+      else if (mode === "reassert") {
+        want = false;
+        reasserts = 0;
+        setMuted(false);
+      }
     },
     dispose() {
+      if (silenced && mode === "webaudio") applyGain(1);
       want = false;
-      target.removeEventListener("volumechange", onVolumeChange);
+      if (listening) {
+        target.removeEventListener("volumechange", onVolumeChange);
+        listening = false;
+      }
     },
   };
 }

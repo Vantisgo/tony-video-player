@@ -817,6 +817,21 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   whole existence. It is now passed as makeSlot's third argument. (Consequence: the
   measurement that justified deleting the quiz's `.vp-controls` guard used a synthetic
   z-index-20 overlay, not the real scrim — the conclusion holds only _because_ of this fix.)
+- **Constraint (release-blocking regression, fixed same day)**: `silence.ts` must build its
+  Web Audio graph **lazily**, on the first `silence()`, never at attach. Built eagerly it
+  broke playback outright on every lesson **without** a language pack — which is nearly all
+  of them. An `AudioContext` constructed before a user gesture starts **suspended**, and a
+  media element routed into a suspended graph cannot render audio, so its clock stops: the
+  video reads `paused === false`, `readyState 4`, fully buffered, no error, and sits frozen
+  (measured: advanced 0.1s, then nothing), while the host's bar keeps showing "pause" because
+  `paused` really is false. Lazy building fixes both halves — a lesson with no dub never has
+  its audio touched, and by the time a dub needs silence the learner has pressed play, so
+  sticky activation exists and the context starts running.
+- **Gotcha (why the suite missed it)**: `playwright.config.ts` launches Chrome with
+  `--autoplay-policy=no-user-gesture-required` **and** `--mute-audio`. Between them, an
+  AudioContext starts `running` and the audio path is a no-op sink, so a suspended-context
+  stall is invisible to every e2e run. Anything that depends on real audio rendering has to be
+  checked in a normal browser, or with `test.use({ launchOptions: { args: [] } })`.
 - **Gotcha (coverage)**: three things are now unguarded — the language-pack dub path (the
   canary's video has no pack; `window.__vpLanguagePacks` is the hook), `renderSubtitleCue`'s
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
