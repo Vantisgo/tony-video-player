@@ -47,6 +47,12 @@ const MAX_CUE_REPAUSES = 3;
 // a `z-index` inside the `posCss` string is overridden by the declaration
 // makeSlot appends after it, which is how the scrim silently sat at the default
 // for as long as it has existed.
+// How far the position must move before a seek counts as "the learner (or the
+// host) went somewhere else" rather than HLS re-buffering in place. hls.js fires
+// seeking/seeked for its own gap-jumping and stall recovery, and those land on
+// essentially the same position.
+const SEEK_EPSILON_SEC = 1.5;
+
 const SLOT_Z = 15;
 const QUIZ_SLOT_Z = 20;
 
@@ -942,6 +948,29 @@ function main(): string {
     };
     audioEl.addEventListener("timeupdate", onAudioTimeUpdate);
     audioEl.addEventListener("ended", onAudioEnded);
+    // A cue belongs to the position it is anchored to. LearningSuite restores its
+    // own saved position on the first press, and that seek can land AFTER a cue
+    // has already activated — so the cue is speaking for a moment the learner is
+    // no longer at, and `end({resume:true})` would drag them back to it.
+    //
+    // A deliberate move therefore withdraws the live cue. The anchor is
+    // re-pointed at where the seek landed BEFORE ending, so the resume continues
+    // from there instead of yanking them back; and it resumes rather than
+    // leaving the video parked, because the learner pressed play and a dead
+    // press is worse than a cue cut short. The cue stays in `triggered`, so it
+    // does not immediately re-fire.
+    const onVideoSeeked = () => {
+      if (!videoEl || !audioCtrl.isActive()) return;
+      const landed = videoEl.currentTime;
+      if (!Number.isFinite(landed)) return;
+      if (Math.abs(landed - audioCtrl.videoResumeTime) <= SEEK_EPSILON_SEC)
+        return;
+      audioCtrl.videoResumeTime = landed;
+      audioCtrl.end({ resume: true });
+    };
+    videoEl?.addEventListener("seeked", onVideoSeeked);
+    onCleanup(() => videoEl?.removeEventListener("seeked", onVideoSeeked));
+
     audioEl.addEventListener("error", onAudioError);
     onCleanup(() => {
       audioEl.removeEventListener("timeupdate", onAudioTimeUpdate);

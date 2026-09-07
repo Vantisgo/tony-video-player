@@ -769,11 +769,10 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   the _settled_ path; nothing in the harness re-plays the element. The new tests model the host
   explicitly — `await video.play(); emitPlay(0)` a second time under a live cue. Anything about
   who-wins-a-race with LearningSuite belongs in a browser, not in vitest.
-- **Gotcha (open, not fixed)**: this lesson restores a saved resume position on the first
-  press, and that seek can land _before_ the `play` event reaches `recomputeActive` — so on a
-  lesson with progress a `t:0` cue may not fire at all, and when it does fire the cue's
-  `videoResumeTime` (~0) overrides the host's restore at cue end. Cue anchoring vs. the host's
-  resume feature is unresolved and was out of scope here.
+- **Gotcha (RESOLVED 2026-09-07, see the media-controls entry)**: this lesson restores a saved
+  resume position on the first press, and that seek can land _after_ a `t:0` cue has already
+  activated — so the cue spoke for a position the learner was no longer at, and
+  `end({resume:true})` dragged them back to it. A deliberate seek now withdraws the live cue.
 
 ## 2026-09-07 · media-controls · Restore LearningSuite's chrome, augment it
 
@@ -832,6 +831,17 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   AudioContext starts `running` and the audio path is a no-op sink, so a suspended-context
   stall is invisible to every e2e run. Anything that depends on real audio rendering has to be
   checked in a normal browser, or with `test.use({ launchOptions: { args: [] } })`.
+- **Decision (user, 2026-09-07)**: **a cue belongs to the position it is anchored to.** If the
+  position moves away deliberately, the cue's moment has passed: a `seeked` beyond
+  `SEEK_EPSILON_SEC` (1.5s) of `videoResumeTime` withdraws the live cue. The anchor is
+  re-pointed at where the seek landed **before** `end({resume:true})`, so playback continues
+  from there instead of yanking the learner back; and it resumes rather than leaving the video
+  parked, because the learner pressed play and a dead press is worse than a cue cut short. The
+  cue stays in `triggered`, so it does not immediately re-fire. The epsilon is load-bearing:
+  hls.js fires seeking/seeked for its own gap-jumping and stall recovery, and those land on
+  essentially the same position. Verified on the tenant: a `t:0` cue on a lesson with saved
+  progress is withdrawn when the host restores to 45.4s, and playback continues there.
+  Deliberately NOT extended to the quiz, which owns its own resume semantics.
 - **Gotcha (coverage)**: three things are now unguarded — the language-pack dub path (the
   canary's video has no pack; `window.__vpLanguagePacks` is the hook), `renderSubtitleCue`'s
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the

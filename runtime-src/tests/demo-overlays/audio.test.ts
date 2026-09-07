@@ -438,6 +438,61 @@ describe("audio cue: TTS fallback", () => {
 // maybeTriggerAudio's window test (`t >= a.t && t < a.t + 1.0`) is satisfied by
 // 0. Measured on the live tenant before the fix: a 119s voice-over 35s in,
 // while the video sat paused at 0:00 having never been played.
+// Cue anchoring versus the host's own resume-position feature.
+//
+// LearningSuite restores its saved position on the first press, and that seek
+// can land AFTER our cue has already activated — so the cue belongs to a
+// position the learner is no longer at, and `end({resume:true})` would drag them
+// back to it. A cue belongs to the position it is anchored to: if the position
+// moves away deliberately, the cue's moment has passed.
+describe("audio cue: the host moves the position out from under a cue", () => {
+  it("withdraws the cue and resumes where the seek landed", async () => {
+    const { video } = await mountAndTrigger(
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+    );
+    expect(ctrl().state).toBe("playing");
+    expect(video.paused).toBe(true);
+
+    // The host restores its saved position mid-cue.
+    video.currentTime = 45;
+    video.dispatchEvent(new Event("seeked"));
+
+    expect(ctrl().state).toBe("idle");
+    // Not yanked back to the cue's anchor...
+    expect(video.currentTime).toBe(45);
+    // ...and the learner's press is not left dead.
+    expect(video.paused).toBe(false);
+  });
+
+  it("leaves the cue alone for a re-buffer that lands where it left", async () => {
+    const { video } = await mountAndTrigger(
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+    );
+    expect(ctrl().state).toBe("playing");
+
+    // HLS fires seeking/seeked for its own re-buffering; those land on
+    // essentially the same position and must not withdraw anything.
+    video.currentTime = 2.2;
+    video.dispatchEvent(new Event("seeked"));
+
+    expect(ctrl().state).toBe("playing");
+    expect(video.paused).toBe(true);
+  });
+
+  it("does not re-fire the cue it just withdrew", async () => {
+    const { video } = await mountAndTrigger(
+      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+    );
+    video.currentTime = 45;
+    video.dispatchEvent(new Event("seeked"));
+    expect(ctrl().state).toBe("idle");
+
+    // Back inside the cue's own window: it stays consumed.
+    emitTime(2);
+    expect(ctrl().state).toBe("idle");
+  });
+});
+
 describe("audio cue: playback-start gate", () => {
   const CUE_AT_ZERO = { ...CUE, t: 0 };
 

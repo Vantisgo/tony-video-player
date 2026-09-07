@@ -1686,6 +1686,7 @@
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
   var MAX_CUE_REPAUSES = 3;
+  var SEEK_EPSILON_SEC = 1.5;
   var SLOT_Z = 15;
   var QUIZ_SLOT_Z = 20;
   var ICON_PLAY = '<svg class="vp-audio-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
@@ -2325,6 +2326,17 @@
       };
       audioEl.addEventListener("timeupdate", onAudioTimeUpdate);
       audioEl.addEventListener("ended", onAudioEnded);
+      const onVideoSeeked = () => {
+        if (!videoEl || !audioCtrl.isActive()) return;
+        const landed = videoEl.currentTime;
+        if (!Number.isFinite(landed)) return;
+        if (Math.abs(landed - audioCtrl.videoResumeTime) <= SEEK_EPSILON_SEC)
+          return;
+        audioCtrl.videoResumeTime = landed;
+        audioCtrl.end({ resume: true });
+      };
+      videoEl == null ? void 0 : videoEl.addEventListener("seeked", onVideoSeeked);
+      onCleanup(() => videoEl == null ? void 0 : videoEl.removeEventListener("seeked", onVideoSeeked));
       audioEl.addEventListener("error", onAudioError);
       onCleanup(() => {
         audioEl.removeEventListener("timeupdate", onAudioTimeUpdate);
