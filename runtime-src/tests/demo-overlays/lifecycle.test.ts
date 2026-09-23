@@ -253,6 +253,33 @@ describe("idempotency", () => {
   });
 });
 
+describe("mobile viewport", () => {
+  it("installs no sidebar below 1024px and mounts it once the viewport widens", async () => {
+    const happyDOM = (
+      window as unknown as {
+        happyDOM: { setViewport(v: { width: number }): void };
+      }
+    ).happyDOM;
+    happyDOM.setViewport({ width: 390 });
+    addConfig(VALID_CONFIG);
+    addPlayer();
+    await load();
+
+    expect(document.getElementById("vp-slot-tl")).not.toBeNull();
+    expect(document.getElementById("vp-demo-sidebar")).toBeNull();
+    expect(document.body.style.paddingRight).toBe("");
+
+    happyDOM.setViewport({ width: 1280 });
+    await settle();
+    expect(document.getElementById("vp-demo-sidebar")).not.toBeNull();
+
+    happyDOM.setViewport({ width: 390 });
+    await settle();
+    expect(document.getElementById("vp-demo-sidebar")).toBeNull();
+    happyDOM.setViewport({ width: 1024 });
+  });
+});
+
 describe("conditional mounting", () => {
   it("renders no sample content and no sidebar for an empty config", async () => {
     addConfig({ phases: [], sciences: [], audios: [], metaSteps: [] });

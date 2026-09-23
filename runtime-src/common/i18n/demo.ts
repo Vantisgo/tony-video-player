@@ -21,6 +21,11 @@ const EN = {
   "demo.phase.interventions": "Interventions",
   "demo.phase.count": "{count} interventions",
   "demo.phase.duration": "{min}m",
+  // Intervention card sections (mirror the native player's card)
+  "demo.iv.happening": "What's happening",
+  "demo.iv.method": "Method / Model / Framework",
+  "demo.iv.function": "Function",
+  "demo.iv.fields": "Scientific fields",
   // Meta structure
   "demo.meta.heading": "7 Master Steps",
   "demo.meta.step": "Step {n} / {total}",
@@ -67,6 +72,10 @@ const DE: Record<DemoKey, string> = {
   "demo.phase.interventions": "Interventionen",
   "demo.phase.count": "{count} Interventionen",
   "demo.phase.duration": "{min} Min.",
+  "demo.iv.happening": "Was passiert",
+  "demo.iv.method": "Methode / Modell / Framework",
+  "demo.iv.function": "Funktion",
+  "demo.iv.fields": "Wissenschaftliche Felder",
   "demo.meta.heading": "7 Master Steps",
   "demo.meta.step": "Schritt {n} / {total}",
   "demo.meta.openTitle": "Master-Schritte öffnen",

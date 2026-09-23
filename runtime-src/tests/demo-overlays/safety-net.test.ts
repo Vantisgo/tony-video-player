@@ -172,4 +172,40 @@ describe("demo flex-sibling precondition (F3)", () => {
     expect(sidebar).not.toBeNull();
     expect(sidebar?.parentElement).toBe(flexParent);
   });
+
+  it("gives LearningSuite's column back when a narrowed viewport drops the sidebar", async () => {
+    installPlayerStub();
+    const flexParent = document.createElement("div");
+    const main = document.createElement("main");
+    const lsColumn = document.createElement("div");
+    flexParent.append(main, lsColumn);
+    document.body.appendChild(flexParent);
+    addConfig(VALID_CONFIG);
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        if (this.tagName === "MAIN") return rect(600, 400);
+        if ((this as HTMLElement).id === "vp-demo-sidebar") {
+          const r = rect(340, 400);
+          return { ...r, left: 620, right: 960, x: 620 } as DOMRect;
+        }
+        return rect(0, 0);
+      },
+    );
+    await import("../../demo-overlays/index");
+    await nextFrames();
+    expect(lsColumn.style.display).toBe("none");
+
+    const happyDOM = (
+      window as unknown as {
+        happyDOM: { setViewport(v: { width: number }): void };
+      }
+    ).happyDOM;
+    happyDOM.setViewport({ width: 390 });
+    await new Promise((r) => setTimeout(r, 220));
+    await nextFrames();
+    happyDOM.setViewport({ width: 1024 });
+
+    expect(document.getElementById("vp-demo-sidebar")).toBeNull();
+    expect(lsColumn.style.display).toBe("");
+  });
 });

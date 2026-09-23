@@ -30,7 +30,15 @@ phases[]:
     end   — OPTIONAL: Sekunde, bis zu der die Intervention aktuell ist (exklusiv).
             Ohne end bleibt sie aktuell, bis die nächste Intervention beginnt
             oder die Phase endet.
-    desc  — 1 Satz Beschreibung
+    desc  — "Was passiert": 2–5 Sätze, was der Coach hier tut und welche Wirkung
+            das beim Coachee hat
+    prompt        — OPTIONAL: die wörtliche Frage oder Aussage des Coaches (ohne
+                    Anführungszeichen), als Zitat hervorgehoben
+    method        — OPTIONAL: die verwendete Methode, das Modell oder Framework
+    function      — OPTIONAL: die Funktion der Intervention in 1–4 Wörtern,
+                    z.B. "Kognitive Verankerung"
+    scienceFields — OPTIONAL: 1–4 wissenschaftliche Bezugsfelder als Strings,
+                    z.B. ["Kognitive Psychologie (Metakognition)"]
 
 sciences[]:  (Wissenschafts-Pop-Ups, je 5s sichtbar bei jedem Timestamp)
   id, name, description, timestampsSec[]
@@ -77,7 +85,8 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
       "id":"p1", "title":"Einführung", "description":"...",
       "startTimeSec":0, "endTimeSec":60,
       "interventions":[
-        { "id":"i11", "label":"1.1", "title":"...", "t":10, "end":25, "desc":"..." }
+        { "id":"i11", "label":"1.1", "title":"...", "t":10, "end":25, "desc":"...",
+          "prompt":"...", "method":"...", "function":"...", "scienceFields":["...","..."] }
       ]
     }
   ],

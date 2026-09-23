@@ -139,6 +139,11 @@
     "demo.phase.interventions": "Interventions",
     "demo.phase.count": "{count} interventions",
     "demo.phase.duration": "{min}m",
+    // Intervention card sections (mirror the native player's card)
+    "demo.iv.happening": "What's happening",
+    "demo.iv.method": "Method / Model / Framework",
+    "demo.iv.function": "Function",
+    "demo.iv.fields": "Scientific fields",
     // Meta structure
     "demo.meta.heading": "7 Master Steps",
     "demo.meta.step": "Step {n} / {total}",
@@ -177,6 +182,10 @@
     "demo.phase.interventions": "Interventionen",
     "demo.phase.count": "{count} Interventionen",
     "demo.phase.duration": "{min} Min.",
+    "demo.iv.happening": "Was passiert",
+    "demo.iv.method": "Methode / Modell / Framework",
+    "demo.iv.function": "Funktion",
+    "demo.iv.fields": "Wissenschaftliche Felder",
     "demo.meta.heading": "7 Master Steps",
     "demo.meta.step": "Schritt {n} / {total}",
     "demo.meta.openTitle": "Master-Schritte öffnen",
@@ -253,17 +262,17 @@
   }
   function parseVpConfig(raw) {
     const obj = raw && typeof raw === "object" ? raw : {};
-    const section = (key) => {
+    const section2 = (key) => {
       if (!(key in obj)) return void 0;
       if (Array.isArray(obj[key])) return obj[key];
       console.warn(`[vp] config.${key} is not an array; falling back to default`);
       return void 0;
     };
     return {
-      phases: section("phases"),
-      sciences: section("sciences"),
-      audios: section("audios"),
-      metaSteps: section("metaSteps"),
+      phases: section2("phases"),
+      sciences: section2("sciences"),
+      audios: section2("audios"),
+      metaSteps: section2("metaSteps"),
       assets: normalizeAssets(obj.assets),
       demo: obj.demo === true,
       quiz: normalizeQuizConfig(obj.quiz)
@@ -1001,8 +1010,8 @@
       else if (key === "style") node.style.cssText = String(val);
       else node.setAttribute(key, val === true ? "" : String(val));
     }
-    const list = Array.isArray(kids) ? kids : [kids];
-    for (const kid of list) {
+    const list2 = Array.isArray(kids) ? kids : [kids];
+    for (const kid of list2) {
       if (kid == null || kid === false) continue;
       node.appendChild(
         typeof kid === "string" ? document.createTextNode(kid) : kid
@@ -1059,12 +1068,12 @@
       const radius = (size - stroke) / 2;
       const circ = 2 * Math.PI * radius;
       const svgNS = "http://www.w3.org/2000/svg";
-      const svg = document.createElementNS(svgNS, "svg");
-      svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
-      svg.setAttribute("class", "vp-quiz-ring");
-      svg.setAttribute("aria-hidden", "true");
-      svg.setAttribute("data-vp-quiz-ring", "");
-      svg.dataset.circ = String(circ);
+      const svg2 = document.createElementNS(svgNS, "svg");
+      svg2.setAttribute("viewBox", `0 0 ${size} ${size}`);
+      svg2.setAttribute("class", "vp-quiz-ring");
+      svg2.setAttribute("aria-hidden", "true");
+      svg2.setAttribute("data-vp-quiz-ring", "");
+      svg2.dataset.circ = String(circ);
       const circle = (cls) => {
         const c = document.createElementNS(svgNS, "circle");
         c.setAttribute("class", cls);
@@ -1078,8 +1087,8 @@
       fill.setAttribute("stroke-dasharray", String(circ));
       fill.setAttribute("stroke-dashoffset", "0");
       fill.setAttribute("data-vp-quiz-ring-fill", "");
-      svg.appendChild(track);
-      svg.appendChild(fill);
+      svg2.appendChild(track);
+      svg2.appendChild(fill);
       const remaining = Math.max(0, (_a = remainingSec != null ? remainingSec : question.timeoutSec) != null ? _a : 0);
       const wrap = qzEl("div", {
         class: "vp-quiz-countdown",
@@ -1087,7 +1096,7 @@
         "aria-live": "off",
         "data-vp-quiz-countdown": ""
       });
-      wrap.appendChild(svg);
+      wrap.appendChild(svg2);
       wrap.appendChild(
         qzEl(
           "span",
@@ -1369,11 +1378,11 @@
       if (!(question == null ? void 0 : question.timeoutSec)) return;
       const remaining = Math.max(0, remainingSec != null ? remainingSec : 0);
       const pct = Math.max(0, Math.min(1, remaining / question.timeoutSec));
-      const svg = wrap.querySelector("[data-vp-quiz-ring]");
+      const svg2 = wrap.querySelector("[data-vp-quiz-ring]");
       const fill = wrap.querySelector("[data-vp-quiz-ring-fill]");
       const num = wrap.querySelector("[data-vp-quiz-countdown-num]");
-      if (svg && fill) {
-        const circ = Number(svg.dataset.circ || 0);
+      if (svg2 && fill) {
+        const circ = Number(svg2.dataset.circ || 0);
         fill.setAttribute("stroke-dashoffset", String(circ * (1 - pct)));
       }
       wrap.dataset.warn = remaining <= 5 ? "1" : "0";
@@ -1397,14 +1406,14 @@
     function trapTabKey(e) {
       const card = slot.querySelector("[data-vp-quiz-card]");
       if (!card) return;
-      const list = focusableEls(card);
-      if (!list.length) {
+      const list2 = focusableEls(card);
+      if (!list2.length) {
         e.preventDefault();
         card.focus();
         return;
       }
-      const first = list[0];
-      const last = list[list.length - 1];
+      const first = list2[0];
+      const last = list2[list2.length - 1];
       const active = document.activeElement;
       if (e.shiftKey) {
         if (active === first || !card.contains(active)) {
@@ -1682,6 +1691,66 @@
     return controller;
   }
 
+  // runtime-src/demo-overlays/intervention-card.ts
+  var svg = (body, color, size = 14) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0">${body}</svg>`;
+  var ICON = {
+    quote: `<svg width="20" height="20" viewBox="0 0 24 24" fill="${T.primary}" aria-hidden="true" style="flex-shrink:0;margin-top:2px"><path d="M3 6h7v7a6 6 0 0 1-6 6v-3a3 3 0 0 0 3-3H3zM14 6h7v7a6 6 0 0 1-6 6v-3a3 3 0 0 0 3-3h-4z"/></svg>`,
+    happening: svg(
+      '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/>',
+      T.mutedFg
+    ),
+    method: svg('<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>', "#f59e0b"),
+    function: svg(
+      '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+      "#10b981"
+    ),
+    fields: svg(
+      '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
+      "#3b82f6"
+    )
+  };
+  var text2 = (v) => typeof v === "string" ? v.trim() : "";
+  var list = (v) => Array.isArray(v) ? v.map(text2).filter(Boolean) : [];
+  function section(icon, label, body) {
+    return `<div style="display:grid;gap:4px">
+    <div style="display:flex;align-items:center;gap:8px;font:600 11px system-ui;letter-spacing:.5px;text-transform:uppercase;color:${T.mutedFg}">${icon}<span>${esc(label)}</span></div>
+    <div style="padding-left:22px">${body}</div>
+  </div>`;
+  }
+  var prose = (value, color) => `<p style="margin:0;font:400 13.5px/1.6 system-ui;color:${color}">${esc(value)}</p>`;
+  function interventionCard(iv, state) {
+    const { active, open } = state;
+    const prompt = text2(iv.prompt);
+    const desc = text2(iv.desc);
+    const method = text2(iv.method);
+    const fn = text2(iv.function);
+    const fields = list(iv.scienceFields);
+    const body = [
+      prompt && `<div style="display:flex;gap:8px">${ICON.quote}<p style="margin:0;font:italic 500 15.5px/1.55 system-ui;color:${T.fg}">“${esc(prompt)}”</p></div>`,
+      desc && section(ICON.happening, t("demo.iv.happening"), prose(desc, T.mutedFg)),
+      method && section(ICON.method, t("demo.iv.method"), prose(method, T.fg)),
+      fn && section(ICON.function, t("demo.iv.function"), prose(fn, T.fg)),
+      fields.length > 0 && section(
+        ICON.fields,
+        t("demo.iv.fields"),
+        `<div style="display:flex;flex-wrap:wrap;gap:6px">${fields.map(
+          (f) => `<span style="font:500 12px/1.3 system-ui;color:${T.fg};background:rgba(255,255,255,.04);border:1px solid ${T.border};border-radius:999px;padding:4px 10px">${esc(f)}</span>`
+        ).join("")}</div>`
+      )
+    ].filter(Boolean).join("");
+    return `<div data-iv="${esc(iv.id)}" style="border:1px solid rgba(80,83,82,.6);border-left:2px solid ${active ? T.primary : "rgba(168,191,186,.3)"};background:rgba(255,255,255,.03);border-radius:8px;transition:border-color .2s">
+    <button data-iv-toggle="${esc(iv.id)}" aria-expanded="${open}" style="width:100%;display:flex;gap:12px;align-items:center;padding:11px 12px;background:none;border:0;cursor:pointer;text-align:left;color:inherit">
+      <span style="min-width:24px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:${T.muted};color:${active ? T.primary : T.mutedFg};font:600 11px system-ui;display:flex;align-items:center;justify-content:center;flex-shrink:0">${esc(iv.label)}</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:5px">
+        <span style="font:500 13.5px/1.35 system-ui;color:${active ? T.primary : T.fg}">${esc(iv.title)}</span>
+        <span data-seek="${esc(iv.t)}" style="display:inline-flex;align-items:center;gap:4px;font:500 11px ui-monospace,monospace;color:${T.mutedFg};padding:2px 7px;border-radius:6px;border:1px solid ${T.border};cursor:pointer"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 21 12 5 21"/></svg>${formatTime(iv.t)}</span>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${T.mutedFg}" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0;transition:transform .2s;${open ? "transform:rotate(180deg)" : ""}"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    ${open && body ? `<div style="display:grid;gap:14px;padding:2px 12px 14px">${body}</div>` : ""}
+  </div>`;
+  }
+
   // runtime-src/demo-overlays/index.ts
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
@@ -1813,6 +1882,12 @@
       window.removeEventListener("popstate", popHandler);
       if (popTimeout) clearTimeout(popTimeout);
     });
+    const sidebarViewport = window.matchMedia("(min-width: 1024px)");
+    sidebarViewport.addEventListener("change", scheduleScan);
+    pushCleanup(
+      CLEANUP_KEY,
+      () => sidebarViewport.removeEventListener("change", scheduleScan)
+    );
     if (loadVpConfig()) {
       const deadline = setTimeout(() => {
         if (!everMounted) reportFailure("demo-context-timeout");
@@ -1860,7 +1935,8 @@
       const showCoachingTab = phases.length > 0;
       const showScienceTab = sciences.length > 0;
       const showMetaTab = metaSteps.length > 0;
-      const showSidebar = showCoachingTab || showScienceTab || showMetaTab;
+      const sidebarFits = sidebarViewport.matches;
+      const showSidebar = sidebarFits && (showCoachingTab || showScienceTab || showMetaTab);
       const showAudio = audios.length > 0;
       const showQuiz = quiz !== null;
       w.__vpConfig = {
@@ -1994,7 +2070,7 @@
         if (!showSectionOverlay) return;
         const t2 = (_a2 = window.player.current) != null ? _a2 : 0;
         const phase = phases.find((p) => t2 >= p.startTimeSec && t2 < p.endTimeSec);
-        const section = (_b2 = phase == null ? void 0 : phase.title) != null ? _b2 : t("demo.section.intro");
+        const section2 = (_b2 = phase == null ? void 0 : phase.title) != null ? _b2 : t("demo.section.intro");
         const subs = phase ? (
           // `current` honours an optional `end`, so an intervention past its end
           // time falls through to "completed" rather than staying current.
@@ -2006,9 +2082,9 @@
         ) : [];
         const cur = subs.find((s) => s.current);
         const completedCount = subs.filter((s) => s.completed).length;
-        if (sectionRefs.title.textContent !== section)
-          sectionRefs.title.textContent = section;
-        sectionRefs.title.title = section;
+        if (sectionRefs.title.textContent !== section2)
+          sectionRefs.title.textContent = section2;
+        sectionRefs.title.title = section2;
         if (cur) {
           sectionRefs.curRow.hidden = false;
           if (sectionRefs.curTitle.textContent !== cur.title)
@@ -2017,8 +2093,8 @@
         } else {
           sectionRefs.curRow.hidden = true;
         }
-        if (sectionRefs.h3.textContent !== section)
-          sectionRefs.h3.textContent = section;
+        if (sectionRefs.h3.textContent !== section2)
+          sectionRefs.h3.textContent = section2;
         if (subs.length) {
           sectionRefs.progress.hidden = false;
           sectionRefs.empty.hidden = true;
@@ -2632,14 +2708,20 @@
         const sbRect = sidebar.getBoundingClientRect();
         const fitsToRightOfMain = sbRect.left + 5 >= mainRect.right;
         const visibleInViewport = sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
-        if (fitsToRightOfMain && visibleInViewport) return true;
-        prevDisplays.forEach((v, child) => {
-          child.style.display = v;
-        });
-        flexParent.style.display = prevParentDisplay;
-        flexParent.style.gap = prevParentGap;
-        mainEl.style.flex = prevMainFlex;
-        mainEl.style.minWidth = prevMainMinWidth;
+        const restoreHost = () => {
+          prevDisplays.forEach((v, child) => {
+            child.style.display = v;
+          });
+          flexParent.style.display = prevParentDisplay;
+          flexParent.style.gap = prevParentGap;
+          mainEl.style.flex = prevMainFlex;
+          mainEl.style.minWidth = prevMainMinWidth;
+        };
+        if (fitsToRightOfMain && visibleInViewport) {
+          onCleanup(restoreHost);
+          return true;
+        }
+        restoreHost();
         return false;
       }
       if (showSidebar) {
@@ -2675,7 +2757,7 @@
       let coachingSig = null;
       function renderCoaching() {
         if (!coachingPanel) return;
-        const sig = `${w.__vpActivePhase}|${w.__vpActiveIntervention}|${w.__vpExpandedPhase}`;
+        const sig = `${w.__vpActivePhase}|${w.__vpActiveIntervention}|${w.__vpExpandedPhase}|${w.__vpExpandedIntervention}`;
         if (sig === coachingSig) return;
         coachingSig = sig;
         coachingPanel.innerHTML = phases.map((p, i) => {
@@ -2706,17 +2788,12 @@
             <div style="border-top:1px solid ${T.border};padding-top:12px">
               <div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:8px">${esc(t("demo.phase.interventions"))}</div>
               <div style="display:grid;gap:6px">
-                ${p.interventions.map((iv) => {
-            const ivActive = iv.id === w.__vpActiveIntervention;
-            return `<div data-seek="${esc(iv.t)}" style="padding:9px 11px;border-radius:8px;background:${ivActive ? T.primarySoft : T.neutral};border:1px solid ${ivActive ? T.primaryRing : T.border};cursor:pointer">
-                    <div style="display:flex;gap:8px;align-items:baseline">
-                      <span style="font:700 11.5px ui-monospace,monospace;color:${ivActive ? T.primary : T.mutedFg};min-width:28px">${esc(iv.label)}</span>
-                      <strong style="flex:1;font:600 13px system-ui;color:${T.fg}">${esc(iv.title)}</strong>
-                      <span style="font:500 11px ui-monospace,monospace;color:${T.mutedFg}">${formatTime(iv.t)}</span>
-                    </div>
-                    <div style="margin:4px 0 0 36px;color:${T.mutedFg};font-size:12.5px">${esc(iv.desc)}</div>
-                  </div>`;
-          }).join("")}
+                ${p.interventions.map(
+            (iv) => interventionCard(iv, {
+              active: iv.id === w.__vpActiveIntervention,
+              open: iv.id === w.__vpExpandedIntervention
+            })
+          ).join("")}
               </div>
             </div>
           </div>` : ""}
@@ -2735,6 +2812,14 @@
             }
             const id = btn.dataset.phaseToggle;
             w.__vpExpandedPhase = w.__vpExpandedPhase === id ? null : id;
+            renderCoaching();
+          };
+        });
+        coachingPanel.querySelectorAll("[data-iv-toggle]").forEach((b) => {
+          const btn = b;
+          btn.onclick = () => {
+            const id = btn.dataset.ivToggle;
+            w.__vpExpandedIntervention = w.__vpExpandedIntervention === id ? null : id;
             renderCoaching();
           };
         });
@@ -2848,10 +2933,13 @@
         let meta = null;
         for (const m of metaSteps) if (t2 >= m.t) meta = m.id;
         const phaseChanged = w.__vpActivePhase !== (phase == null ? void 0 : phase.id);
+        const interventionChanged = w.__vpActiveIntervention !== intervention;
         w.__vpActivePhase = (_a2 = phase == null ? void 0 : phase.id) != null ? _a2 : null;
         w.__vpActiveIntervention = intervention;
         w.__vpActiveMeta = meta;
         if (phaseChanged && phase) w.__vpExpandedPhase = phase.id;
+        if (interventionChanged && intervention)
+          w.__vpExpandedIntervention = intervention;
         renderCoaching();
         renderMeta();
         renderSection();
@@ -2904,6 +2992,7 @@
         if (!slotLowerThird.isConnected) return false;
         if (showQuiz && !(slotQuiz == null ? void 0 : slotQuiz.isConnected)) return false;
         if (showSidebar && !sidebar.isConnected) return false;
+        if (sidebarViewport.matches !== sidebarFits) return false;
         return true;
       };
       console.info("[vp] demo overlays mounted");

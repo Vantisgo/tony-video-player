@@ -27,6 +27,7 @@ import {
   T,
 } from "./styles";
 import { createQuizController } from "./quiz";
+import { interventionCard } from "./intervention-card";
 
 const CLEANUP_KEY = "__vpDemoCleanup";
 const AUDIO_EL_ID = "vp-audio-el";
@@ -137,6 +138,7 @@ interface VpDemoWindow {
   __vpHighlightedScience?: string | null;
   __vpSidebarTab?: (name: string) => void;
   __vpExpandedPhase?: string | null;
+  __vpExpandedIntervention?: string | null;
   __vpActivePhase?: string | null;
   __vpActiveIntervention?: string | null;
   __vpActiveMeta?: string | null;
@@ -282,6 +284,16 @@ function main(): string {
     if (popTimeout) clearTimeout(popTimeout);
   });
 
+  // Below this width there is no room beside the lesson for the 340px sidebar:
+  // the fixed-rail fallback would cover the page and pad <body> by 372px. On
+  // mobile the sidebar is therefore not installed at all, and crossing the
+  // breakpoint (rotation, window resize) remounts via checkAlive().
+  const sidebarViewport = window.matchMedia("(min-width: 1024px)");
+  sidebarViewport.addEventListener("change", scheduleScan);
+  pushCleanup(CLEANUP_KEY, () =>
+    sidebarViewport.removeEventListener("change", scheduleScan),
+  );
+
   // No-context deadline: a config is on the page but we never manage to mount
   // (e.g. LearningSuite renamed the player element) — report once (F6).
   if (loadVpConfig()) {
@@ -338,7 +350,9 @@ function main(): string {
     const showCoachingTab = phases.length > 0;
     const showScienceTab = sciences.length > 0;
     const showMetaTab = metaSteps.length > 0;
-    const showSidebar = showCoachingTab || showScienceTab || showMetaTab;
+    const sidebarFits = sidebarViewport.matches;
+    const showSidebar =
+      sidebarFits && (showCoachingTab || showScienceTab || showMetaTab);
     const showAudio = audios.length > 0;
     const showQuiz = quiz !== null;
 
@@ -1328,15 +1342,24 @@ function main(): string {
       const visibleInViewport =
         sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
 
-      if (fitsToRightOfMain && visibleInViewport) return true;
+      const restoreHost = (): void => {
+        prevDisplays.forEach((v, child) => {
+          child.style.display = v;
+        });
+        flexParent.style.display = prevParentDisplay;
+        flexParent.style.gap = prevParentGap;
+        mainEl.style.flex = prevMainFlex;
+        mainEl.style.minWidth = prevMainMinWidth;
+      };
 
-      prevDisplays.forEach((v, child) => {
-        child.style.display = v;
-      });
-      flexParent.style.display = prevParentDisplay;
-      flexParent.style.gap = prevParentGap;
-      mainEl.style.flex = prevMainFlex;
-      mainEl.style.minWidth = prevMainMinWidth;
+      // On success the host stays reshuffled only for this mount's lifetime: a
+      // remount onto a narrow viewport installs no sidebar, and LearningSuite's
+      // own column must come back rather than stay hidden with nothing beside it.
+      if (fitsToRightOfMain && visibleInViewport) {
+        onCleanup(restoreHost);
+        return true;
+      }
+      restoreHost();
       return false;
     }
 
@@ -1382,7 +1405,7 @@ function main(): string {
     let coachingSig: string | null = null;
     function renderCoaching(): void {
       if (!coachingPanel) return;
-      const sig = `${w.__vpActivePhase}|${w.__vpActiveIntervention}|${w.__vpExpandedPhase}`;
+      const sig = `${w.__vpActivePhase}|${w.__vpActiveIntervention}|${w.__vpExpandedPhase}|${w.__vpExpandedIntervention}`;
       if (sig === coachingSig) return;
       coachingSig = sig;
       coachingPanel.innerHTML = phases
@@ -1421,17 +1444,12 @@ function main(): string {
               <div style="font:600 11px system-ui;letter-spacing:.6px;text-transform:uppercase;color:${T.mutedFg};margin-bottom:8px">${esc(tr("demo.phase.interventions"))}</div>
               <div style="display:grid;gap:6px">
                 ${p.interventions
-                  .map((iv) => {
-                    const ivActive = iv.id === w.__vpActiveIntervention;
-                    return `<div data-seek="${esc(iv.t)}" style="padding:9px 11px;border-radius:8px;background:${ivActive ? T.primarySoft : T.neutral};border:1px solid ${ivActive ? T.primaryRing : T.border};cursor:pointer">
-                    <div style="display:flex;gap:8px;align-items:baseline">
-                      <span style="font:700 11.5px ui-monospace,monospace;color:${ivActive ? T.primary : T.mutedFg};min-width:28px">${esc(iv.label)}</span>
-                      <strong style="flex:1;font:600 13px system-ui;color:${T.fg}">${esc(iv.title)}</strong>
-                      <span style="font:500 11px ui-monospace,monospace;color:${T.mutedFg}">${fmt(iv.t)}</span>
-                    </div>
-                    <div style="margin:4px 0 0 36px;color:${T.mutedFg};font-size:12.5px">${esc(iv.desc)}</div>
-                  </div>`;
-                  })
+                  .map((iv) =>
+                    interventionCard(iv, {
+                      active: iv.id === w.__vpActiveIntervention,
+                      open: iv.id === w.__vpExpandedIntervention,
+                    }),
+                  )
                   .join("")}
               </div>
             </div>
@@ -1455,6 +1473,15 @@ function main(): string {
           }
           const id = btn.dataset.phaseToggle!;
           w.__vpExpandedPhase = w.__vpExpandedPhase === id ? null : id;
+          renderCoaching();
+        };
+      });
+      coachingPanel.querySelectorAll("[data-iv-toggle]").forEach((b) => {
+        const btn = b as HTMLElement;
+        btn.onclick = () => {
+          const id = btn.dataset.ivToggle!;
+          w.__vpExpandedIntervention =
+            w.__vpExpandedIntervention === id ? null : id;
           renderCoaching();
         };
       });
@@ -1641,10 +1668,15 @@ function main(): string {
       for (const m of metaSteps) if (t >= m.t) meta = m.id;
 
       const phaseChanged = w.__vpActivePhase !== phase?.id;
+      const interventionChanged = w.__vpActiveIntervention !== intervention;
       w.__vpActivePhase = phase?.id ?? null;
       w.__vpActiveIntervention = intervention;
       w.__vpActiveMeta = meta;
+      // Expand on entry only, like the native player: a card the learner
+      // collapsed stays collapsed while its intervention is still current.
       if (phaseChanged && phase) w.__vpExpandedPhase = phase.id;
+      if (interventionChanged && intervention)
+        w.__vpExpandedIntervention = intervention;
 
       renderCoaching();
       renderMeta();
@@ -1731,6 +1763,7 @@ function main(): string {
       if (!slotLowerThird.isConnected) return false;
       if (showQuiz && !slotQuiz?.isConnected) return false;
       if (showSidebar && !sidebar.isConnected) return false;
+      if (sidebarViewport.matches !== sidebarFits) return false;
       return true;
     };
 

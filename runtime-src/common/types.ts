@@ -11,6 +11,14 @@ export interface Intervention {
   // the end of the phase. Mirrors the lesson model's `endTimeSec`.
   end?: number | null;
   desc: string;
+  // The structured breakdown the native player's intervention card shows. All
+  // optional: a config authored before they existed renders `desc` alone.
+  // Mirrors the lesson model's `prompt`, `methodModelFramework`, `function`
+  // and `scientificReferenceFields`.
+  prompt?: string;
+  method?: string;
+  function?: string;
+  scienceFields?: string[];
 }
 
 export interface Phase {
