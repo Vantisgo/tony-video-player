@@ -2598,7 +2598,7 @@
       }
       const sidebar = document.createElement("aside");
       sidebar.id = "vp-demo-sidebar";
-      sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; color-scheme:dark; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.24); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
+      sidebar.style.cssText = `width:clamp(380px, 30vw, 532px); flex-shrink:0; background:${T.card}; color:${T.fg}; color-scheme:dark; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.24); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
       const tabDefs = [
         {
           key: "coaching",
@@ -2636,7 +2636,7 @@
         }
         return bottom;
       }
-      const SIDEBAR_W = 340;
+      const SIDEBAR_W = "clamp(340px, 30vw, 476px)";
       const SIDEBAR_GAP = 16;
       const SIDEBAR_MIN_TOP = 24;
       function applyFixedRightRail() {
@@ -2650,11 +2650,11 @@
         sidebar.style.bottom = SIDEBAR_GAP + "px";
         sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
         sidebar.style.zIndex = "50";
-        sidebar.style.width = SIDEBAR_W + "px";
+        sidebar.style.width = SIDEBAR_W;
         sidebar.style.alignSelf = "";
         if (sidebar.parentElement !== document.body)
           document.body.appendChild(sidebar);
-        const reservePx = SIDEBAR_W + SIDEBAR_GAP * 2;
+        const reserve = `calc(${SIDEBAR_W} + ${SIDEBAR_GAP * 2}px)`;
         const targets = [
           document.querySelector("main"),
           document.querySelector('[class*="MainScroll"]'),
@@ -2663,7 +2663,7 @@
         ].filter(Boolean);
         for (const t2 of targets) {
           const prev = t2.style.paddingRight;
-          t2.style.paddingRight = reservePx + "px";
+          t2.style.paddingRight = reserve;
           onCleanup(() => {
             t2.style.paddingRight = prev;
           });

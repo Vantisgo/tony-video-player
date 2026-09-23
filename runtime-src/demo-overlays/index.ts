@@ -284,8 +284,9 @@ function main(): string {
     if (popTimeout) clearTimeout(popTimeout);
   });
 
-  // Below this width there is no room beside the lesson for the 340px sidebar:
-  // the fixed-rail fallback would cover the page and pad <body> by 372px. On
+  // Below this width there is no room beside the lesson for the sidebar (340px
+  // minimum): the fixed-rail fallback would cover the page and pad <body> by
+  // 372px. On
   // mobile the sidebar is therefore not installed at all, and crossing the
   // breakpoint (rotation, window resize) remounts via checkAlive().
   const sidebarViewport = window.matchMedia("(min-width: 1024px)");
@@ -1211,7 +1212,11 @@ function main(): string {
     // ─── Sidebar (Coaching / Science / Meta Structure) ───
     const sidebar = document.createElement("aside");
     sidebar.id = "vp-demo-sidebar";
-    sidebar.style.cssText = `width:380px; flex-shrink:0; background:${T.card}; color:${T.fg}; color-scheme:dark; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.24); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
+    // Grows with the viewport from its base width to +40%, so wide screens get
+    // readable intervention cards without squeezing the lesson on narrow ones.
+    // CSS-only (vw), so a window resize needs no JS; the fixed rail below uses
+    // the same curve from its own base and reserves padding by the same term.
+    sidebar.style.cssText = `width:clamp(380px, 30vw, 532px); flex-shrink:0; background:${T.card}; color:${T.fg}; color-scheme:dark; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.24); font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; display:flex; flex-direction:column; overflow:hidden; align-self:flex-start; position:sticky; top:16px; max-height:calc(100vh - 32px);`;
     // Only tabs whose config section has content exist at all — an empty
     // "Science" tab is dead UI, not a placeholder.
     const tabDefs = [
@@ -1260,7 +1265,7 @@ function main(): string {
       return bottom;
     }
 
-    const SIDEBAR_W = 340;
+    const SIDEBAR_W = "clamp(340px, 30vw, 476px)";
     const SIDEBAR_GAP = 16;
     const SIDEBAR_MIN_TOP = 24;
 
@@ -1275,12 +1280,12 @@ function main(): string {
       sidebar.style.bottom = SIDEBAR_GAP + "px";
       sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
       sidebar.style.zIndex = "50";
-      sidebar.style.width = SIDEBAR_W + "px";
+      sidebar.style.width = SIDEBAR_W;
       sidebar.style.alignSelf = "";
       if (sidebar.parentElement !== document.body)
         document.body.appendChild(sidebar);
 
-      const reservePx = SIDEBAR_W + SIDEBAR_GAP * 2;
+      const reserve = `calc(${SIDEBAR_W} + ${SIDEBAR_GAP * 2}px)`;
       const targets = [
         document.querySelector("main"),
         document.querySelector('[class*="MainScroll"]'),
@@ -1289,7 +1294,7 @@ function main(): string {
       ].filter(Boolean) as HTMLElement[];
       for (const t of targets) {
         const prev = t.style.paddingRight;
-        t.style.paddingRight = reservePx + "px";
+        t.style.paddingRight = reserve;
         onCleanup(() => {
           t.style.paddingRight = prev;
         });
