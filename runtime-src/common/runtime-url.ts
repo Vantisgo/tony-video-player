@@ -17,11 +17,29 @@ export function getRuntimeScriptUrl(): string {
   return hit?.src || "";
 }
 
+// Query params carried from the runtime script URL onto our own requests. A
+// protection-enabled Vercel deployment answers anything without the bypass token
+// with a login redirect that has no CORS headers, which the browser reports as a
+// CORS failure. The token is already public in the page's <script src>, and
+// nothing else is forwarded.
+export const FORWARDED_QUERY_PARAMS = new Set(["x-vercel-protection-bypass"]);
+
+function forwardQuery(from: URL, to: URL): string {
+  from.searchParams.forEach((value, key) => {
+    if (FORWARDED_QUERY_PARAMS.has(key) && !to.searchParams.has(key))
+      to.searchParams.set(key, value);
+  });
+  return to.href;
+}
+
+// The script's directory, keeping the forwarded params in its query so they
+// survive the loader handing it to the children via __vpRuntimeBaseUrl.
 export function getRuntimeBaseUrl(): string {
   const scriptUrl = getRuntimeScriptUrl();
   if (!scriptUrl) return "";
   try {
-    return new URL(".", scriptUrl).href;
+    const script = new URL(scriptUrl, location.href);
+    return forwardQuery(script, new URL(".", script));
   } catch {
     return scriptUrl;
   }
@@ -32,7 +50,8 @@ export function getRuntimeBaseUrl(): string {
 export function runtimeApiUrl(baseUrl: string, path: string): string {
   if (!baseUrl) return "";
   try {
-    return new URL(path, baseUrl).href;
+    const base = new URL(baseUrl, location.href);
+    return forwardQuery(base, new URL(path, base));
   } catch {
     return "";
   }

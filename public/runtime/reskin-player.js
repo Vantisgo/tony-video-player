@@ -272,11 +272,20 @@
     const hit = [...document.scripts].reverse().find((s) => s.src && /\/runtime\/[\w-]+\.js/i.test(s.src));
     return (hit == null ? void 0 : hit.src) || "";
   }
+  var FORWARDED_QUERY_PARAMS = /* @__PURE__ */ new Set(["x-vercel-protection-bypass"]);
+  function forwardQuery(from, to) {
+    from.searchParams.forEach((value, key) => {
+      if (FORWARDED_QUERY_PARAMS.has(key) && !to.searchParams.has(key))
+        to.searchParams.set(key, value);
+    });
+    return to.href;
+  }
   function getRuntimeBaseUrl() {
     const scriptUrl = getRuntimeScriptUrl();
     if (!scriptUrl) return "";
     try {
-      return new URL(".", scriptUrl).href;
+      const script = new URL(scriptUrl, location.href);
+      return forwardQuery(script, new URL(".", script));
     } catch {
       return scriptUrl;
     }
@@ -284,7 +293,8 @@
   function runtimeApiUrl(baseUrl, path) {
     if (!baseUrl) return "";
     try {
-      return new URL(path, baseUrl).href;
+      const base = new URL(baseUrl, location.href);
+      return forwardQuery(base, new URL(path, base));
     } catch {
       return "";
     }
@@ -635,7 +645,6 @@
     `;
 
   // runtime-src/reskin-player/language-pack.ts
-  var FORWARDED_QUERY_PARAMS = /* @__PURE__ */ new Set(["x-vercel-protection-bypass"]);
   function getRuntimeScriptUrl2() {
     const override = window.__vpRuntimeBaseUrl;
     if (override) return override;

@@ -1,5 +1,6 @@
 import { getBunnyVideoId, getHlsApi, trackLabel } from "../common/tracks";
 import { getTrustedOrigins, makeAssetOriginChecker } from "../common/origins";
+import { FORWARDED_QUERY_PARAMS } from "../common/runtime-url";
 import type {
   ExternalAudioTrack,
   ExternalSubtitleTrack,
@@ -7,11 +8,6 @@ import type {
   MediaEl,
   SubtitleCue,
 } from "../common/types";
-
-// Query params the runtime script URL may forward onto same-origin asset
-// fetches. Restricted so unrelated params never leak onto subresource requests
-// (the Vercel protection-bypass token is the only intentional one).
-const FORWARDED_QUERY_PARAMS = new Set(["x-vercel-protection-bypass"]);
 
 export interface LearningSuiteSubtitleTrack {
   kind: "subtitles";

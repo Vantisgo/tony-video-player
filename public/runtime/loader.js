@@ -35,11 +35,20 @@
     const hit = [...document.scripts].reverse().find((s) => s.src && /\/runtime\/[\w-]+\.js/i.test(s.src));
     return (hit == null ? void 0 : hit.src) || "";
   }
+  var FORWARDED_QUERY_PARAMS = /* @__PURE__ */ new Set(["x-vercel-protection-bypass"]);
+  function forwardQuery(from, to) {
+    from.searchParams.forEach((value, key) => {
+      if (FORWARDED_QUERY_PARAMS.has(key) && !to.searchParams.has(key))
+        to.searchParams.set(key, value);
+    });
+    return to.href;
+  }
   function getRuntimeBaseUrl() {
     const scriptUrl2 = getRuntimeScriptUrl();
     if (!scriptUrl2) return "";
     try {
-      return new URL(".", scriptUrl2).href;
+      const script = new URL(scriptUrl2, location.href);
+      return forwardQuery(script, new URL(".", script));
     } catch {
       return scriptUrl2;
     }
@@ -47,7 +56,8 @@
   function runtimeApiUrl(baseUrl2, path) {
     if (!baseUrl2) return "";
     try {
-      return new URL(path, baseUrl2).href;
+      const base = new URL(baseUrl2, location.href);
+      return forwardQuery(base, new URL(path, base));
     } catch {
       return "";
     }
