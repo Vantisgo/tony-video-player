@@ -1,0 +1,35 @@
+{
+  "videoId": "02395ed6-1743-4479-9524-eabdac613462",
+  "defaultLanguage": "de",
+  "audioTracks": [
+    {
+      "id": "de",
+      "label": "Deutsch",
+      "language": "de",
+      "url": "audio-de.m4a",
+      "offsetMs": 0,
+      "useNative": true
+    },
+    {
+      "id": "en",
+      "label": "English",
+      "language": "en",
+      "url": "audio-en.m4a",
+      "offsetMs": 0
+    }
+  ],
+  "subtitleTracks": [
+    {
+      "id": "de",
+      "label": "Deutsch",
+      "language": "de",
+      "url": "subtitles-de.vtt"
+    },
+    {
+      "id": "en",
+      "label": "English",
+      "language": "en",
+      "url": "subtitles-en.vtt"
+    }
+  ]
+}

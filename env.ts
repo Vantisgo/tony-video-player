@@ -8,6 +8,11 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    // Runtime ops/telemetry (optional — features degrade/fail-open when unset,
+    // so the app builds and runs without the ops infra provisioned).
+    EDGE_CONFIG: z.string().optional(),
+    RUNTIME_ALERT_WEBHOOK_URL: z.string().url().optional(),
+    RUNTIME_TELEMETRY_ALLOWED_ORIGINS: z.string().optional(),
   },
   client: {},
   experimental__runtimeEnv: {

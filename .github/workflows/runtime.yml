@@ -1,0 +1,41 @@
+name: runtime
+
+# Validates the injected runtime scripts: the committed bundles in
+# public/runtime/ must match a fresh build of runtime-src/ (drift-check), types
+# must pass, and the unit tests must be green.
+
+on:
+  push:
+    paths:
+      - "runtime-src/**"
+      - "public/runtime/**"
+      - "scripts/build-runtime.mjs"
+      - "tsconfig.runtime.json"
+      - "vitest.config.ts"
+      - "package.json"
+  pull_request:
+    paths:
+      - "runtime-src/**"
+      - "public/runtime/**"
+      - "scripts/build-runtime.mjs"
+      - "tsconfig.runtime.json"
+      - "vitest.config.ts"
+      - "package.json"
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - name: Build runtime bundles
+        run: bun run build:runtime
+      - name: Check bundles are in sync with source (no drift)
+        run: |
+          git diff --exit-code -- public/runtime \
+            || { echo "::error::public/runtime bundles are stale — run 'bun run build:runtime' and commit the result"; exit 1; }
+      - name: Type-check runtime source
+        run: bun run typecheck:runtime
+      - name: Unit tests
+        run: bun run test

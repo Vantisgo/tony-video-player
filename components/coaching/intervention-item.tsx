@@ -11,6 +11,7 @@ interface Intervention {
   id: string
   title: string
   timestampSec: number
+  endTimeSec?: number | null
   prompt: string
   description: string
   methodModelFramework: string

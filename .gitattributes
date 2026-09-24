@@ -1,0 +1,32 @@
+# Line endings are repo policy, not per-machine preference.
+#
+# Every text file is normalised to LF in the index AND checked out as LF, which
+# overrides a contributor's core.autocrlf. Without this, core.autocrlf=true
+# (the default on Windows, and set in at least one WSL checkout here) rewrites
+# files as CRLF on checkout and on a `git stash` round-trip. That is not
+# cosmetic in this repo: public/runtime/*.js is committed, unminified, and
+# byte-compared in CI, so line endings are part of its content and a CRLF
+# rewrite breaks the drift check for reasons no diff explains.
+* text=auto eol=lf
+
+# The generated runtime bundles, spelled out because CI compares them byte for
+# byte (`git diff --exit-code -- public/runtime`).
+public/runtime/*.js text eol=lf
+
+# Binary assets. Declared explicitly rather than left to git's content
+# heuristic — a mis-detection would corrupt these, and the cost of being
+# explicit is nil.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.mp3   binary
+*.mp4   binary
+*.webm  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.pdf   binary

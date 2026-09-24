@@ -2,12 +2,14 @@
 
 import * as React from "react"
 import { META_STEPS, type MetaStep } from "~/lib/constants/meta-steps"
+import { getActiveInterventionId } from "~/lib/active-intervention"
 
 // Types for lesson content
 interface Intervention {
   id: string
   title: string
   timestampSec: number
+  endTimeSec?: number | null
   prompt: string
   description: string
   methodModelFramework: string
@@ -349,16 +351,12 @@ function VideoPlayerProvider({
 
     // Find active intervention within the current phase
     if (currentPhase) {
-      const sortedInterventions = [...currentPhase.interventions].sort(
-        (a, b) => a.timestampSec - b.timestampSec
-      )
-      // Find the last intervention that has been passed
-      const activeIntervention = sortedInterventions
-        .filter((int) => state.currentTime >= int.timestampSec)
-        .pop()
       dispatch({
         type: "SET_ACTIVE_INTERVENTION",
-        payload: activeIntervention?.id ?? null,
+        payload: getActiveInterventionId(
+          currentPhase.interventions,
+          state.currentTime
+        ),
       })
     } else {
       dispatch({ type: "SET_ACTIVE_INTERVENTION", payload: null })
