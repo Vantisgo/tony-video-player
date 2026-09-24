@@ -124,7 +124,7 @@
   var EN = {
     // Sidebar tabs
     "demo.tab.coaching": "Coaching",
-    "demo.tab.science": "Science",
+    "demo.tab.science": "Science Corner",
     "demo.tab.meta": "Meta Structure",
     // Section pill (video overlay, top-left)
     "demo.section.eyebrow": "Course Section",
@@ -170,7 +170,7 @@
   };
   var DE = {
     "demo.tab.coaching": "Coaching",
-    "demo.tab.science": "Wissenschaft",
+    "demo.tab.science": "Science Corner",
     "demo.tab.meta": "Master-Schritte",
     "demo.section.eyebrow": "Sektion",
     "demo.section.intro": "Intro",

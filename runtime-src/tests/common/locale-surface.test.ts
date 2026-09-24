@@ -220,7 +220,7 @@ describe("demo-overlays on a German page", () => {
     });
 
     // Sidebar: tabs, coaching chrome, science panel, meta heading.
-    expect(sidebarText).toContain("Wissenschaft");
+    expect(sidebarText).toContain("Science Corner");
     expect(sidebarText).toContain("Master-Schritte");
     expect(sidebarText).toContain("Interventionen");
     expect(sidebarText).toContain("Erwähnungen");

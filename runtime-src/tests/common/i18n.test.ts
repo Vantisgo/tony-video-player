@@ -201,7 +201,7 @@ describe("activeLocale", () => {
   it("is shared by every surface, so one mount cannot mix languages", async () => {
     document.documentElement.lang = "de";
     const { demo, player, admin } = await fresh();
-    expect(demo.t("demo.tab.science")).toBe("Wissenschaft");
+    expect(demo.t("demo.science.open")).toBe("Öffnen");
     expect(player.t("player.label.off")).toBe("Aus");
     expect(admin.t("admin.dialog.close")).toBe("Schließen");
   });
@@ -211,12 +211,12 @@ describe("t", () => {
   it("returns the active locale's string", async () => {
     document.documentElement.lang = "de";
     const { demo } = await fresh();
-    expect(demo.t("demo.tab.science")).toBe("Wissenschaft");
+    expect(demo.t("demo.science.open")).toBe("Öffnen");
   });
 
   it("returns the default locale's string when nothing is declared", async () => {
     const { demo } = await fresh();
-    expect(demo.t("demo.tab.science")).toBe("Science");
+    expect(demo.t("demo.science.open")).toBe("Open");
   });
 
   it("interpolates every placeholder in the inventory", async () => {

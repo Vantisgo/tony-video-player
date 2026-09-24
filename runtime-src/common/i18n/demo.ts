@@ -6,7 +6,7 @@ import { createT, type Locale } from "./core";
 const EN = {
   // Sidebar tabs
   "demo.tab.coaching": "Coaching",
-  "demo.tab.science": "Science",
+  "demo.tab.science": "Science Corner",
   "demo.tab.meta": "Meta Structure",
   // Section pill (video overlay, top-left)
   "demo.section.eyebrow": "Course Section",
@@ -60,7 +60,7 @@ export type DemoKey = keyof typeof EN;
 // Annotated, not inferred: omitting a key here is a compile error.
 const DE: Record<DemoKey, string> = {
   "demo.tab.coaching": "Coaching",
-  "demo.tab.science": "Wissenschaft",
+  "demo.tab.science": "Science Corner",
   "demo.tab.meta": "Master-Schritte",
   "demo.section.eyebrow": "Sektion",
   "demo.section.intro": "Intro",
