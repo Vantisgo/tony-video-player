@@ -28,6 +28,7 @@ import {
 } from "./styles";
 import { createQuizController } from "./quiz";
 import { interventionCard } from "./intervention-card";
+import { scienceCard } from "./science-card";
 
 const CLEANUP_KEY = "__vpDemoCleanup";
 const AUDIO_EL_ID = "vp-audio-el";
@@ -136,6 +137,7 @@ interface AudioController {
 interface VpDemoWindow {
   __vpConfig?: { source: string; data: VpConfig };
   __vpHighlightedScience?: string | null;
+  __vpExpandedScience?: string | null;
   __vpSidebarTab?: (name: string) => void;
   __vpExpandedPhase?: string | null;
   __vpExpandedIntervention?: string | null;
@@ -656,6 +658,7 @@ function main(): string {
       if (slotTR.dataset.activeSci === active.id) return;
       slotTR.dataset.activeSci = active.id;
       w.__vpHighlightedScience = active.id;
+      w.__vpExpandedScience = active.id;
       renderScienceHighlight();
       slotTR.innerHTML = `
       <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
@@ -1506,33 +1509,24 @@ function main(): string {
     );
     function renderSciencePanel(): void {
       if (!sciencePanel) return;
-      sciencePanel.innerHTML = `<div style="display:grid;gap:8px">
-      ${sciences
-        .map((s) => {
-          const hl = w.__vpHighlightedScience === s.id;
-          return `<div data-sci-card="${esc(s.id)}" style="border:1px solid ${hl ? T.primary : T.border};border-radius:${T.radius};padding:12px;background:${T.card};${hl ? `box-shadow:0 0 0 4px ${T.primarySoft};` : ""}transition:all .2s">
-          <div style="display:flex;align-items:baseline;gap:8px">
-            <h3 style="margin:0;font:600 14px system-ui;color:${hl ? T.primary : T.fg};flex:1">${esc(s.name)}</h3>
-            <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 7px;border-radius:999px">${esc(
-              tr("demo.science.mentions", { count: s.timestampsSec.length }),
-            )}</span>
-          </div>
-          <p style="margin:6px 0 0;color:${T.mutedFg};font-size:13px;line-height:1.5">${esc(s.description)}</p>
-          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-            ${s.timestampsSec
-              .map(
-                (t) =>
-                  `<span data-seek="${esc(t)}" style="font:500 11.5px ui-monospace,monospace;color:${T.primary};background:${T.primarySoft};padding:3px 8px;border-radius:6px;border:1px solid ${T.primaryRing};cursor:pointer">${fmt(t)}</span>`,
-              )
-              .join("")}
-          </div>
-        </div>`;
-        })
-        .join("")}
-    </div>`;
+      sciencePanel.innerHTML = `<div style="display:grid;gap:8px">${sciences
+        .map((s) =>
+          scienceCard(s, {
+            highlighted: w.__vpHighlightedScience === s.id,
+            open: w.__vpExpandedScience === s.id,
+          }),
+        )
+        .join("")}</div>`;
       sciencePanel.querySelectorAll("[data-seek]").forEach((el) => {
         (el as HTMLElement).onclick = () =>
           window.player.seek(Number((el as HTMLElement).dataset.seek) + 0.1);
+      });
+      sciencePanel.querySelectorAll("[data-sci-toggle]").forEach((b) => {
+        (b as HTMLElement).onclick = () => {
+          const id = (b as HTMLElement).dataset.sciToggle ?? null;
+          w.__vpExpandedScience = w.__vpExpandedScience === id ? null : id;
+          renderSciencePanel();
+        };
       });
     }
     function renderScienceHighlight(): void {

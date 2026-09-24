@@ -1761,6 +1761,84 @@
   </div>`;
   }
 
+  // runtime-src/demo-overlays/science-card.ts
+  var BODY = "rgba(244,247,246,.82)";
+  function parse(src) {
+    const blocks = [];
+    let paragraphOpen = false;
+    for (const raw of src.split("\n")) {
+      const line = raw.trim();
+      const last = blocks.at(-1);
+      const heading2 = /^#{1,6}\s+(.*)$/.exec(line);
+      const bullet = /^[-*•]\s+(.*)$/.exec(line);
+      const numbered = /^(\d+)[.)]\s+(.*)$/.exec(line);
+      if (!line) {
+        paragraphOpen = false;
+      } else if (heading2) {
+        blocks.push({ kind: "h", text: heading2[1] });
+        paragraphOpen = false;
+      } else if (bullet) {
+        if ((last == null ? void 0 : last.kind) === "ul") last.items.push(bullet[1]);
+        else blocks.push({ kind: "ul", items: [bullet[1]] });
+        paragraphOpen = false;
+      } else if (numbered) {
+        if ((last == null ? void 0 : last.kind) === "ol") last.items.push(numbered[2]);
+        else
+          blocks.push({
+            kind: "ol",
+            start: Number(numbered[1]),
+            items: [numbered[2]]
+          });
+        paragraphOpen = false;
+      } else if (paragraphOpen && (last == null ? void 0 : last.kind) === "p") {
+        last.lines.push(line);
+      } else {
+        blocks.push({ kind: "p", lines: [line] });
+        paragraphOpen = true;
+      }
+    }
+    return blocks;
+  }
+  var LIST = `margin:0;padding-left:20px;display:grid;gap:4px;font:400 13.5px/1.6 system-ui;color:${BODY}`;
+  var heading = (text3) => `<h4 style="margin:6px 0 0;font:600 14.5px/1.4 system-ui;color:${T.fg}">${esc(text3)}</h4>`;
+  function richText(src) {
+    return parse(src).map((b) => {
+      switch (b.kind) {
+        case "h":
+          return heading(b.text);
+        case "p":
+          return `<p style="margin:0;font:400 13.5px/1.6 system-ui;color:${BODY};overflow-wrap:anywhere">${b.lines.map(esc).join("<br>")}</p>`;
+        case "ul":
+          return `<ul style="${LIST}">${b.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
+        case "ol":
+          if (b.items.length === 1) return heading(`${b.start}. ${b.items[0]}`);
+          return `<ol start="${b.start}" style="${LIST}">${b.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ol>`;
+      }
+    }).join("");
+  }
+  var FLASK = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7 15h10"/></svg>`;
+  function scienceCard(s, state) {
+    const { highlighted, open } = state;
+    const description = typeof s.description === "string" ? s.description : "";
+    const stamps = Array.isArray(s.timestampsSec) ? s.timestampsSec : [];
+    return `<div data-sci-card="${esc(s.id)}" style="border:1px solid ${highlighted ? T.primary : T.border};border-radius:${T.radius};background:${T.card};${highlighted ? `box-shadow:0 0 0 4px ${T.primarySoft};` : ""}transition:all .2s">
+    <button data-sci-toggle="${esc(s.id)}" aria-expanded="${open}" style="width:100%;display:flex;gap:10px;align-items:center;padding:12px;background:none;border:0;cursor:pointer;text-align:left;color:${highlighted ? T.primary : T.mutedFg}">
+      ${FLASK}
+      <span style="flex:1;min-width:0;font:600 14px/1.35 system-ui;color:${highlighted ? T.primary : T.fg}">${esc(s.name)}</span>
+      <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 7px;border-radius:999px;flex-shrink:0">${esc(
+      t("demo.science.mentions", { count: stamps.length })
+    )}</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${T.mutedFg}" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0;transition:transform .2s;${open ? "transform:rotate(180deg)" : ""}"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    ${open ? `<div style="display:grid;gap:12px;padding:0 14px 16px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${stamps.map(
+      (t2) => `<span data-seek="${esc(t2)}" style="font:500 11.5px ui-monospace,monospace;color:${T.primary};background:${T.primarySoft};padding:3px 8px;border-radius:6px;border:1px solid ${T.primaryRing};cursor:pointer">${formatTime(t2)}</span>`
+    ).join("")}</div>
+      ${richText(description)}
+    </div>` : ""}
+  </div>`;
+  }
+
   // runtime-src/demo-overlays/index.ts
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
@@ -2171,6 +2249,7 @@
         if (slotTR.dataset.activeSci === active.id) return;
         slotTR.dataset.activeSci = active.id;
         w.__vpHighlightedScience = active.id;
+        w.__vpExpandedScience = active.id;
         renderScienceHighlight();
         slotTR.innerHTML = `
       <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
@@ -2847,27 +2926,22 @@
       );
       function renderSciencePanel() {
         if (!sciencePanel) return;
-        sciencePanel.innerHTML = `<div style="display:grid;gap:8px">
-      ${sciences.map((s) => {
-          const hl = w.__vpHighlightedScience === s.id;
-          return `<div data-sci-card="${esc(s.id)}" style="border:1px solid ${hl ? T.primary : T.border};border-radius:${T.radius};padding:12px;background:${T.card};${hl ? `box-shadow:0 0 0 4px ${T.primarySoft};` : ""}transition:all .2s">
-          <div style="display:flex;align-items:baseline;gap:8px">
-            <h3 style="margin:0;font:600 14px system-ui;color:${hl ? T.primary : T.fg};flex:1">${esc(s.name)}</h3>
-            <span style="font:500 11px system-ui;background:${T.muted};color:${T.mutedFg};padding:2px 7px;border-radius:999px">${esc(
-            t("demo.science.mentions", { count: s.timestampsSec.length })
-          )}</span>
-          </div>
-          <p style="margin:6px 0 0;color:${T.mutedFg};font-size:13px;line-height:1.5">${esc(s.description)}</p>
-          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-            ${s.timestampsSec.map(
-            (t2) => `<span data-seek="${esc(t2)}" style="font:500 11.5px ui-monospace,monospace;color:${T.primary};background:${T.primarySoft};padding:3px 8px;border-radius:6px;border:1px solid ${T.primaryRing};cursor:pointer">${formatTime(t2)}</span>`
-          ).join("")}
-          </div>
-        </div>`;
-        }).join("")}
-    </div>`;
+        sciencePanel.innerHTML = `<div style="display:grid;gap:8px">${sciences.map(
+          (s) => scienceCard(s, {
+            highlighted: w.__vpHighlightedScience === s.id,
+            open: w.__vpExpandedScience === s.id
+          })
+        ).join("")}</div>`;
         sciencePanel.querySelectorAll("[data-seek]").forEach((el) => {
           el.onclick = () => window.player.seek(Number(el.dataset.seek) + 0.1);
+        });
+        sciencePanel.querySelectorAll("[data-sci-toggle]").forEach((b) => {
+          b.onclick = () => {
+            var _a2;
+            const id = (_a2 = b.dataset.sciToggle) != null ? _a2 : null;
+            w.__vpExpandedScience = w.__vpExpandedScience === id ? null : id;
+            renderSciencePanel();
+          };
         });
       }
       function renderScienceHighlight() {

@@ -41,7 +41,10 @@ phases[]:
                     z.B. ["Kognitive Psychologie (Metakognition)"]
 
 sciences[]:  (Wissenschafts-Pop-Ups, je 5s sichtbar bei jedem Timestamp)
-  id, name, description, timestampsSec[]
+  id, name, timestampsSec[]
+  description — der Fachtext zur Karte. Struktur per Markdown: Absätze durch
+                Leerzeile trennen, Zwischenüberschriften mit "## ", Aufzählungen
+                mit "- " bzw. "1. " — jeder Punkt auf eigener Zeile
 
 audios[]:    (Voice-Over-Einschübe; pausieren das Video)
   id, t (Trigger), dur (Dauer in Sek), title, voice (Sprecher-Name), script (gesprochener Text)
