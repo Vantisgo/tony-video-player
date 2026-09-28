@@ -1768,7 +1768,7 @@
     let paragraphOpen = false;
     for (const raw of src.split("\n")) {
       const line = raw.trim();
-      const last = blocks.at(-1);
+      const last = blocks[blocks.length - 1];
       const heading2 = /^#{1,6}\s+(.*)$/.exec(line);
       const bullet = /^[-*•]\s+(.*)$/.exec(line);
       const numbered = /^(\d+)[.)]\s+(.*)$/.exec(line);
