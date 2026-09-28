@@ -90,13 +90,13 @@ function jsonFindings(json: string, e: unknown): Finding[] {
     const column = before[line - 1].length + 1;
     const lineText = json.split("\n")[line - 1];
     const from = Math.max(0, column - 40);
+    const snippet = lineText.slice(from, from + 80).trim();
+    // The editor keeps the saved code in an <input>, which strips newlines, so
+    // there a line number would always read 1.
     findings.push(
-      error("admin.diag.jsonAtHtml", {
-        line,
-        column,
-        message,
-        snippet: lineText.slice(from, from + 80).trim(),
-      }),
+      json.trim().includes("\n")
+        ? error("admin.diag.jsonAtHtml", { line, column, message, snippet })
+        : error("admin.diag.jsonAtCharHtml", { column, message, snippet }),
     );
   } else {
     findings.push(error("admin.diag.jsonHtml", { message }));

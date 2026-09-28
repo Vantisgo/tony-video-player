@@ -101,6 +101,15 @@ describe("diagnoseEmbed: JSON errors", () => {
     });
   });
 
+  it("counts characters instead of lines for single-line code, as the editor stores it", () => {
+    const [finding] = diagnoseEmbed(
+      '<pre data-vp-config>{ "phases": [] "audios": [] }</pre>',
+    );
+
+    expect(finding.key).toBe("admin.diag.jsonAtCharHtml");
+    expect(finding.vars).toMatchObject({ column: 16 });
+  });
+
   it("names typographic quotes as the likely cause", () => {
     expect(keys(pre("{ “phases”: [] }"))).toContain(
       "admin.diag.smartQuotesHtml",

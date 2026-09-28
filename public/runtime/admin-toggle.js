@@ -111,6 +111,7 @@
     "admin.diag.wrapperTagHtml": "LearningSuite does not keep <code>&lt;{tag} data-vp-config&gt;</code>. Only <code>&lt;pre data-vp-config&gt;</code> survives.",
     "admin.diag.emptyHtml": "The <code>&lt;pre data-vp-config&gt;</code> block is empty.",
     "admin.diag.jsonAtHtml": "JSON error in line {line}, column {column} of the block: {message}<br><code>{snippet}</code>",
+    "admin.diag.jsonAtCharHtml": "JSON error at character {column} of the block: {message}<br><code>{snippet}</code>",
     "admin.diag.jsonHtml": "The JSON is invalid: {message}",
     "admin.diag.smartQuotesHtml": 'The JSON contains typographic quotes (“ ” „). JSON only accepts straight quotes (<code>"</code>).',
     "admin.diag.notObjectHtml": "The JSON must be an object <code>{ … }</code>, not <code>{kind}</code>.",
@@ -149,6 +150,7 @@
     "admin.diag.wrapperTagHtml": "LearningSuite übernimmt <code>&lt;{tag} data-vp-config&gt;</code> nicht. Nur <code>&lt;pre data-vp-config&gt;</code> bleibt erhalten.",
     "admin.diag.emptyHtml": "Der <code>&lt;pre data-vp-config&gt;</code>-Block ist leer.",
     "admin.diag.jsonAtHtml": "JSON-Fehler in Zeile {line}, Spalte {column} des Blocks: {message}<br><code>{snippet}</code>",
+    "admin.diag.jsonAtCharHtml": "JSON-Fehler bei Zeichen {column} des Blocks: {message}<br><code>{snippet}</code>",
     "admin.diag.jsonHtml": "Das JSON ist ungültig: {message}",
     "admin.diag.smartQuotesHtml": 'Das JSON enthält typografische Anführungszeichen (“ ” „). JSON akzeptiert nur gerade Anführungszeichen (<code>"</code>).',
     "admin.diag.notObjectHtml": "Das JSON muss ein Objekt <code>{ … }</code> sein, nicht <code>{kind}</code>.",
@@ -334,13 +336,9 @@
       const column = before[line - 1].length + 1;
       const lineText = json.split("\n")[line - 1];
       const from = Math.max(0, column - 40);
+      const snippet = lineText.slice(from, from + 80).trim();
       findings.push(
-        error("admin.diag.jsonAtHtml", {
-          line,
-          column,
-          message,
-          snippet: lineText.slice(from, from + 80).trim()
-        })
+        json.trim().includes("\n") ? error("admin.diag.jsonAtHtml", { line, column, message, snippet }) : error("admin.diag.jsonAtCharHtml", { column, message, snippet })
       );
     } else {
       findings.push(error("admin.diag.jsonHtml", { message }));

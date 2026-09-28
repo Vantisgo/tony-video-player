@@ -52,6 +52,8 @@ const EN = {
     "The <code>&lt;pre data-vp-config&gt;</code> block is empty.",
   "admin.diag.jsonAtHtml":
     "JSON error in line {line}, column {column} of the block: {message}<br><code>{snippet}</code>",
+  "admin.diag.jsonAtCharHtml":
+    "JSON error at character {column} of the block: {message}<br><code>{snippet}</code>",
   "admin.diag.jsonHtml": "The JSON is invalid: {message}",
   "admin.diag.smartQuotesHtml":
     'The JSON contains typographic quotes (“ ” „). JSON only accepts straight quotes (<code>"</code>).',
@@ -116,6 +118,8 @@ const DE: Record<AdminKey, string> = {
     "Der <code>&lt;pre data-vp-config&gt;</code>-Block ist leer.",
   "admin.diag.jsonAtHtml":
     "JSON-Fehler in Zeile {line}, Spalte {column} des Blocks: {message}<br><code>{snippet}</code>",
+  "admin.diag.jsonAtCharHtml":
+    "JSON-Fehler bei Zeichen {column} des Blocks: {message}<br><code>{snippet}</code>",
   "admin.diag.jsonHtml": "Das JSON ist ungültig: {message}",
   "admin.diag.smartQuotesHtml":
     'Das JSON enthält typografische Anführungszeichen (“ ” „). JSON akzeptiert nur gerade Anführungszeichen (<code>"</code>).',
