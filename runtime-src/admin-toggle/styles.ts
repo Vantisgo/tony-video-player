@@ -72,4 +72,33 @@ export const ADMIN_CSS = `
     .vp-admin-dialog .vp-tip {
       color:#0c4a6e; background:#e0f2fe; padding:8px 12px; border-radius:8px;
     }
+    .vp-admin-dialog .vp-diag-toggle {
+      display:flex; align-items:center; gap:8px; margin-bottom:12px;
+      color:#1e293b; cursor:pointer;
+    }
+
+    .vp-admin-diag {
+      white-space:normal; box-sizing:border-box; max-width:680px;
+      margin:6px 0 0 2px; padding:8px 12px; border-radius:8px;
+      font:12px/1.5 system-ui, -apple-system, sans-serif;
+      border:1px solid #fecaca; background:#fef2f2; color:#7f1d1d;
+    }
+    .vp-admin-diag[hidden] { display:none; }
+    .vp-admin-diag[data-state="warning"] {
+      border-color:#fde68a; background:#fffbeb; color:#78350f;
+    }
+    .vp-admin-diag[data-state="ok"] {
+      border-color:#bbf7d0; background:#f0fdf4; color:#14532d;
+    }
+    .vp-admin-diag ul { margin:4px 0 0; padding-left:18px; }
+    .vp-admin-diag li[data-level="warning"] { color:#78350f; }
+    .vp-admin-diag code {
+      background:rgba(15,23,42,.06); padding:0 4px; border-radius:4px;
+      font:11.5px ui-monospace, Menlo, monospace; overflow-wrap:anywhere;
+    }
+    .vp-admin-diag-recheck {
+      display:block; margin-top:6px; padding:0; background:none; border:0;
+      font:500 12px system-ui; color:inherit; text-decoration:underline;
+      cursor:pointer;
+    }
   `;

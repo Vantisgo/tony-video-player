@@ -33,6 +33,42 @@ const EN = {
     'Copy the prompt below and hand it to your LLM (ChatGPT, Claude, …) — together with the lesson transcript / script <em>and</em> the asset references from step 2. The answer is a ready-made <code>&lt;pre data-vp-config&gt;</code> block with the references already filled in — paste it verbatim into the "Code einbetten" modal, click <strong>Speichern</strong>, then <strong>Vorschau</strong> at the top to test it.',
   "admin.footer.tipHtml":
     "💡 In the editor, LearningSuite shows the saved code as a raw string. Only <em>Vorschau</em> renders it live — and that is exactly when the Advanced Video Editor appears (re-skin + sidebar + overlays).",
+  "admin.diag.toggle": "Show errors in the embedded code below the video",
+  "admin.diag.titleError": "The embedded code is not recognised",
+  "admin.diag.titleWarning": "The embedded code is recognised, with warnings",
+  "admin.diag.ok": "✓ Embedded code recognised",
+  "admin.diag.recheck": "Check again",
+  "admin.diag.wrapperMissingHtml":
+    'No <code>&lt;pre data-vp-config&gt;</code> block found. Wrap the JSON in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code>.',
+  "admin.diag.fencesHtml":
+    "The code contains Markdown fences (<code>```</code>). Delete the lines the LLM put around its answer.",
+  "admin.diag.commentHtml":
+    'LearningSuite removes HTML comments (<code>&lt;!-- VP_CONFIG --&gt;</code>) on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
+  "admin.diag.scriptTagHtml":
+    'LearningSuite removes <code>&lt;script&gt;</code> tags on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
+  "admin.diag.wrapperTagHtml":
+    "LearningSuite does not keep <code>&lt;{tag} data-vp-config&gt;</code>. Only <code>&lt;pre data-vp-config&gt;</code> survives.",
+  "admin.diag.emptyHtml":
+    "The <code>&lt;pre data-vp-config&gt;</code> block is empty.",
+  "admin.diag.jsonAtHtml":
+    "JSON error in line {line}, column {column} of the block: {message}<br><code>{snippet}</code>",
+  "admin.diag.jsonHtml": "The JSON is invalid: {message}",
+  "admin.diag.smartQuotesHtml":
+    'The JSON contains typographic quotes (“ ” „). JSON only accepts straight quotes (<code>"</code>).',
+  "admin.diag.notObjectHtml":
+    "The JSON must be an object <code>{ … }</code>, not <code>{kind}</code>.",
+  "admin.diag.noSectionsHtml":
+    "None of the sections <code>phases</code>, <code>sciences</code>, <code>audios</code>, <code>metaSteps</code> or <code>quiz</code> was found, so nothing would be shown.",
+  "admin.diag.notArrayHtml":
+    "<code>{key}</code> must be a list <code>[ … ]</code>. The section is ignored.",
+  "admin.diag.unknownKeyHtml":
+    "Unknown section <code>{key}</code> is ignored. A typo?",
+  "admin.diag.quizInvalidHtml":
+    "<code>quiz</code> contains no valid question and is ignored. The browser console names the entries it dropped.",
+  "admin.diag.audioNoAssetHtml":
+    "Voice-over <code>{id}</code> has no <code>asset</code>, so no audio file will play.",
+  "admin.diag.audioAssetUnknownHtml":
+    "The <code>asset</code> of voice-over <code>{id}</code> is neither a <code>{{asset:…}}</code> reference, an https URL nor a key in <code>assets</code>.",
 } as const;
 
 export type AdminKey = keyof typeof EN;
@@ -60,6 +96,43 @@ const DE: Record<AdminKey, string> = {
     'Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.',
   "admin.footer.tipHtml":
     "💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays).",
+  "admin.diag.toggle": "Fehler im eingebetteten Code unter dem Video anzeigen",
+  "admin.diag.titleError": "Der eingebettete Code wird nicht erkannt",
+  "admin.diag.titleWarning":
+    "Der eingebettete Code wird erkannt – mit Hinweisen",
+  "admin.diag.ok": "✓ Eingebetteter Code erkannt",
+  "admin.diag.recheck": "Erneut prüfen",
+  "admin.diag.wrapperMissingHtml":
+    'Kein <code>&lt;pre data-vp-config&gt;</code>-Block gefunden. Das JSON muss in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code> stehen.',
+  "admin.diag.fencesHtml":
+    "Der Code enthält Markdown-Zäune (<code>```</code>). Lösche die Zeilen, die das LLM um seine Antwort gesetzt hat.",
+  "admin.diag.commentHtml":
+    'LearningSuite entfernt HTML-Kommentare (<code>&lt;!-- VP_CONFIG --&gt;</code>) beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
+  "admin.diag.scriptTagHtml":
+    'LearningSuite entfernt <code>&lt;script&gt;</code>-Tags beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
+  "admin.diag.wrapperTagHtml":
+    "LearningSuite übernimmt <code>&lt;{tag} data-vp-config&gt;</code> nicht. Nur <code>&lt;pre data-vp-config&gt;</code> bleibt erhalten.",
+  "admin.diag.emptyHtml":
+    "Der <code>&lt;pre data-vp-config&gt;</code>-Block ist leer.",
+  "admin.diag.jsonAtHtml":
+    "JSON-Fehler in Zeile {line}, Spalte {column} des Blocks: {message}<br><code>{snippet}</code>",
+  "admin.diag.jsonHtml": "Das JSON ist ungültig: {message}",
+  "admin.diag.smartQuotesHtml":
+    'Das JSON enthält typografische Anführungszeichen (“ ” „). JSON akzeptiert nur gerade Anführungszeichen (<code>"</code>).',
+  "admin.diag.notObjectHtml":
+    "Das JSON muss ein Objekt <code>{ … }</code> sein, nicht <code>{kind}</code>.",
+  "admin.diag.noSectionsHtml":
+    "Keiner der Abschnitte <code>phases</code>, <code>sciences</code>, <code>audios</code>, <code>metaSteps</code> oder <code>quiz</code> gefunden – es würde nichts angezeigt.",
+  "admin.diag.notArrayHtml":
+    "<code>{key}</code> muss eine Liste <code>[ … ]</code> sein. Der Abschnitt wird ignoriert.",
+  "admin.diag.unknownKeyHtml":
+    "Unbekannter Abschnitt <code>{key}</code> wird ignoriert. Tippfehler?",
+  "admin.diag.quizInvalidHtml":
+    "<code>quiz</code> enthält keine gültige Frage und wird ignoriert. Die Browser-Konsole nennt die verworfenen Einträge.",
+  "admin.diag.audioNoAssetHtml":
+    "Voice-Over <code>{id}</code> hat kein <code>asset</code> – es wird keine Audio-Datei abgespielt.",
+  "admin.diag.audioAssetUnknownHtml":
+    "Das <code>asset</code> von Voice-Over <code>{id}</code> ist weder ein <code>{{asset:…}}</code>-Verweis noch eine https-URL noch ein Schlüssel in <code>assets</code>.",
 };
 
 export const MESSAGES: Record<Locale, Record<AdminKey, string>> = {

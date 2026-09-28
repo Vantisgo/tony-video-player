@@ -846,3 +846,20 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   canary's video has no pack; `window.__vpLanguagePacks` is the hook), `renderSubtitleCue`'s
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
   host's bar" (moved from a JS guard to CSS stacking, which happy-dom cannot test).
+
+## 2026-09-28 · admin-diagnostics · Say why an embed is not recognised
+
+- **Decision (user)**: the admin dialog has an opt-in "show errors in the embedded code" option
+  (`localStorage["vp-admin-diagnostics"]`). When on, a panel below the launch button explains why
+  the saved "Code einbetten" code would not be picked up — or confirms that it would.
+- **Decision**: the diagnosis runs in the **editor**, on the raw saved string, not in Vorschau.
+  LearningSuite's sanitiser hides a block it emptied, so in Vorschau a broken payload is
+  indistinguishable from no payload; only the editor still has the string.
+  `admin-toggle/diagnose.ts` replays the sanitiser's rules (only `<pre data-vp-config>` survives)
+  and `common/config.ts`'s expectations, and reports JSON errors with line, column and the
+  offending line.
+- **Constraint**: like the config-presence check, the input scan runs on attach and on dialog
+  close only, plus an explicit "check again" button — never on an interval or observer (see the
+  renderer-pegging note in `admin-toggle/index.ts`).
+- **Gap**: "In Pop-Up anzeigen" cannot be detected from the saved string; it still only shows up
+  as `audio-asset-unexpanded` telemetry.

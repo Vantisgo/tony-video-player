@@ -98,7 +98,28 @@
     "admin.step2.noteHtml": "No audio files? Just skip this step: the inserts are then read aloud from <code>script</code> via text-to-speech. Without a portrait the card shows the speaker's initials. A swapped-over portrait is nobody's error message, so check the faces in the preview.",
     "admin.step3.heading": "Prompt your LLM, then paste the answer",
     "admin.step3.bodyHtml": 'Copy the prompt below and hand it to your LLM (ChatGPT, Claude, …) — together with the lesson transcript / script <em>and</em> the asset references from step 2. The answer is a ready-made <code>&lt;pre data-vp-config&gt;</code> block with the references already filled in — paste it verbatim into the "Code einbetten" modal, click <strong>Speichern</strong>, then <strong>Vorschau</strong> at the top to test it.',
-    "admin.footer.tipHtml": "💡 In the editor, LearningSuite shows the saved code as a raw string. Only <em>Vorschau</em> renders it live — and that is exactly when the Advanced Video Editor appears (re-skin + sidebar + overlays)."
+    "admin.footer.tipHtml": "💡 In the editor, LearningSuite shows the saved code as a raw string. Only <em>Vorschau</em> renders it live — and that is exactly when the Advanced Video Editor appears (re-skin + sidebar + overlays).",
+    "admin.diag.toggle": "Show errors in the embedded code below the video",
+    "admin.diag.titleError": "The embedded code is not recognised",
+    "admin.diag.titleWarning": "The embedded code is recognised, with warnings",
+    "admin.diag.ok": "✓ Embedded code recognised",
+    "admin.diag.recheck": "Check again",
+    "admin.diag.wrapperMissingHtml": 'No <code>&lt;pre data-vp-config&gt;</code> block found. Wrap the JSON in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code>.',
+    "admin.diag.fencesHtml": "The code contains Markdown fences (<code>```</code>). Delete the lines the LLM put around its answer.",
+    "admin.diag.commentHtml": 'LearningSuite removes HTML comments (<code>&lt;!-- VP_CONFIG --&gt;</code>) on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
+    "admin.diag.scriptTagHtml": 'LearningSuite removes <code>&lt;script&gt;</code> tags on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
+    "admin.diag.wrapperTagHtml": "LearningSuite does not keep <code>&lt;{tag} data-vp-config&gt;</code>. Only <code>&lt;pre data-vp-config&gt;</code> survives.",
+    "admin.diag.emptyHtml": "The <code>&lt;pre data-vp-config&gt;</code> block is empty.",
+    "admin.diag.jsonAtHtml": "JSON error in line {line}, column {column} of the block: {message}<br><code>{snippet}</code>",
+    "admin.diag.jsonHtml": "The JSON is invalid: {message}",
+    "admin.diag.smartQuotesHtml": 'The JSON contains typographic quotes (“ ” „). JSON only accepts straight quotes (<code>"</code>).',
+    "admin.diag.notObjectHtml": "The JSON must be an object <code>{ … }</code>, not <code>{kind}</code>.",
+    "admin.diag.noSectionsHtml": "None of the sections <code>phases</code>, <code>sciences</code>, <code>audios</code>, <code>metaSteps</code> or <code>quiz</code> was found, so nothing would be shown.",
+    "admin.diag.notArrayHtml": "<code>{key}</code> must be a list <code>[ … ]</code>. The section is ignored.",
+    "admin.diag.unknownKeyHtml": "Unknown section <code>{key}</code> is ignored. A typo?",
+    "admin.diag.quizInvalidHtml": "<code>quiz</code> contains no valid question and is ignored. The browser console names the entries it dropped.",
+    "admin.diag.audioNoAssetHtml": "Voice-over <code>{id}</code> has no <code>asset</code>, so no audio file will play.",
+    "admin.diag.audioAssetUnknownHtml": "The <code>asset</code> of voice-over <code>{id}</code> is neither a <code>{{asset:…}}</code> reference, an https URL nor a key in <code>assets</code>."
   };
   var DE = {
     "admin.launch.enable": "Annotation aktivieren",
@@ -115,13 +136,252 @@
     "admin.step2.noteHtml": "Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen. Ohne Portrait zeigt die Karte die Initialen der Stimme. Ein vertauschtes Portrait meldet niemand — prüf die Gesichter in der Vorschau.",
     "admin.step3.heading": "Prompt an LLM, dann Antwort einfügen",
     "admin.step3.bodyHtml": 'Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.',
-    "admin.footer.tipHtml": "💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays)."
+    "admin.footer.tipHtml": "💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays).",
+    "admin.diag.toggle": "Fehler im eingebetteten Code unter dem Video anzeigen",
+    "admin.diag.titleError": "Der eingebettete Code wird nicht erkannt",
+    "admin.diag.titleWarning": "Der eingebettete Code wird erkannt – mit Hinweisen",
+    "admin.diag.ok": "✓ Eingebetteter Code erkannt",
+    "admin.diag.recheck": "Erneut prüfen",
+    "admin.diag.wrapperMissingHtml": 'Kein <code>&lt;pre data-vp-config&gt;</code>-Block gefunden. Das JSON muss in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code> stehen.',
+    "admin.diag.fencesHtml": "Der Code enthält Markdown-Zäune (<code>```</code>). Lösche die Zeilen, die das LLM um seine Antwort gesetzt hat.",
+    "admin.diag.commentHtml": 'LearningSuite entfernt HTML-Kommentare (<code>&lt;!-- VP_CONFIG --&gt;</code>) beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
+    "admin.diag.scriptTagHtml": 'LearningSuite entfernt <code>&lt;script&gt;</code>-Tags beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
+    "admin.diag.wrapperTagHtml": "LearningSuite übernimmt <code>&lt;{tag} data-vp-config&gt;</code> nicht. Nur <code>&lt;pre data-vp-config&gt;</code> bleibt erhalten.",
+    "admin.diag.emptyHtml": "Der <code>&lt;pre data-vp-config&gt;</code>-Block ist leer.",
+    "admin.diag.jsonAtHtml": "JSON-Fehler in Zeile {line}, Spalte {column} des Blocks: {message}<br><code>{snippet}</code>",
+    "admin.diag.jsonHtml": "Das JSON ist ungültig: {message}",
+    "admin.diag.smartQuotesHtml": 'Das JSON enthält typografische Anführungszeichen (“ ” „). JSON akzeptiert nur gerade Anführungszeichen (<code>"</code>).',
+    "admin.diag.notObjectHtml": "Das JSON muss ein Objekt <code>{ … }</code> sein, nicht <code>{kind}</code>.",
+    "admin.diag.noSectionsHtml": "Keiner der Abschnitte <code>phases</code>, <code>sciences</code>, <code>audios</code>, <code>metaSteps</code> oder <code>quiz</code> gefunden – es würde nichts angezeigt.",
+    "admin.diag.notArrayHtml": "<code>{key}</code> muss eine Liste <code>[ … ]</code> sein. Der Abschnitt wird ignoriert.",
+    "admin.diag.unknownKeyHtml": "Unbekannter Abschnitt <code>{key}</code> wird ignoriert. Tippfehler?",
+    "admin.diag.quizInvalidHtml": "<code>quiz</code> enthält keine gültige Frage und wird ignoriert. Die Browser-Konsole nennt die verworfenen Einträge.",
+    "admin.diag.audioNoAssetHtml": "Voice-Over <code>{id}</code> hat kein <code>asset</code> – es wird keine Audio-Datei abgespielt.",
+    "admin.diag.audioAssetUnknownHtml": "Das <code>asset</code> von Voice-Over <code>{id}</code> ist weder ein <code>{{asset:…}}</code>-Verweis noch eine https-URL noch ein Schlüssel in <code>assets</code>."
   };
   var MESSAGES = {
     en: EN,
     de: DE
   };
   var t = createT(MESSAGES);
+
+  // runtime-src/common/config.ts
+  var record = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  var text = (value) => typeof value === "string" ? value.trim() : "";
+  var clamp = (value, min, max, fallback) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(min, Math.min(n, max)) : fallback;
+  };
+  function normalizeOptions(raw) {
+    const seen = /* @__PURE__ */ new Set();
+    let dropped = false;
+    const options = raw.flatMap((entry) => {
+      const option = record(entry);
+      const id = text(option == null ? void 0 : option.id);
+      const label = text(option == null ? void 0 : option.text);
+      if (!option || !id || !label || seen.has(id)) {
+        dropped = true;
+        return [];
+      }
+      seen.add(id);
+      return [{ id, text: label }];
+    });
+    return { options, dropped };
+  }
+  function normalizeTimeout(raw) {
+    if (raw == null) return null;
+    const n = Number(raw);
+    if (Number.isInteger(n) && n >= 5 && n <= 300) return n;
+    console.warn(
+      "[vp] ignoring invalid quiz timeout; expected an integer from 5 to 300",
+      raw
+    );
+    return null;
+  }
+  function normalizeQuestions(raw, seenQuestionIds) {
+    return raw.flatMap((entry) => {
+      const question = record(entry);
+      const id = text(question == null ? void 0 : question.id);
+      const prompt = text(question == null ? void 0 : question.prompt);
+      const correctOptionId = text(question == null ? void 0 : question.correctOptionId);
+      if (!question || !id || !prompt || !Array.isArray(question.options)) {
+        console.warn("[vp] ignoring invalid quiz question", entry);
+        return [];
+      }
+      if (seenQuestionIds.has(id)) {
+        console.warn("[vp] ignoring duplicate quiz question id", id);
+        return [];
+      }
+      if (question.options.length < 1 || question.options.length > 4) {
+        console.warn(
+          "[vp] ignoring quiz question with option count outside 1-4",
+          entry
+        );
+        return [];
+      }
+      const { options } = normalizeOptions(question.options);
+      if (!options.length || !options.some((o) => o.id === correctOptionId)) {
+        console.warn("[vp] ignoring quiz question with invalid options", entry);
+        return [];
+      }
+      seenQuestionIds.add(id);
+      return [
+        {
+          id,
+          prompt,
+          options,
+          correctOptionId,
+          explanation: text(question.explanation),
+          timeoutSec: normalizeTimeout(question.timeoutSec),
+          showCountdown: question.showCountdown !== false
+        }
+      ];
+    });
+  }
+  function normalizeQuizConfig(raw) {
+    const cfg = record(raw);
+    if (!cfg || !Array.isArray(cfg.quizzes)) return null;
+    const seenQuizIds = /* @__PURE__ */ new Set();
+    const seenQuestionIds = /* @__PURE__ */ new Set();
+    const quizzes = cfg.quizzes.flatMap((entry) => {
+      const quiz = record(entry);
+      const id = text(quiz == null ? void 0 : quiz.id);
+      const t2 = Number(quiz == null ? void 0 : quiz.t);
+      if (!quiz || !id || seenQuizIds.has(id) || !Number.isFinite(t2) || t2 < 0 || !Array.isArray(quiz.questions)) {
+        console.warn("[vp] ignoring invalid quiz break", entry);
+        return [];
+      }
+      const questions = normalizeQuestions(quiz.questions, seenQuestionIds);
+      if (!questions.length) {
+        console.warn("[vp] ignoring quiz break without valid questions", entry);
+        return [];
+      }
+      seenQuizIds.add(id);
+      return [
+        {
+          id,
+          t: t2,
+          title: text(quiz.title),
+          resume: quiz.resume === "manual" ? "manual" : "auto",
+          questions
+        }
+      ];
+    }).sort((a, b) => a.t - b.t);
+    if (!quizzes.length) return null;
+    return {
+      feedbackDurationSec: clamp(cfg.feedbackDurationSec, 0.5, 10, 3),
+      showScore: cfg.showScore === true,
+      showSummary: cfg.showSummary === true,
+      passingPercent: cfg.passingPercent == null || !Number.isFinite(Number(cfg.passingPercent)) ? null : clamp(cfg.passingPercent, 0, 100, 0),
+      quizzes
+    };
+  }
+
+  // runtime-src/admin-toggle/diagnose.ts
+  var EMBED_HINT = /data-vp-config|VP_CONFIG|"(?:phases|sciences|audios|metaSteps|quiz)"\s*:/;
+  var looksLikeEmbed = (value) => EMBED_HINT.test(value);
+  var ARRAY_SECTIONS = ["phases", "sciences", "audios", "metaSteps"];
+  var CONTENT_SECTIONS = [...ARRAY_SECTIONS, "quiz"];
+  var KNOWN_KEYS = /* @__PURE__ */ new Set([...CONTENT_SECTIONS, "assets", "demo"]);
+  var error = (key, vars) => ({
+    level: "error",
+    key,
+    vars
+  });
+  var warning = (key, vars) => ({
+    level: "warning",
+    key,
+    vars
+  });
+  function diagnoseEmbed(code) {
+    var _a;
+    const fenced = code.includes("```");
+    const doc = new DOMParser().parseFromString(code, "text/html");
+    const target = doc.querySelector("[data-vp-config]");
+    if (!target) {
+      if (code.includes("VP_CONFIG")) return [error("admin.diag.commentHtml")];
+      return [
+        error("admin.diag.wrapperMissingHtml"),
+        ...fenced ? [error("admin.diag.fencesHtml")] : []
+      ];
+    }
+    if (target.tagName === "SCRIPT") return [error("admin.diag.scriptTagHtml")];
+    if (target.tagName !== "PRE")
+      return [
+        error("admin.diag.wrapperTagHtml", { tag: target.tagName.toLowerCase() })
+      ];
+    const json = ((_a = target.textContent) != null ? _a : "").replace(/^\r?\n/, "");
+    if (!json.trim()) return [error("admin.diag.emptyHtml")];
+    const fences = fenced ? [error("admin.diag.fencesHtml")] : [];
+    if (json.includes("```")) return fences;
+    let raw;
+    try {
+      raw = JSON.parse(json);
+    } catch (e) {
+      return [...fences, ...jsonFindings(json, e)];
+    }
+    return [...fences, ...structureFindings(raw)];
+  }
+  function jsonFindings(json, e) {
+    var _a;
+    const message = e instanceof Error ? e.message : String(e);
+    const findings = [];
+    const position = Number((_a = /position (\d+)/.exec(message)) == null ? void 0 : _a[1]);
+    if (Number.isInteger(position)) {
+      const before = json.slice(0, position).split("\n");
+      const line = before.length;
+      const column = before[line - 1].length + 1;
+      const lineText = json.split("\n")[line - 1];
+      const from = Math.max(0, column - 40);
+      findings.push(
+        error("admin.diag.jsonAtHtml", {
+          line,
+          column,
+          message,
+          snippet: lineText.slice(from, from + 80).trim()
+        })
+      );
+    } else {
+      findings.push(error("admin.diag.jsonHtml", { message }));
+    }
+    if (/[“”„]/.test(json)) findings.push(error("admin.diag.smartQuotesHtml"));
+    return findings;
+  }
+  function structureFindings(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw))
+      return [
+        error("admin.diag.notObjectHtml", {
+          kind: Array.isArray(raw) ? "[ … ]" : JSON.stringify(raw)
+        })
+      ];
+    const config = raw;
+    if (!CONTENT_SECTIONS.some((key) => key in config))
+      return [error("admin.diag.noSectionsHtml")];
+    const findings = [];
+    for (const key of Object.keys(config))
+      if (!KNOWN_KEYS.has(key))
+        findings.push(warning("admin.diag.unknownKeyHtml", { key }));
+    for (const key of ARRAY_SECTIONS)
+      if (key in config && !Array.isArray(config[key]))
+        findings.push(error("admin.diag.notArrayHtml", { key }));
+    if ("quiz" in config && !normalizeQuizConfig(config.quiz))
+      findings.push(warning("admin.diag.quizInvalidHtml"));
+    if (Array.isArray(config.audios))
+      findings.push(...audioFindings(config.audios, config.assets));
+    return findings;
+  }
+  function audioFindings(audios, assets) {
+    const table = assets && typeof assets === "object" ? assets : {};
+    return audios.flatMap((entry, index) => {
+      const cue = entry && typeof entry === "object" ? entry : {};
+      const id = typeof cue.id === "string" && cue.id ? cue.id : `#${index + 1}`;
+      const asset = typeof cue.asset === "string" ? cue.asset.trim() : "";
+      if (!asset) return [warning("admin.diag.audioNoAssetHtml", { id })];
+      if (asset.includes("{{asset:") || asset.startsWith("https://") || typeof table[asset] === "string")
+        return [];
+      return [warning("admin.diag.audioAssetUnknownHtml", { id })];
+    });
+  }
 
   // runtime-src/admin-toggle/prompt.ts
   var PROMPT_TEXT = `Du erstellst eine JSON-Konfiguration für einen erweiterten Video-Player auf einer LearningSuite-Coaching-Lektion.
@@ -377,15 +637,66 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
     .vp-admin-dialog .vp-tip {
       color:#0c4a6e; background:#e0f2fe; padding:8px 12px; border-radius:8px;
     }
+    .vp-admin-dialog .vp-diag-toggle {
+      display:flex; align-items:center; gap:8px; margin-bottom:12px;
+      color:#1e293b; cursor:pointer;
+    }
+
+    .vp-admin-diag {
+      white-space:normal; box-sizing:border-box; max-width:680px;
+      margin:6px 0 0 2px; padding:8px 12px; border-radius:8px;
+      font:12px/1.5 system-ui, -apple-system, sans-serif;
+      border:1px solid #fecaca; background:#fef2f2; color:#7f1d1d;
+    }
+    .vp-admin-diag[hidden] { display:none; }
+    .vp-admin-diag[data-state="warning"] {
+      border-color:#fde68a; background:#fffbeb; color:#78350f;
+    }
+    .vp-admin-diag[data-state="ok"] {
+      border-color:#bbf7d0; background:#f0fdf4; color:#14532d;
+    }
+    .vp-admin-diag ul { margin:4px 0 0; padding-left:18px; }
+    .vp-admin-diag li[data-level="warning"] { color:#78350f; }
+    .vp-admin-diag code {
+      background:rgba(15,23,42,.06); padding:0 4px; border-radius:4px;
+      font:11.5px ui-monospace, Menlo, monospace; overflow-wrap:anywhere;
+    }
+    .vp-admin-diag-recheck {
+      display:block; margin-top:6px; padding:0; background:none; border:0;
+      font:500 12px system-ui; color:inherit; text-decoration:underline;
+      cursor:pointer;
+    }
   `;
 
   // runtime-src/admin-toggle/index.ts
   var CLEANUP_KEY = "__vpAdminCleanup";
+  var DIAGNOSTICS_KEY = "vp-admin-diagnostics";
+  var OWNED_SELECTOR = ".vp-admin-launch, .vp-admin-diag, .vp-admin-banner";
+  function diagnosticsEnabled() {
+    try {
+      return localStorage.getItem(DIAGNOSTICS_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function setDiagnosticsEnabled(on) {
+    try {
+      if (on) localStorage.setItem(DIAGNOSTICS_KEY, "1");
+      else localStorage.removeItem(DIAGNOSTICS_KEY);
+    } catch {
+    }
+  }
+  function findingHtml({ key, vars }) {
+    const safe = vars ? Object.fromEntries(
+      Object.entries(vars).map(([name, value]) => [name, esc(String(value))])
+    ) : void 0;
+    return t(key, safe);
+  }
   function main() {
     var _a, _b;
     resetCleanup(CLEANUP_KEY);
     (_a = document.getElementById("vp-admin-toggle-style")) == null ? void 0 : _a.remove();
-    document.querySelectorAll(".vp-admin-launch, .vp-admin-banner").forEach((el) => el.remove());
+    document.querySelectorAll(OWNED_SELECTOR).forEach((el) => el.remove());
     (_b = document.getElementById("vp-admin-dialog-host")) == null ? void 0 : _b.remove();
     document.querySelectorAll("hls-video").forEach((v) => {
       delete v.__vpAdminAttached;
@@ -400,6 +711,34 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
       return [...document.querySelectorAll('input[type="text"]')].some(
         (i) => typeof i.value === "string" && i.value.includes("data-vp-config")
       );
+    }
+    function embedCodeOnPage() {
+      for (const input of document.querySelectorAll(
+        'input[type="text"]'
+      ))
+        if (looksLikeEmbed(input.value)) return input.value;
+      return null;
+    }
+    function renderDiagnostics(panel) {
+      const code = diagnosticsEnabled() ? embedCodeOnPage() : null;
+      panel.hidden = code === null;
+      if (code === null) {
+        panel.innerHTML = "";
+        return;
+      }
+      const findings = diagnoseEmbed(code);
+      const hasError = findings.some((f) => f.level === "error");
+      panel.dataset.state = hasError ? "error" : findings.length ? "warning" : "ok";
+      const heading = findings.length ? t(hasError ? "admin.diag.titleError" : "admin.diag.titleWarning") : t("admin.diag.ok");
+      panel.innerHTML = `
+      <strong>${esc(heading)}</strong>
+      ${findings.length ? `<ul>${findings.map((f) => `<li data-level="${f.level}">${findingHtml(f)}</li>`).join("")}</ul>` : ""}
+      <button type="button" class="vp-admin-diag-recheck">${esc(t("admin.diag.recheck"))}</button>`;
+      panel.querySelector(".vp-admin-diag-recheck").onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        renderDiagnostics(panel);
+      };
     }
     function openDialog(onAfterClose) {
       var _a2;
@@ -433,11 +772,20 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
           </div>
         </section>
         <footer>
+          <label class="vp-diag-toggle">
+            <input type="checkbox" class="vp-diag-checkbox">
+            ${esc(t("admin.diag.toggle"))}
+          </label>
           <span class="vp-tip">${t("admin.footer.tipHtml")}</span>
         </footer>
       </div>
     `;
       host.querySelector(".vp-prompt").value = PROMPT_TEXT;
+      const diagCheckbox = host.querySelector(
+        ".vp-diag-checkbox"
+      );
+      diagCheckbox.checked = diagnosticsEnabled();
+      diagCheckbox.onchange = () => setDiagnosticsEnabled(diagCheckbox.checked);
       function closeDialog() {
         host.remove();
         document.removeEventListener("keydown", onKey);
@@ -492,16 +840,20 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
       const button = document.createElement("button");
       button.type = "button";
       button.className = "vp-admin-launch";
-      function labelButton() {
+      const panel = document.createElement("div");
+      panel.className = "vp-admin-diag";
+      function refresh() {
         button.textContent = hasVpConfigOnPage() ? t("admin.launch.edit") : t("admin.launch.enable");
+        renderDiagnostics(panel);
       }
-      labelButton();
+      refresh();
       button.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        openDialog(labelButton);
+        openDialog(refresh);
       };
       insertParent.insertBefore(button, playerHost.nextSibling);
+      insertParent.insertBefore(panel, button.nextSibling);
     }
     function isEditMode() {
       if (!location.pathname.includes("/admin/editor/")) return false;
@@ -511,7 +863,7 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
     }
     function teardownLaunchButtons() {
       var _a2;
-      document.querySelectorAll(".vp-admin-launch, .vp-admin-banner").forEach((el) => el.remove());
+      document.querySelectorAll(OWNED_SELECTOR).forEach((el) => el.remove());
       (_a2 = document.getElementById("vp-admin-dialog-host")) == null ? void 0 : _a2.remove();
       document.querySelectorAll("hls-video").forEach((v) => {
         delete v.__vpAdminAttached;
