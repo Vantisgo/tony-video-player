@@ -4,8 +4,9 @@
 // silently drops whatever it does not allow — an empty block renders as no
 // block at all (docs/learningsuite-enrichment-research.md). So a broken payload
 // looks exactly like a missing one in Vorschau. This replays, on the raw string,
-// the rules the sanitiser and common/config.ts apply, and names the first rule
-// that fails. Pure: the caller finds the string and renders the findings.
+// what common/config.ts expects of the <pre data-vp-config> block and names what
+// would stop it from being recognised. Pure: the caller finds the string and
+// renders the findings.
 import { normalizeQuizConfig } from "../common/config";
 import type { AdminKey } from "../common/i18n/admin";
 
@@ -14,14 +15,6 @@ export interface Finding {
   key: AdminKey;
   vars?: Record<string, string | number>;
 }
-
-// Cheap enough for every text input on the page: any sign that the value is
-// meant to be our config, including the broken shapes diagnosed below.
-const EMBED_HINT =
-  /data-vp-config|VP_CONFIG|"(?:phases|sciences|audios|metaSteps|quiz)"\s*:/;
-
-export const looksLikeEmbed = (value: string): boolean =>
-  EMBED_HINT.test(value);
 
 const ARRAY_SECTIONS = ["phases", "sciences", "audios", "metaSteps"] as const;
 const CONTENT_SECTIONS = [...ARRAY_SECTIONS, "quiz"] as const;
@@ -42,24 +35,23 @@ const warning = (key: AdminKey, vars?: Finding["vars"]): Finding => ({
 // cannot start a line: JSON strings hold no raw newlines.
 const FENCE = /^[ \t]*```/m;
 
-export function diagnoseEmbed(code: string): Finding[] {
-  const fenced = FENCE.test(code);
+// Returns null for an embed that is not ours: one without a
+// <pre data-vp-config> block, the only wrapper LearningSuite's sanitiser keeps.
+export function diagnoseEmbed(code: string): Finding[] | null {
+  // Most inputs on the page are not embeds at all; skip parsing those.
+  if (!/data-vp-config/i.test(code)) return null;
   const doc = new DOMParser().parseFromString(code, "text/html");
-  const target = doc.querySelector("[data-vp-config]");
+  if (!doc.querySelector("pre[data-vp-config]")) return null;
 
-  if (!target) {
-    if (code.includes("VP_CONFIG")) return [error("admin.diag.commentHtml")];
-    return [
-      error("admin.diag.wrapperMissingHtml"),
-      ...(fenced ? [error("admin.diag.fencesHtml")] : []),
-    ];
-  }
-  if (target.tagName === "SCRIPT") return [error("admin.diag.scriptTagHtml")];
+  // Same selector as loadVpConfig in common/config.ts: the runtime reads the
+  // first match, so that is the element to diagnose.
+  const target = doc.querySelector("[data-vp-config]:not(script)") as Element;
   if (target.tagName !== "PRE")
     return [
-      error("admin.diag.wrapperTagHtml", { tag: target.tagName.toLowerCase() }),
+      error("admin.diag.precededHtml", { tag: target.tagName.toLowerCase() }),
     ];
 
+  const fenced = FENCE.test(code);
   // Browsers drop the newline right after <pre>; strip it here too, so line 1
   // is the first line of JSON whichever parser built the tree.
   const json = (target.textContent ?? "").replace(/^\r?\n/, "");

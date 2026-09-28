@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { diagnoseEmbed, looksLikeEmbed } from "../../admin-toggle/diagnose";
+import { diagnoseEmbed } from "../../admin-toggle/diagnose";
 
 const pre = (json: string): string =>
   `<pre data-vp-config style="display:none">\n${json}\n</pre>`;
@@ -18,59 +18,38 @@ const VALID = {
   ],
 };
 
-const keys = (code: string): string[] => diagnoseEmbed(code).map((f) => f.key);
+const keys = (code: string): string[] =>
+  (diagnoseEmbed(code) ?? []).map((f) => f.key);
 
-describe("looksLikeEmbed", () => {
+describe("diagnoseEmbed: which embeds are ours", () => {
   it.each([
     pre("{}"),
-    "<!--VP_CONFIG {} VP_CONFIG-->",
-    '```json\n{ "phases": [] }\n```',
-  ])("recognises %j as meant to be our config", (value) => {
-    expect(looksLikeEmbed(value)).toBe(true);
+    '<PRE DATA-VP-CONFIG="">{}</PRE>',
+    '<pre title="a > b" data-vp-config>{}</pre>',
+    "```html\n" + pre("{}") + "\n```",
+  ])("diagnoses %j", (code) => {
+    expect(diagnoseEmbed(code)).not.toBeNull();
   });
 
-  it("ignores unrelated inputs", () => {
-    expect(looksLikeEmbed("Lektion 3: Einführung")).toBe(false);
+  it.each([
+    '<iframe src="https://example.com"></iframe>',
+    '{ "phases": [] }',
+    "<pre data-vp-config-backup>{}</pre>",
+    '<pre title="data-vp-config">{}</pre>',
+    "<!-- <pre data-vp-config>{}</pre> -->",
+  ])("leaves %j alone", (code) => {
+    expect(diagnoseEmbed(code)).toBeNull();
   });
 });
 
-describe("diagnoseEmbed: the wrapper LearningSuite keeps", () => {
+describe("diagnoseEmbed: the block", () => {
   it("accepts a valid <pre data-vp-config> block", () => {
     expect(diagnoseEmbed(pre(JSON.stringify(VALID)))).toEqual([]);
-  });
-
-  it("flags bare JSON without the <pre> wrapper", () => {
-    expect(keys(JSON.stringify(VALID))).toEqual([
-      "admin.diag.wrapperMissingHtml",
-    ]);
-  });
-
-  it("names the Markdown fences an LLM put around bare JSON", () => {
-    expect(keys("```json\n" + JSON.stringify(VALID) + "\n```")).toEqual([
-      "admin.diag.wrapperMissingHtml",
-      "admin.diag.fencesHtml",
-    ]);
   });
 
   it("flags fences around an otherwise valid block, and still checks the JSON", () => {
     expect(keys("```html\n" + pre(JSON.stringify(VALID)) + "\n```")).toEqual([
       "admin.diag.fencesHtml",
-    ]);
-  });
-
-  it("flags the shapes the sanitiser strips", () => {
-    const json = JSON.stringify(VALID);
-    expect(
-      keys(`<script type="application/json" data-vp-config>${json}</script>`),
-    ).toEqual(["admin.diag.scriptTagHtml"]);
-    expect(keys(`<!--VP_CONFIG ${json} VP_CONFIG-->`)).toEqual([
-      "admin.diag.commentHtml",
-    ]);
-    expect(diagnoseEmbed(`<div data-vp-config>${json}</div>`)).toEqual([
-      expect.objectContaining({
-        key: "admin.diag.wrapperTagHtml",
-        vars: { tag: "div" },
-      }),
     ]);
   });
 
@@ -82,6 +61,19 @@ describe("diagnoseEmbed: the wrapper LearningSuite keeps", () => {
     ).toEqual([]);
   });
 
+  it("flags an element the runtime would read instead of the block", () => {
+    expect(
+      diagnoseEmbed(
+        '<p data-vp-config>{ broken</p><pre data-vp-config>{"phases":[]}</pre>',
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        key: "admin.diag.precededHtml",
+        vars: { tag: "p" },
+      }),
+    ]);
+  });
+
   it("flags an empty block", () => {
     expect(keys(pre("  "))).toEqual(["admin.diag.emptyHtml"]);
   });
@@ -91,7 +83,7 @@ describe("diagnoseEmbed: JSON errors", () => {
   it("points at the line and column of a syntax error, with the line as context", () => {
     const [finding] = diagnoseEmbed(
       pre('{\n  "phases": []\n  "audios": []\n}'),
-    );
+    )!;
 
     expect(finding.key).toBe("admin.diag.jsonAtHtml");
     expect(finding.vars).toMatchObject({
@@ -104,7 +96,7 @@ describe("diagnoseEmbed: JSON errors", () => {
   it("counts characters instead of lines for single-line code, as the editor stores it", () => {
     const [finding] = diagnoseEmbed(
       '<pre data-vp-config>{ "phases": [] "audios": [] }</pre>',
-    );
+    )!;
 
     expect(finding.key).toBe("admin.diag.jsonAtCharHtml");
     expect(finding.vars).toMatchObject({ column: 16 });

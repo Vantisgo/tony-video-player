@@ -99,17 +99,13 @@
     "admin.step3.heading": "Prompt your LLM, then paste the answer",
     "admin.step3.bodyHtml": 'Copy the prompt below and hand it to your LLM (ChatGPT, Claude, …) — together with the lesson transcript / script <em>and</em> the asset references from step 2. The answer is a ready-made <code>&lt;pre data-vp-config&gt;</code> block with the references already filled in — paste it verbatim into the "Code einbetten" modal, click <strong>Speichern</strong>, then <strong>Vorschau</strong> at the top to test it.',
     "admin.footer.tipHtml": "💡 In the editor, LearningSuite shows the saved code as a raw string. Only <em>Vorschau</em> renders it live — and that is exactly when the Advanced Video Editor appears (re-skin + sidebar + overlays).",
-    "admin.diag.toggle": "Show errors in the embedded code below the video",
     "admin.diag.titleError": "The embedded code is not recognised",
     "admin.diag.titleWarning": "The embedded code is recognised, with warnings",
     "admin.diag.ok": "✓ Embedded code recognised",
     "admin.diag.recheck": "Check again",
-    "admin.diag.wrapperMissingHtml": 'No <code>&lt;pre data-vp-config&gt;</code> block found. Wrap the JSON in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code>.',
     "admin.diag.fencesHtml": "The code contains Markdown fences (<code>```</code>). Delete the lines the LLM put around its answer.",
-    "admin.diag.commentHtml": 'LearningSuite removes HTML comments (<code>&lt;!-- VP_CONFIG --&gt;</code>) on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
-    "admin.diag.scriptTagHtml": 'LearningSuite removes <code>&lt;script&gt;</code> tags on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
-    "admin.diag.wrapperTagHtml": "LearningSuite does not keep <code>&lt;{tag} data-vp-config&gt;</code>. Only <code>&lt;pre data-vp-config&gt;</code> survives.",
     "admin.diag.emptyHtml": "The <code>&lt;pre data-vp-config&gt;</code> block is empty.",
+    "admin.diag.precededHtml": "A <code>&lt;{tag} data-vp-config&gt;</code> comes before the <code>&lt;pre&gt;</code> block, and the player reads the first element with <code>data-vp-config</code>. Remove it.",
     "admin.diag.jsonAtHtml": "JSON error in line {line}, column {column} of the block: {message}<br><code>{snippet}</code>",
     "admin.diag.jsonAtCharHtml": "JSON error at character {column} of the block: {message}<br><code>{snippet}</code>",
     "admin.diag.jsonHtml": "The JSON is invalid: {message}",
@@ -138,17 +134,13 @@
     "admin.step3.heading": "Prompt an LLM, dann Antwort einfügen",
     "admin.step3.bodyHtml": 'Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.',
     "admin.footer.tipHtml": "💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays).",
-    "admin.diag.toggle": "Fehler im eingebetteten Code unter dem Video anzeigen",
     "admin.diag.titleError": "Der eingebettete Code wird nicht erkannt",
     "admin.diag.titleWarning": "Der eingebettete Code wird erkannt – mit Hinweisen",
     "admin.diag.ok": "✓ Eingebetteter Code erkannt",
     "admin.diag.recheck": "Erneut prüfen",
-    "admin.diag.wrapperMissingHtml": 'Kein <code>&lt;pre data-vp-config&gt;</code>-Block gefunden. Das JSON muss in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code> stehen.',
     "admin.diag.fencesHtml": "Der Code enthält Markdown-Zäune (<code>```</code>). Lösche die Zeilen, die das LLM um seine Antwort gesetzt hat.",
-    "admin.diag.commentHtml": 'LearningSuite entfernt HTML-Kommentare (<code>&lt;!-- VP_CONFIG --&gt;</code>) beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
-    "admin.diag.scriptTagHtml": 'LearningSuite entfernt <code>&lt;script&gt;</code>-Tags beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
-    "admin.diag.wrapperTagHtml": "LearningSuite übernimmt <code>&lt;{tag} data-vp-config&gt;</code> nicht. Nur <code>&lt;pre data-vp-config&gt;</code> bleibt erhalten.",
     "admin.diag.emptyHtml": "Der <code>&lt;pre data-vp-config&gt;</code>-Block ist leer.",
+    "admin.diag.precededHtml": "Vor dem <code>&lt;pre&gt;</code>-Block steht ein <code>&lt;{tag} data-vp-config&gt;</code>, und der Player liest das erste Element mit <code>data-vp-config</code>. Entferne es.",
     "admin.diag.jsonAtHtml": "JSON-Fehler in Zeile {line}, Spalte {column} des Blocks: {message}<br><code>{snippet}</code>",
     "admin.diag.jsonAtCharHtml": "JSON-Fehler bei Zeichen {column} des Blocks: {message}<br><code>{snippet}</code>",
     "admin.diag.jsonHtml": "Das JSON ist ungültig: {message}",
@@ -280,8 +272,6 @@
   }
 
   // runtime-src/admin-toggle/diagnose.ts
-  var EMBED_HINT = /data-vp-config|VP_CONFIG|"(?:phases|sciences|audios|metaSteps|quiz)"\s*:/;
-  var looksLikeEmbed = (value) => EMBED_HINT.test(value);
   var ARRAY_SECTIONS = ["phases", "sciences", "audios", "metaSteps"];
   var CONTENT_SECTIONS = [...ARRAY_SECTIONS, "quiz"];
   var KNOWN_KEYS = /* @__PURE__ */ new Set([...CONTENT_SECTIONS, "assets", "demo"]);
@@ -298,21 +288,15 @@
   var FENCE = /^[ \t]*```/m;
   function diagnoseEmbed(code) {
     var _a;
-    const fenced = FENCE.test(code);
+    if (!/data-vp-config/i.test(code)) return null;
     const doc = new DOMParser().parseFromString(code, "text/html");
-    const target = doc.querySelector("[data-vp-config]");
-    if (!target) {
-      if (code.includes("VP_CONFIG")) return [error("admin.diag.commentHtml")];
-      return [
-        error("admin.diag.wrapperMissingHtml"),
-        ...fenced ? [error("admin.diag.fencesHtml")] : []
-      ];
-    }
-    if (target.tagName === "SCRIPT") return [error("admin.diag.scriptTagHtml")];
+    if (!doc.querySelector("pre[data-vp-config]")) return null;
+    const target = doc.querySelector("[data-vp-config]:not(script)");
     if (target.tagName !== "PRE")
       return [
-        error("admin.diag.wrapperTagHtml", { tag: target.tagName.toLowerCase() })
+        error("admin.diag.precededHtml", { tag: target.tagName.toLowerCase() })
       ];
+    const fenced = FENCE.test(code);
     const json = ((_a = target.textContent) != null ? _a : "").replace(/^\r?\n/, "");
     if (!json.trim()) return [error("admin.diag.emptyHtml")];
     const fences = fenced ? [error("admin.diag.fencesHtml")] : [];
@@ -648,10 +632,6 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
     .vp-admin-dialog .vp-tip {
       color:#0c4a6e; background:#e0f2fe; padding:8px 12px; border-radius:8px;
     }
-    .vp-admin-dialog .vp-diag-toggle {
-      display:flex; align-items:center; gap:8px; margin-bottom:12px;
-      color:#1e293b; cursor:pointer;
-    }
 
     .vp-admin-diag {
       white-space:normal; box-sizing:border-box; max-width:680px;
@@ -681,22 +661,7 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
 
   // runtime-src/admin-toggle/index.ts
   var CLEANUP_KEY = "__vpAdminCleanup";
-  var DIAGNOSTICS_KEY = "vp-admin-diagnostics";
   var OWNED_SELECTOR = ".vp-admin-launch, .vp-admin-diag, .vp-admin-banner";
-  function diagnosticsEnabled() {
-    try {
-      return localStorage.getItem(DIAGNOSTICS_KEY) === "1";
-    } catch {
-      return false;
-    }
-  }
-  function setDiagnosticsEnabled(on) {
-    try {
-      if (on) localStorage.setItem(DIAGNOSTICS_KEY, "1");
-      else localStorage.removeItem(DIAGNOSTICS_KEY);
-    } catch {
-    }
-  }
   function findingHtml({ key, vars }) {
     const safe = vars ? Object.fromEntries(
       Object.entries(vars).map(([name, value]) => [name, esc(String(value))])
@@ -723,21 +688,22 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
         (i) => typeof i.value === "string" && i.value.includes("data-vp-config")
       );
     }
-    function embedCodeOnPage() {
+    function diagnoseEmbedOnPage() {
       for (const input of document.querySelectorAll(
         'input[type="text"]'
-      ))
-        if (looksLikeEmbed(input.value)) return input.value;
+      )) {
+        const findings = diagnoseEmbed(input.value);
+        if (findings) return findings;
+      }
       return null;
     }
     function renderDiagnostics(panel) {
-      const code = diagnosticsEnabled() ? embedCodeOnPage() : null;
-      panel.hidden = code === null;
-      if (code === null) {
+      const findings = diagnoseEmbedOnPage();
+      panel.hidden = findings === null;
+      if (findings === null) {
         panel.innerHTML = "";
         return;
       }
-      const findings = diagnoseEmbed(code);
       const hasError = findings.some((f) => f.level === "error");
       panel.dataset.state = hasError ? "error" : findings.length ? "warning" : "ok";
       const heading = findings.length ? t(hasError ? "admin.diag.titleError" : "admin.diag.titleWarning") : t("admin.diag.ok");
@@ -783,20 +749,11 @@ audios[]-Eintrag ein avatar-Feld und die Karte zeigt die Initialen der Stimme).
           </div>
         </section>
         <footer>
-          <label class="vp-diag-toggle">
-            <input type="checkbox" class="vp-diag-checkbox">
-            ${esc(t("admin.diag.toggle"))}
-          </label>
           <span class="vp-tip">${t("admin.footer.tipHtml")}</span>
         </footer>
       </div>
     `;
       host.querySelector(".vp-prompt").value = PROMPT_TEXT;
-      const diagCheckbox = host.querySelector(
-        ".vp-diag-checkbox"
-      );
-      diagCheckbox.checked = diagnosticsEnabled();
-      diagCheckbox.onchange = () => setDiagnosticsEnabled(diagCheckbox.checked);
       function closeDialog() {
         host.remove();
         document.removeEventListener("keydown", onKey);

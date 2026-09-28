@@ -849,15 +849,17 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
 
 ## 2026-09-28 · admin-diagnostics · Say why an embed is not recognised
 
-- **Decision (user)**: the admin dialog has an opt-in "show errors in the embedded code" option
-  (`localStorage["vp-admin-diagnostics"]`). When on, a panel below the launch button explains why
-  the saved "Code einbetten" code would not be picked up — or confirms that it would.
+- **Decision (user)**: no opt-in. Whenever a player is on the page and a saved "Code einbetten"
+  block contains `<pre data-vp-config>`, a panel below the launch button says whether the runtime
+  will recognise it — an "✓ erkannt" confirmation, or the reasons it will not. Embeds without
+  that wrapper are not ours and get no panel.
 - **Decision**: the diagnosis runs in the **editor**, on the raw saved string, not in Vorschau.
   LearningSuite's sanitiser hides a block it emptied, so in Vorschau a broken payload is
   indistinguishable from no payload; only the editor still has the string.
-  `admin-toggle/diagnose.ts` replays the sanitiser's rules (only `<pre data-vp-config>` survives)
-  and `common/config.ts`'s expectations, and reports JSON errors with line, column and the
-  offending line.
+  `admin-toggle/diagnose.ts` checks what `common/config.ts` expects of the block: Markdown fences,
+  JSON syntax (position plus the offending excerpt — the editor's `<input>` strips newlines, so
+  single-line code gets a character position), section types, unknown keys, a quiz whose every
+  question fails validation (the runtime then drops the whole quiz), and voice-over assets.
 - **Constraint**: like the config-presence check, the input scan runs on attach and on dialog
   close only, plus an explicit "check again" button — never on an interval or observer (see the
   renderer-pegging note in `admin-toggle/index.ts`).

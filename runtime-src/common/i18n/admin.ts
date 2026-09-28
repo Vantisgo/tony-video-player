@@ -33,23 +33,16 @@ const EN = {
     'Copy the prompt below and hand it to your LLM (ChatGPT, Claude, …) — together with the lesson transcript / script <em>and</em> the asset references from step 2. The answer is a ready-made <code>&lt;pre data-vp-config&gt;</code> block with the references already filled in — paste it verbatim into the "Code einbetten" modal, click <strong>Speichern</strong>, then <strong>Vorschau</strong> at the top to test it.',
   "admin.footer.tipHtml":
     "💡 In the editor, LearningSuite shows the saved code as a raw string. Only <em>Vorschau</em> renders it live — and that is exactly when the Advanced Video Editor appears (re-skin + sidebar + overlays).",
-  "admin.diag.toggle": "Show errors in the embedded code below the video",
   "admin.diag.titleError": "The embedded code is not recognised",
   "admin.diag.titleWarning": "The embedded code is recognised, with warnings",
   "admin.diag.ok": "✓ Embedded code recognised",
   "admin.diag.recheck": "Check again",
-  "admin.diag.wrapperMissingHtml":
-    'No <code>&lt;pre data-vp-config&gt;</code> block found. Wrap the JSON in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code>.',
   "admin.diag.fencesHtml":
     "The code contains Markdown fences (<code>```</code>). Delete the lines the LLM put around its answer.",
-  "admin.diag.commentHtml":
-    'LearningSuite removes HTML comments (<code>&lt;!-- VP_CONFIG --&gt;</code>) on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
-  "admin.diag.scriptTagHtml":
-    'LearningSuite removes <code>&lt;script&gt;</code> tags on save. Use <code>&lt;pre data-vp-config style="display:none"&gt;</code> instead.',
-  "admin.diag.wrapperTagHtml":
-    "LearningSuite does not keep <code>&lt;{tag} data-vp-config&gt;</code>. Only <code>&lt;pre data-vp-config&gt;</code> survives.",
   "admin.diag.emptyHtml":
     "The <code>&lt;pre data-vp-config&gt;</code> block is empty.",
+  "admin.diag.precededHtml":
+    "A <code>&lt;{tag} data-vp-config&gt;</code> comes before the <code>&lt;pre&gt;</code> block, and the player reads the first element with <code>data-vp-config</code>. Remove it.",
   "admin.diag.jsonAtHtml":
     "JSON error in line {line}, column {column} of the block: {message}<br><code>{snippet}</code>",
   "admin.diag.jsonAtCharHtml":
@@ -98,24 +91,17 @@ const DE: Record<AdminKey, string> = {
     'Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.',
   "admin.footer.tipHtml":
     "💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays).",
-  "admin.diag.toggle": "Fehler im eingebetteten Code unter dem Video anzeigen",
   "admin.diag.titleError": "Der eingebettete Code wird nicht erkannt",
   "admin.diag.titleWarning":
     "Der eingebettete Code wird erkannt – mit Hinweisen",
   "admin.diag.ok": "✓ Eingebetteter Code erkannt",
   "admin.diag.recheck": "Erneut prüfen",
-  "admin.diag.wrapperMissingHtml":
-    'Kein <code>&lt;pre data-vp-config&gt;</code>-Block gefunden. Das JSON muss in <code>&lt;pre data-vp-config style="display:none"&gt; … &lt;/pre&gt;</code> stehen.',
   "admin.diag.fencesHtml":
     "Der Code enthält Markdown-Zäune (<code>```</code>). Lösche die Zeilen, die das LLM um seine Antwort gesetzt hat.",
-  "admin.diag.commentHtml":
-    'LearningSuite entfernt HTML-Kommentare (<code>&lt;!-- VP_CONFIG --&gt;</code>) beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
-  "admin.diag.scriptTagHtml":
-    'LearningSuite entfernt <code>&lt;script&gt;</code>-Tags beim Speichern. Verwende stattdessen <code>&lt;pre data-vp-config style="display:none"&gt;</code>.',
-  "admin.diag.wrapperTagHtml":
-    "LearningSuite übernimmt <code>&lt;{tag} data-vp-config&gt;</code> nicht. Nur <code>&lt;pre data-vp-config&gt;</code> bleibt erhalten.",
   "admin.diag.emptyHtml":
     "Der <code>&lt;pre data-vp-config&gt;</code>-Block ist leer.",
+  "admin.diag.precededHtml":
+    "Vor dem <code>&lt;pre&gt;</code>-Block steht ein <code>&lt;{tag} data-vp-config&gt;</code>, und der Player liest das erste Element mit <code>data-vp-config</code>. Entferne es.",
   "admin.diag.jsonAtHtml":
     "JSON-Fehler in Zeile {line}, Spalte {column} des Blocks: {message}<br><code>{snippet}</code>",
   "admin.diag.jsonAtCharHtml":

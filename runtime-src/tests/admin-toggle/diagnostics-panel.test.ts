@@ -22,17 +22,17 @@ beforeEach(() => {
   g.__vpAdminCleanup?.forEach((fn) => fn());
   g.__vpAdminCleanup = [];
   document.body.innerHTML = "";
-  localStorage.clear();
 });
 
 describe("admin-toggle diagnostics panel", () => {
-  it("stays hidden until the option is switched on", async () => {
-    const panel = await mountEditor("<pre data-vp-config>{ broken</pre>");
+  it("stays hidden when no embed carries a <pre data-vp-config> block", async () => {
+    const panel = await mountEditor(
+      '<iframe src="https://example.com"></iframe>',
+    );
     expect(panel.hidden).toBe(true);
   });
 
   it("lists why the saved code is not recognised, escaping what it quotes", async () => {
-    localStorage.setItem("vp-admin-diagnostics", "1");
     const panel = await mountEditor(
       '<pre data-vp-config>{ "phases": [] "&lt;img src=x onerror=alert(1)&gt;": 1 }</pre>',
     );
@@ -44,27 +44,11 @@ describe("admin-toggle diagnostics panel", () => {
   });
 
   it("confirms recognised code", async () => {
-    localStorage.setItem("vp-admin-diagnostics", "1");
     const panel = await mountEditor(
       '<pre data-vp-config>{ "phases": [] }</pre>',
     );
 
     expect(panel.dataset.state).toBe("ok");
     expect(panel.querySelector("li")).toBeNull();
-  });
-
-  it("persists the option from the dialog checkbox and applies it on close", async () => {
-    const panel = await mountEditor("<pre data-vp-config>{ broken</pre>");
-    (document.querySelector(".vp-admin-launch") as HTMLButtonElement).click();
-
-    const checkbox = document.querySelector(
-      ".vp-diag-checkbox",
-    ) as HTMLInputElement;
-    checkbox.checked = true;
-    checkbox.dispatchEvent(new Event("change"));
-    (document.querySelector(".vp-close") as HTMLButtonElement).click();
-
-    expect(localStorage.getItem("vp-admin-diagnostics")).toBe("1");
-    expect(panel.hidden).toBe(false);
   });
 });

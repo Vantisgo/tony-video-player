@@ -5,41 +5,21 @@
 // `/admin/editor/` and no `?view=preview`). Watches every <hls-video> and inserts
 // a quiet text button BELOW its container, labelled from a one-shot
 // config-presence check, that opens a dialog explaining the two-step setup (add a
-// "Code einbetten" block, paste an LLM prompt's output). The dialog also holds
-// an opt-in diagnosis that explains, below the button, why saved code would not
-// be recognised. Idempotent + re-injectable.
+// "Code einbetten" block, paste an LLM prompt's output). Once a block with
+// <pre data-vp-config> is saved, a panel below the button says whether the
+// runtime will recognise it, and if not, why. Idempotent + re-injectable.
 import { pushCleanup, resetCleanup } from "../common/cleanup";
 import { esc } from "../common/escape";
 // Aliased to `tr` for consistency with the other entries, where `t` is the
 // established name for the current playback time.
 import { t as tr } from "../common/i18n/admin";
-import { diagnoseEmbed, type Finding, looksLikeEmbed } from "./diagnose";
+import { diagnoseEmbed, type Finding } from "./diagnose";
 import { PROMPT_TEXT } from "./prompt";
 import { ADMIN_CSS } from "./styles";
 
 const CLEANUP_KEY = "__vpAdminCleanup";
-const DIAGNOSTICS_KEY = "vp-admin-diagnostics";
 // Everything admin-toggle adds next to a player, swept on teardown and re-run.
 const OWNED_SELECTOR = ".vp-admin-launch, .vp-admin-diag, .vp-admin-banner";
-
-// localStorage can throw (privacy modes, sandboxed frames); then the option is
-// simply off.
-function diagnosticsEnabled(): boolean {
-  try {
-    return localStorage.getItem(DIAGNOSTICS_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function setDiagnosticsEnabled(on: boolean): void {
-  try {
-    if (on) localStorage.setItem(DIAGNOSTICS_KEY, "1");
-    else localStorage.removeItem(DIAGNOSTICS_KEY);
-  } catch {
-    /* ignore */
-  }
-}
 
 // Finding vars come from the admin's own code and the browser's JSON error, and
 // the messages are `*Html` keys, so every var is escaped before interpolation.
@@ -82,24 +62,24 @@ function main(): string {
     );
   }
 
-  // The saved code of the first input that looks like our config. Same source as
-  // hasVpConfigOnPage, but read only while the diagnosis is switched on.
-  function embedCodeOnPage(): string | null {
+  // The diagnosis of the first saved embed that carries our block, or null.
+  function diagnoseEmbedOnPage(): Finding[] | null {
     for (const input of document.querySelectorAll<HTMLInputElement>(
       'input[type="text"]',
-    ))
-      if (looksLikeEmbed(input.value)) return input.value;
+    )) {
+      const findings = diagnoseEmbed(input.value);
+      if (findings) return findings;
+    }
     return null;
   }
 
   function renderDiagnostics(panel: HTMLElement): void {
-    const code = diagnosticsEnabled() ? embedCodeOnPage() : null;
-    panel.hidden = code === null;
-    if (code === null) {
+    const findings = diagnoseEmbedOnPage();
+    panel.hidden = findings === null;
+    if (findings === null) {
       panel.innerHTML = "";
       return;
     }
-    const findings = diagnoseEmbed(code);
     const hasError = findings.some((f) => f.level === "error");
     panel.dataset.state = hasError
       ? "error"
@@ -166,21 +146,12 @@ function main(): string {
           </div>
         </section>
         <footer>
-          <label class="vp-diag-toggle">
-            <input type="checkbox" class="vp-diag-checkbox">
-            ${esc(tr("admin.diag.toggle"))}
-          </label>
           <span class="vp-tip">${tr("admin.footer.tipHtml")}</span>
         </footer>
       </div>
     `;
     (host.querySelector(".vp-prompt") as HTMLTextAreaElement).value =
       PROMPT_TEXT;
-    const diagCheckbox = host.querySelector(
-      ".vp-diag-checkbox",
-    ) as HTMLInputElement;
-    diagCheckbox.checked = diagnosticsEnabled();
-    diagCheckbox.onchange = () => setDiagnosticsEnabled(diagCheckbox.checked);
     function closeDialog(): void {
       host.remove();
       document.removeEventListener("keydown", onKey);

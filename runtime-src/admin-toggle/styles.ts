@@ -72,10 +72,6 @@ export const ADMIN_CSS = `
     .vp-admin-dialog .vp-tip {
       color:#0c4a6e; background:#e0f2fe; padding:8px 12px; border-radius:8px;
     }
-    .vp-admin-dialog .vp-diag-toggle {
-      display:flex; align-items:center; gap:8px; margin-bottom:12px;
-      color:#1e293b; cursor:pointer;
-    }
 
     .vp-admin-diag {
       white-space:normal; box-sizing:border-box; max-width:680px;
