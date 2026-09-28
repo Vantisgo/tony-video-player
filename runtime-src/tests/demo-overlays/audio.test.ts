@@ -156,9 +156,7 @@ afterEach(() => {
 
 describe("audio cue: playback", () => {
   it("plays the inline expanded placeholder, pauses the video, and shows the banner", async () => {
-    const { video, audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { video, audio, slot } = await mountAndTrigger(audioConfig(CUE));
 
     expect(audio).not.toBeNull();
     expect(audio.getAttribute("src")).toBe(SIGNED_HREF);
@@ -170,9 +168,7 @@ describe("audio cue: playback", () => {
   });
 
   it("drives the progress clock from the element's real playback time", async () => {
-    const { audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { audio, slot } = await mountAndTrigger(audioConfig(CUE));
 
     audio.currentTime = 7;
     audio.dispatchEvent(new Event("timeupdate"));
@@ -183,9 +179,7 @@ describe("audio cue: playback", () => {
   });
 
   it("caps the progress clock at the configured duration", async () => {
-    const { audio } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { audio } = await mountAndTrigger(audioConfig(CUE));
 
     audio.currentTime = 99;
     audio.dispatchEvent(new Event("timeupdate"));
@@ -194,9 +188,7 @@ describe("audio cue: playback", () => {
   });
 
   it("ends the cue and resumes the video when the file finishes", async () => {
-    const { video, audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { video, audio, slot } = await mountAndTrigger(audioConfig(CUE));
 
     audio.dispatchEvent(new Event("ended"));
 
@@ -209,9 +201,7 @@ describe("audio cue: playback", () => {
   });
 
   it("seeks the real audio element from the ±10s controls", async () => {
-    const { audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { audio, slot } = await mountAndTrigger(audioConfig(CUE));
 
     audio.currentTime = 1;
     audio.dispatchEvent(new Event("timeupdate"));
@@ -222,9 +212,7 @@ describe("audio cue: playback", () => {
   });
 
   it("re-arms the cue after a rewind past its trigger", async () => {
-    const { audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { audio, slot } = await mountAndTrigger(audioConfig(CUE));
     audio.dispatchEvent(new Event("ended"));
     expect(audio.hasAttribute("src")).toBe(false);
 
@@ -237,9 +225,7 @@ describe("audio cue: playback", () => {
   });
 
   it("pauses and resumes the real audio element from the play/pause control", async () => {
-    const { audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { audio, slot } = await mountAndTrigger(audioConfig(CUE));
     const playPause = slot.querySelector(
       '[data-action="audio-playpause"]',
     ) as HTMLElement;
@@ -408,11 +394,55 @@ describe("audio cue: no playable audio", () => {
     expect(ctrl().state).toBe("playing");
   });
 
+  it("ends the cue when resuming it after a pause is refused", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { video, audio, slot } = await mountAndTrigger(audioConfig(CUE));
+    const playPause = slot.querySelector(
+      '[data-action="audio-playpause"]',
+    ) as HTMLElement;
+    playPause.click();
+    vi.spyOn(window.HTMLMediaElement.prototype, "play").mockImplementationOnce(
+      () => Promise.reject(new Error("blocked")),
+    );
+
+    playPause.click();
+    await nextFrames();
+
+    expectSkipped(video, audio, slot);
+  });
+
+  it("ignores a play() rejection that settles after its cue ended", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    installPlayerStub();
+    const video = setupConfigDom({
+      ...audioConfig(CUE),
+      audios: [CUE, { ...CUE, id: "a2", t: 40 }],
+    });
+    await import("../../demo-overlays/index");
+    await nextFrames();
+    await video.play();
+    let rejectFirst: (reason: unknown) => void = () => {};
+    const play = vi
+      .spyOn(window.HTMLMediaElement.prototype, "play")
+      .mockImplementationOnce(
+        () => new Promise((_, reject) => (rejectFirst = reject)),
+      );
+    emitTime(2);
+    play.mockRestore();
+    const audio = document.getElementById("vp-audio-el") as HTMLAudioElement;
+    audio.dispatchEvent(new Event("ended"));
+    emitTime(40);
+    expect(ctrl().active?.id).toBe("a2");
+
+    rejectFirst(new Error("blocked"));
+    await nextFrames();
+
+    expect(ctrl().active?.id).toBe("a2");
+  });
+
   it("ends the cue and resumes the video when the element reports a load error", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { video, audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { video, audio, slot } = await mountAndTrigger(audioConfig(CUE));
     expect(ctrl().state).toBe("playing");
 
     audio.dispatchEvent(new Event("error"));
@@ -422,9 +452,7 @@ describe("audio cue: no playable audio", () => {
   });
 
   it("takes the progress clock from timeupdate only", async () => {
-    const { audio } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { audio } = await mountAndTrigger(audioConfig(CUE));
 
     vi.useFakeTimers();
     audio.currentTime = 5;
@@ -450,9 +478,7 @@ describe("audio cue: no playable audio", () => {
 // moves away deliberately, the cue's moment has passed.
 describe("audio cue: the host moves the position out from under a cue", () => {
   it("withdraws the cue and resumes where the seek landed", async () => {
-    const { video } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { video } = await mountAndTrigger(audioConfig(CUE));
     expect(ctrl().state).toBe("playing");
     expect(video.paused).toBe(true);
 
@@ -468,9 +494,7 @@ describe("audio cue: the host moves the position out from under a cue", () => {
   });
 
   it("leaves the cue alone for a re-buffer that lands where it left", async () => {
-    const { video } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { video } = await mountAndTrigger(audioConfig(CUE));
     expect(ctrl().state).toBe("playing");
 
     // HLS fires seeking/seeked for its own re-buffering; those land on
@@ -483,9 +507,7 @@ describe("audio cue: the host moves the position out from under a cue", () => {
   });
 
   it("does not re-fire the cue it just withdrew", async () => {
-    const { video } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { video } = await mountAndTrigger(audioConfig(CUE));
     video.currentTime = 45;
     video.dispatchEvent(new Event("seeked"));
     expect(ctrl().state).toBe("idle");
@@ -650,10 +672,7 @@ describe("audio cue: playback-start gate", () => {
     // in the lesson defenceless.
     const { video } = await mountOnly({
       ...audioConfig(CUE_AT_ZERO),
-      audios: [
-        CUE_AT_ZERO,
-        { ...CUE, id: "a2", t: 5, asset: SIGNED_HREF },
-      ],
+      audios: [CUE_AT_ZERO, { ...CUE, id: "a2", t: 5, asset: SIGNED_HREF }],
     });
     await video.play();
     emitPlay(0);
@@ -676,9 +695,7 @@ describe("audio cue: playback-start gate", () => {
   });
 
   it("resumes the video after the pre-roll with no second press", async () => {
-    const { video } = await mountOnly(
-      audioConfig(CUE_AT_ZERO),
-    );
+    const { video } = await mountOnly(audioConfig(CUE_AT_ZERO));
     await video.play();
     emitPlay(0);
     expect(video.paused).toBe(true);
@@ -944,9 +961,7 @@ describe("voice-over card", () => {
   });
 
   it("swaps the transport icon by attribute, without rebuilding the card", async () => {
-    const { slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { slot } = await mountAndTrigger(audioConfig(CUE));
     const before = card();
     expect(before.dataset.playing).toBe("1");
     // Both icons are present at once; CSS decides which shows.
@@ -964,9 +979,7 @@ describe("voice-over card", () => {
   });
 
   it("keeps the status label in step with the icon", async () => {
-    const { slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { slot } = await mountAndTrigger(audioConfig(CUE));
     const status = () => slot.querySelector("[data-status]")?.textContent;
     const playing = status();
 
@@ -978,17 +991,13 @@ describe("voice-over card", () => {
   });
 
   it("gives Skip a visible label, not just a title", async () => {
-    const { slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { slot } = await mountAndTrigger(audioConfig(CUE));
     const label = slot.querySelector(".vp-audio-skip-label");
     expect(label?.textContent?.trim()).toBeTruthy();
   });
 
   it("keeps all four transport hooks wired", async () => {
-    const { audio, slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { audio, slot } = await mountAndTrigger(audioConfig(CUE));
     audio.currentTime = 5;
     audio.dispatchEvent(new Event("timeupdate"));
 
@@ -1001,9 +1010,7 @@ describe("voice-over card", () => {
   });
 
   it("injects its own stylesheet, outranking the slot reset on specificity", async () => {
-    const { slot } = await mountAndTrigger(
-      audioConfig(CUE),
-    );
+    const { slot } = await mountAndTrigger(audioConfig(CUE));
 
     expect(document.getElementById("__vp-audio-style")).not.toBeNull();
     // `.vp-audio-card .vp-audio-title` is 0,2,0 and beats `.vp-slot *` (0,1,0)

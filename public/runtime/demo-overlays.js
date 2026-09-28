@@ -2281,9 +2281,18 @@
       }
       function abandonCue(reason) {
         if (audioCtrl.state === "idle") return;
-        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        if (reason instanceof DOMException && reason.name === "AbortError")
+          return;
         console.warn("[vp] audio playback failed; skipping the cue", reason);
         audioCtrl.end({ resume: true });
+      }
+      let cueGeneration = 0;
+      function playCue() {
+        var _a2;
+        const generation2 = cueGeneration;
+        (_a2 = audioEl.play()) == null ? void 0 : _a2.catch((reason) => {
+          if (generation2 === cueGeneration) abandonCue(reason);
+        });
       }
       const audioCtrl = {
         state: "idle",
@@ -2293,7 +2302,6 @@
         triggered: /* @__PURE__ */ new Set(),
         audioEl,
         activate(a, videoT) {
-          var _a2;
           if (audioCtrl.state !== "idle") return;
           audioCtrl.triggered.add(a.id);
           const url = resolveAudioUrl(a);
@@ -2311,23 +2319,22 @@
             audioEl.currentTime = 0;
           } catch {
           }
-          (_a2 = audioEl.play()) == null ? void 0 : _a2.catch(abandonCue);
+          playCue();
           audioCtrl._render();
         },
         togglePlay() {
-          var _a2;
           if (audioCtrl.state === "idle") return;
           const pausing = audioCtrl.state === "playing";
           audioCtrl.state = pausing ? "paused" : "playing";
           try {
             if (pausing) audioEl.pause();
-            else
-              (_a2 = audioEl.play()) == null ? void 0 : _a2.catch((err) => console.warn("[vp] audio resume failed", err));
+            else playCue();
           } catch {
           }
           audioCtrl._render();
         },
         end({ resume = true } = {}) {
+          cueGeneration++;
           audioCtrl.state = "idle";
           audioCtrl.active = null;
           audioCtrl.audioTime = 0;

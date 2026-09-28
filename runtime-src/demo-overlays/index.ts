@@ -12,11 +12,7 @@ import { getRuntimeBaseUrl } from "../common/runtime-url";
 import { shouldRun } from "../common/killswitch";
 import { report } from "../common/beacon";
 import type { Audio, Phase, VpConfig } from "../common/types";
-import {
-  DEFAULT_META_STEPS,
-  DEFAULT_PHASES,
-  DEFAULT_SCIENCES,
-} from "./data";
+import { DEFAULT_META_STEPS, DEFAULT_PHASES, DEFAULT_SCIENCES } from "./data";
 import {
   ANIM_CSS,
   AUDIO_CSS,
@@ -740,9 +736,20 @@ function main(): string {
     function abandonCue(reason: unknown): void {
       if (audioCtrl.state === "idle") return;
       // Our own pause() or src swap interrupting a pending play() — not a failure.
-      if (reason instanceof DOMException && reason.name === "AbortError") return;
+      if (reason instanceof DOMException && reason.name === "AbortError")
+        return;
       console.warn("[vp] audio playback failed; skipping the cue", reason);
       audioCtrl.end({ resume: true });
+    }
+
+    // Bumped by every end(), so a play() promise that settles after its cue
+    // ended cannot abandon the next one.
+    let cueGeneration = 0;
+    function playCue(): void {
+      const generation = cueGeneration;
+      audioEl.play()?.catch((reason: unknown) => {
+        if (generation === cueGeneration) abandonCue(reason);
+      });
     }
 
     const audioCtrl: AudioController = {
@@ -774,7 +781,7 @@ function main(): string {
         } catch {
           /* ignore */
         }
-        audioEl.play()?.catch(abandonCue);
+        playCue();
         audioCtrl._render();
       },
       togglePlay() {
@@ -783,16 +790,14 @@ function main(): string {
         audioCtrl.state = pausing ? "paused" : "playing";
         try {
           if (pausing) audioEl.pause();
-          else
-            audioEl
-              .play()
-              ?.catch((err) => console.warn("[vp] audio resume failed", err));
+          else playCue();
         } catch {
           /* ignore */
         }
         audioCtrl._render();
       },
       end({ resume = true }: { resume?: boolean } = {}) {
+        cueGeneration++;
         audioCtrl.state = "idle";
         audioCtrl.active = null;
         audioCtrl.audioTime = 0;
