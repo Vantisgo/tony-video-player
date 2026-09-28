@@ -74,6 +74,14 @@ describe("diagnoseEmbed: the wrapper LearningSuite keeps", () => {
     ]);
   });
 
+  it("does not mistake backticks inside a JSON string for a fence", () => {
+    expect(
+      diagnoseEmbed(
+        pre(JSON.stringify({ ...VALID, phases: [{ title: "```" }] })),
+      ),
+    ).toEqual([]);
+  });
+
   it("flags an empty block", () => {
     expect(keys(pre("  "))).toEqual(["admin.diag.emptyHtml"]);
   });
@@ -109,6 +117,10 @@ describe("diagnoseEmbed: structure", () => {
     expect(keys(pre('{ "assets": {} }'))).toEqual([
       "admin.diag.noSectionsHtml",
     ]);
+  });
+
+  it("accepts a demo config without sections", () => {
+    expect(keys(pre('{ "demo": true }'))).toEqual([]);
   });
 
   it("flags a section that is not a list, and an unknown key", () => {
@@ -147,6 +159,18 @@ describe("diagnoseEmbed: voice-over assets", () => {
     expect(
       keys(withAudio({ asset: "intro" }, { assets: { intro: "{{asset:x}}" } })),
     ).toEqual([]);
+  });
+
+  it("warns about a reference the runtime would refuse", () => {
+    for (const [asset, assets] of [
+      ["https://", {}],
+      ["http://cdn.example/a.mp3", {}],
+      ["intro", { intro: "" }],
+      ["intro", { intro: "http://cdn.example/a.mp3" }],
+    ] as const)
+      expect(keys(withAudio({ asset }, { assets }))).toEqual([
+        "admin.diag.audioAssetUnknownHtml",
+      ]);
   });
 
   it("warns about a reference that resolves to nothing", () => {

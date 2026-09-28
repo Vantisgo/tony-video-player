@@ -293,9 +293,10 @@
     key,
     vars
   });
+  var FENCE = /^[ \t]*```/m;
   function diagnoseEmbed(code) {
     var _a;
-    const fenced = code.includes("```");
+    const fenced = FENCE.test(code);
     const doc = new DOMParser().parseFromString(code, "text/html");
     const target = doc.querySelector("[data-vp-config]");
     if (!target) {
@@ -313,7 +314,7 @@
     const json = ((_a = target.textContent) != null ? _a : "").replace(/^\r?\n/, "");
     if (!json.trim()) return [error("admin.diag.emptyHtml")];
     const fences = fenced ? [error("admin.diag.fencesHtml")] : [];
-    if (json.includes("```")) return fences;
+    if (FENCE.test(json)) return fences;
     let raw;
     try {
       raw = JSON.parse(json);
@@ -355,7 +356,7 @@
         })
       ];
     const config = raw;
-    if (!CONTENT_SECTIONS.some((key) => key in config))
+    if (config.demo !== true && !CONTENT_SECTIONS.some((key) => key in config))
       return [error("admin.diag.noSectionsHtml")];
     const findings = [];
     for (const key of Object.keys(config))
@@ -370,6 +371,18 @@
       findings.push(...audioFindings(config.audios, config.assets));
     return findings;
   }
+  var parseUrl = (value) => {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  };
+  var TOKEN = "{{asset:";
+  var usableAsset = (value) => {
+    var _a;
+    return typeof value === "string" && (value.includes(TOKEN) || ((_a = parseUrl(value.trim())) == null ? void 0 : _a.protocol) === "https:");
+  };
   function audioFindings(audios, assets) {
     const table = assets && typeof assets === "object" ? assets : {};
     return audios.flatMap((entry, index) => {
@@ -377,9 +390,9 @@
       const id = typeof cue.id === "string" && cue.id ? cue.id : `#${index + 1}`;
       const asset = typeof cue.asset === "string" ? cue.asset.trim() : "";
       if (!asset) return [warning("admin.diag.audioNoAssetHtml", { id })];
-      if (asset.includes("{{asset:") || asset.startsWith("https://") || typeof table[asset] === "string")
-        return [];
-      return [warning("admin.diag.audioAssetUnknownHtml", { id })];
+      const direct = asset.includes(TOKEN) || parseUrl(asset) !== null;
+      const resolved = direct ? asset : table[asset];
+      return usableAsset(resolved) ? [] : [warning("admin.diag.audioAssetUnknownHtml", { id })];
     });
   }
 

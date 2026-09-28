@@ -38,8 +38,12 @@ const warning = (key: AdminKey, vars?: Finding["vars"]): Finding => ({
   vars,
 });
 
+// A line opening with ``` is a Markdown fence. Backticks inside a JSON string
+// cannot start a line: JSON strings hold no raw newlines.
+const FENCE = /^[ \t]*```/m;
+
 export function diagnoseEmbed(code: string): Finding[] {
-  const fenced = code.includes("```");
+  const fenced = FENCE.test(code);
   const doc = new DOMParser().parseFromString(code, "text/html");
   const target = doc.querySelector("[data-vp-config]");
 
@@ -63,7 +67,7 @@ export function diagnoseEmbed(code: string): Finding[] {
   // Fences inside the block break the JSON; outside it they render as stray
   // text on the lesson page. Either way they have to go.
   const fences = fenced ? [error("admin.diag.fencesHtml")] : [];
-  if (json.includes("```")) return fences;
+  if (FENCE.test(json)) return fences;
 
   let raw: unknown;
   try {
@@ -110,7 +114,8 @@ function structureFindings(raw: unknown): Finding[] {
     ];
   const config = raw as Record<string, unknown>;
 
-  if (!CONTENT_SECTIONS.some((key) => key in config))
+  // `"demo": true` fills absent sections with sample content on purpose.
+  if (config.demo !== true && !CONTENT_SECTIONS.some((key) => key in config))
     return [error("admin.diag.noSectionsHtml")];
 
   const findings: Finding[] = [];
@@ -127,8 +132,23 @@ function structureFindings(raw: unknown): Finding[] {
   return findings;
 }
 
-// In the editor an `asset` is still the unexpanded `{{asset:…}}` token — the
-// platform only expands it at page render — so that shape is fine here.
+const parseUrl = (value: string): URL | null => {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+};
+
+const TOKEN = "{{asset:";
+
+// Mirrors common/assets.ts resolveAssetUrl, with one difference: in the editor
+// an asset is still the unexpanded `{{asset:…}}` token — the platform only
+// expands it at page render — so that shape counts as usable here.
+const usableAsset = (value: unknown): boolean =>
+  typeof value === "string" &&
+  (value.includes(TOKEN) || parseUrl(value.trim())?.protocol === "https:");
+
 function audioFindings(audios: unknown[], assets: unknown): Finding[] {
   const table =
     assets && typeof assets === "object"
@@ -142,12 +162,11 @@ function audioFindings(audios: unknown[], assets: unknown): Finding[] {
     const id = typeof cue.id === "string" && cue.id ? cue.id : `#${index + 1}`;
     const asset = typeof cue.asset === "string" ? cue.asset.trim() : "";
     if (!asset) return [warning("admin.diag.audioNoAssetHtml", { id })];
-    if (
-      asset.includes("{{asset:") ||
-      asset.startsWith("https://") ||
-      typeof table[asset] === "string"
-    )
-      return [];
-    return [warning("admin.diag.audioAssetUnknownHtml", { id })];
+    // Anything that is not a token or a URL is a key into the assets table.
+    const direct = asset.includes(TOKEN) || parseUrl(asset) !== null;
+    const resolved = direct ? asset : table[asset];
+    return usableAsset(resolved)
+      ? []
+      : [warning("admin.diag.audioAssetUnknownHtml", { id })];
   });
 }
