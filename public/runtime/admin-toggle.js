@@ -95,7 +95,7 @@
     "admin.step1.noteHtml": 'Set the block to <strong>"In Seite anzeigen"</strong> (the default).',
     "admin.step2.heading": "Upload the voice-over files and speaker portraits",
     "admin.step2.bodyHtml": 'In the <strong>"Code einbetten"</strong> editor, upload the audio files as <strong>Assets</strong> and copy each reference (of the form <code>{{asset:file-name}}</code>) — you pass them into the prompt in the next step. Portrait images work the same way: upload one per speaker and give the file a name that says whose face it is, so the prompt can match it to the right voice.',
-    "admin.step2.noteHtml": "No audio files? Just skip this step: the inserts are then read aloud from <code>script</code> via text-to-speech. Without a portrait the card shows the speaker's initials. A swapped-over portrait is nobody's error message, so check the faces in the preview.",
+    "admin.step2.noteHtml": "No audio files? Just skip this step: there are then no voice-over inserts. Without a portrait the card shows the speaker's initials. A swapped-over portrait is nobody's error message, so check the faces in the preview.",
     "admin.step3.heading": "Prompt your LLM, then paste the answer",
     "admin.step3.bodyHtml": 'Copy the prompt below and hand it to your LLM (ChatGPT, Claude, …) — together with the lesson transcript / script <em>and</em> the asset references from step 2. The answer is a ready-made <code>&lt;pre data-vp-config&gt;</code> block with the references already filled in — paste it verbatim into the "Code einbetten" modal, click <strong>Speichern</strong>, then <strong>Vorschau</strong> at the top to test it.',
     "admin.footer.tipHtml": "💡 In the editor, LearningSuite shows the saved code as a raw string. Only <em>Vorschau</em> renders it live — and that is exactly when the Advanced Video Editor appears (re-skin + sidebar + overlays)."
@@ -112,7 +112,7 @@
     "admin.step1.noteHtml": 'Stelle den Block auf <strong>"In Seite anzeigen"</strong> (Standard).',
     "admin.step2.heading": "Voice-Over-Dateien und Sprecher-Portraits hochladen",
     "admin.step2.bodyHtml": 'Lade im <strong>"Code einbetten"</strong>-Editor die Audio-Dateien als <strong>Assets</strong> hoch und kopiere jeden Verweis (Form <code>{{asset:datei-name}}</code>) — du gibst sie im nächsten Schritt mit in den Prompt. Portrait-Bilder funktionieren genauso: eines pro Stimme, und benenne die Datei nach der Person, damit der Prompt sie der richtigen Stimme zuordnen kann.',
-    "admin.step2.noteHtml": "Ohne Audio-Dateien einfach überspringen: die Einschübe werden dann per Text-to-Speech aus <code>script</code> vorgelesen. Ohne Portrait zeigt die Karte die Initialen der Stimme. Ein vertauschtes Portrait meldet niemand — prüf die Gesichter in der Vorschau.",
+    "admin.step2.noteHtml": "Ohne Audio-Dateien einfach überspringen: dann gibt es keine Voice-Over-Einschübe. Ohne Portrait zeigt die Karte die Initialen der Stimme. Ein vertauschtes Portrait meldet niemand — prüf die Gesichter in der Vorschau.",
     "admin.step3.heading": "Prompt an LLM, dann Antwort einfügen",
     "admin.step3.bodyHtml": 'Kopiere den folgenden Prompt und gib ihn an dein LLM (ChatGPT, Claude, …) — zusammen mit dem Lektions-Transkript / Drehbuch <em>und</em> den Asset-Verweisen aus Schritt 2. Die Antwort ist ein fertiger <code>&lt;pre data-vp-config&gt;</code>-Block mit bereits eingesetzten Verweisen — paste ihn 1:1 in das "Code einbetten"-Modal, klicke <strong>Speichern</strong>, dann oben auf <strong>Vorschau</strong> zum Testen.',
     "admin.footer.tipHtml": "💡 Im Editor zeigt LearningSuite den gespeicherten Code als Roh-String. Erst die <em>Vorschau</em> rendert ihn live — und genau dann erscheint der Advanced Video Editor (Re-Skin + Sidebar + Overlays)."
@@ -171,12 +171,12 @@ sciences[]:  (Wissenschafts-Pop-Ups, je 5s sichtbar bei jedem Timestamp)
                 mit "- " bzw. "1. " — jeder Punkt auf eigener Zeile
 
 audios[]:    (Voice-Over-Einschübe; pausieren das Video)
-  id, t (Trigger), dur (Dauer in Sek), title, voice (Sprecher-Name), script (gesprochener Text)
+  id, t (Trigger), dur (Dauer in Sek), title, voice (Sprecher-Name)
   asset  — Asset-Verweis auf die Audio-Datei, ZEICHENGENAU aus der Liste unter
            "Verfügbare Audio-Assets" übernommen (Form: {{asset:datei-name}}).
            Erfinde NIE ein Token und verändere kein Zeichen — ein falsches Token
-           bedeutet: keine Audio-Datei. Ist die Liste leer oder passt zu einem
-           Einschub kein Asset, lass asset bei diesem Eintrag komplett weg.
+           bedeutet: keine Audio-Datei, und der Einschub wird übersprungen. Ohne
+           passendes Asset gibt es keinen audios[]-Eintrag.
   avatar — OPTIONAL: Asset-Verweis auf das Portrait der sprechenden Person,
            ZEICHENGENAU aus der Liste unter "Verfügbare Portrait-Assets"
            übernommen (Form: {{asset:datei-name}}). Ordne das Portrait über den
@@ -185,8 +185,6 @@ audios[]:    (Voice-Over-Einschübe; pausieren das Video)
            teilen dasselbe Portrait. Ist die Liste leer oder passt zu einer Stimme
            kein Portrait, lass avatar bei diesem Eintrag weg; die Karte zeigt dann
            die Initialen aus voice.
-  script — MUSS immer gefüllt sein, auch wenn eine Audio-Datei existiert: er ist der
-           Text-to-Speech-Fallback und die Textfassung des Einschubs.
 
 quiz: (OPTIONAL; vollständig weglassen, wenn keine Wissensfragen sinnvoll sind)
   feedbackDurationSec — Dauer der Antwort-Rückmeldung; Standard 3
@@ -221,7 +219,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
     { "id":"s1", "name":"...", "description":"...", "timestampsSec":[22] }
   ],
   "audios": [
-    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "script":"...", "asset":"{{asset:datei-name-aus-der-liste}}", "avatar":"{{asset:portrait-name-aus-der-liste}}" }
+    { "id":"a1", "t":30, "dur":8, "title":"Voice-Over: ...", "voice":"...", "asset":"{{asset:datei-name-aus-der-liste}}", "avatar":"{{asset:portrait-name-aus-der-liste}}" }
   ],
   "metaSteps": [
     { "id":"m1", "n":1, "title":"...", "t":4 }
@@ -265,7 +263,7 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
 - Zuordnung Asset → Zeitpunkt aus dem Datei-Namen und der Beschreibung ableiten
   (z.B. "…-intro" an den Anfang, "…-phase-1" in Phase 1); title so formulieren, dass die
   Zuordnung beim Drüberlesen prüfbar ist
-- Passt zu einem Einschub kein Asset, asset weglassen (dann greift Text-to-Speech)
+- Keine audios[]-Einträge ohne asset — ein Einschub ohne Audio-Datei wird nicht abgespielt
 - Portrait-Assets erzeugen KEINEN eigenen audios[]-Eintrag — sie sind Bilder zu den
   Stimmen, die es ohnehin schon gibt, und keine zusätzlichen Voice-Over-Einschübe
 - avatar-Token zeichengenau kopieren; dasselbe Portrait-Token darf bei mehreren
@@ -281,8 +279,8 @@ metaSteps[]: (große Phasen-Marker, "7 Master Steps"-Style)
 ═══ Verfügbare Audio-Assets ═══
 
 Ein Asset pro Zeile, Format: {{asset:datei-name}} — optional " — " und eine kurze Notiz,
-wohin es gehört. Leer lassen, wenn es keine Voice-Over-Dateien gibt (dann enthält kein
-audios[]-Eintrag ein asset-Feld und alles wird per Text-to-Speech vorgelesen).
+wohin es gehört. Leer lassen, wenn es keine Voice-Over-Dateien gibt (dann bleibt
+audios[] leer).
 
 [FÜGE HIER DIE ASSET-VERWEISE AUS DEM "CODE EINBETTEN"-EDITOR EIN, Z.B.:
 {{asset:2025-12-22-at-00-22-27-intro}} — Intro, ganz an den Anfang

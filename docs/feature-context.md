@@ -846,3 +846,18 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   canary's video has no pack; `window.__vpLanguagePacks` is the hook), `renderSubtitleCue`'s
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
   host's bar" (moved from a JS guard to CSS stacking, which happy-dom cannot test).
+
+## 2026-09-28 · vo-no-tts · Text-to-speech removed
+
+- **Decision (user)**: the voice-over has **no text-to-speech fallback** any more. A cue plays
+  its uploaded asset or it does not run at all: an absent, unresolvable, or non-https `asset`
+  skips the cue (the video keeps playing, no card), and a rejected `play()` or a media `error`
+  ends the cue and resumes the video. This supersedes the "TTS is the universal fallback"
+  decisions above (2026-07-24 and 2026-09-01). The operator side is unchanged: the same named
+  `console.warn` and the three `audio-asset-*` beacons.
+- **Consequences**: `script` is gone from `Audio` and from the authoring prompt (it only ever
+  fed `SpeechSynthesis`; old configs carrying it are simply ignored), the simulated 100ms clock
+  and the `"file" | "tts"` mode split are gone, and `DEFAULT_AUDIOS` is deleted — the demo
+  defaults had no asset, so they could never play.
+- **Gotcha**: a pending `play()` rejects with `AbortError` when our own `pause()` or src swap
+  interrupts it. That is not a playback failure and must not end the cue.

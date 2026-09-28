@@ -18,7 +18,7 @@ const validConfig = {
     },
   ],
   sciences: [{ id: "s1", name: "n", description: "d", timestampsSec: [22] }],
-  audios: [{ id: "a1", t: 30, dur: 8, title: "t", voice: "v", script: "s" }],
+  audios: [{ id: "a1", t: 30, dur: 8, title: "t", voice: "v" }],
   metaSteps: [{ id: "m1", n: 1, title: "t", t: 4 }],
 };
 

@@ -34,7 +34,7 @@ function addConfig(): void {
   pre.textContent = JSON.stringify({
     phases: [],
     sciences: [],
-    audios: [{ id: "a1", t: 0, dur: 5, title: "T", voice: "V", script: "S" }],
+    audios: [{ id: "a1", t: 0, dur: 5, title: "T", voice: "V" }],
     metaSteps: [],
     quiz: {
       quizzes: [

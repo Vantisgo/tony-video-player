@@ -105,8 +105,8 @@ describe("resolveAssetUrl: no reference at all", () => {
   it.each([undefined, null, "", "   "])(
     "returns an empty URL and no failure for %p",
     (reference) => {
-      // A cue may deliberately carry no audio file — that is TTS by design, not
-      // a misconfiguration, so it must not warn or beacon.
+      // An absent reference is the caller's policy decision (skip the cue, show
+      // initials), not a failure to warn or beacon about.
       expect(resolveAssetUrl(reference)).toEqual({ url: "", failure: null });
     },
   );

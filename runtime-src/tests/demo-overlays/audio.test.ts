@@ -58,7 +58,6 @@ const nextFrames = (): Promise<void> =>
 
 interface AudioCtrlProbe {
   state: "idle" | "playing" | "paused";
-  mode: "tts" | "file";
   audioTime: number;
   audioEl: HTMLAudioElement | null;
   active: { id: string } | null;
@@ -98,7 +97,7 @@ const CUE = {
   dur: 20,
   title: "Voice-Over: Intro",
   voice: "Fred",
-  script: "Gesprochener Text",
+  asset: SIGNED_HREF,
 };
 
 // Mount the runtime and drive the video to the cue's trigger time.
@@ -155,10 +154,10 @@ afterEach(() => {
   document.head.innerHTML = "";
 });
 
-describe("audio cue: file mode", () => {
+describe("audio cue: playback", () => {
   it("plays the inline expanded placeholder, pauses the video, and shows the banner", async () => {
     const { video, audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
 
     expect(audio).not.toBeNull();
@@ -167,13 +166,12 @@ describe("audio cue: file mode", () => {
     expect(audio.hasAttribute("crossorigin")).toBe(false);
     expect(audio.paused).toBe(false);
     expect(video.paused).toBe(true);
-    expect(ctrl().mode).toBe("file");
     expect(slot.dataset.kind).toBe("audio");
   });
 
   it("drives the progress clock from the element's real playback time", async () => {
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
 
     audio.currentTime = 7;
@@ -186,7 +184,7 @@ describe("audio cue: file mode", () => {
 
   it("caps the progress clock at the configured duration", async () => {
     const { audio } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
 
     audio.currentTime = 99;
@@ -197,13 +195,12 @@ describe("audio cue: file mode", () => {
 
   it("ends the cue and resumes the video when the file finishes", async () => {
     const { video, audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
 
     audio.dispatchEvent(new Event("ended"));
 
     expect(ctrl().state).toBe("idle");
-    expect(ctrl().mode).toBe("tts");
     expect(audio.hasAttribute("src")).toBe(false);
     expect(video.paused).toBe(false);
     expect(video.currentTime).toBe(2);
@@ -213,7 +210,7 @@ describe("audio cue: file mode", () => {
 
   it("seeks the real audio element from the ±10s controls", async () => {
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
 
     audio.currentTime = 1;
@@ -226,7 +223,7 @@ describe("audio cue: file mode", () => {
 
   it("re-arms the cue after a rewind past its trigger", async () => {
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     audio.dispatchEvent(new Event("ended"));
     expect(audio.hasAttribute("src")).toBe(false);
@@ -236,13 +233,12 @@ describe("audio cue: file mode", () => {
     emitTime(2);
 
     expect(audio.getAttribute("src")).toBe(SIGNED_HREF);
-    expect(ctrl().mode).toBe("file");
     expect(slot.dataset.kind).toBe("audio");
   });
 
   it("pauses and resumes the real audio element from the play/pause control", async () => {
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     const playPause = slot.querySelector(
       '[data-action="audio-playpause"]',
@@ -263,7 +259,6 @@ describe("audio cue: file mode", () => {
     );
 
     expect(audio.getAttribute("src")).toBe(SIGNED_HREF);
-    expect(ctrl().mode).toBe("file");
     expect(video.paused).toBe(true);
   });
 
@@ -291,7 +286,7 @@ describe("audio cue: file mode", () => {
   });
 
   it("keeps a single <audio> element and listener set across re-injection", async () => {
-    await mountAndTrigger(audioConfig({ ...CUE, asset: SIGNED_HREF }));
+    await mountAndTrigger(audioConfig(CUE));
 
     vi.resetModules();
     await import("../../demo-overlays/index");
@@ -301,50 +296,51 @@ describe("audio cue: file mode", () => {
   });
 });
 
-describe("audio cue: TTS fallback", () => {
-  it("stays in TTS mode when the asset key is not in the table, banner still shown", async () => {
+// A cue without playable audio is skipped: the video keeps running and no card
+// appears. Every unplayable variant has to land in that same state.
+function expectSkipped(
+  video: HTMLVideoElement,
+  audio: HTMLAudioElement,
+  slot: HTMLElement,
+): void {
+  expect(ctrl().state).toBe("idle");
+  expect(audio.hasAttribute("src")).toBe(false);
+  expect(video.paused).toBe(false);
+  expect(slot.dataset.kind).not.toBe("audio");
+}
+
+describe("audio cue: no playable audio", () => {
+  it("skips a cue with no asset at all", async () => {
+    const { video, audio, slot } = await mountAndTrigger(
+      audioConfig({ ...CUE, asset: undefined }),
+    );
+    expectSkipped(video, audio, slot);
+  });
+
+  it("skips a cue whose asset key is not in the table", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const { video, audio, slot } = await mountAndTrigger(
       audioConfig({ ...CUE, asset: "intro" }, { outro: SIGNED_HREF }),
     );
-
-    expect(audio.hasAttribute("src")).toBe(false);
-    expect(ctrl().mode).toBe("tts");
-    expect(ctrl().state).toBe("playing");
-    expect(video.paused).toBe(true);
-    expect(slot.dataset.kind).toBe("audio");
-  });
-
-  it("stays in TTS mode for a cue with no asset at all (TTS by design)", async () => {
-    const { audio, slot } = await mountAndTrigger(audioConfig(CUE));
-
-    expect(audio.hasAttribute("src")).toBe(false);
-    expect(ctrl().mode).toBe("tts");
-    expect(slot.dataset.kind).toBe("audio");
+    expectSkipped(video, audio, slot);
   });
 
   it("refuses a non-https asset rather than assigning it to the media src", async () => {
-    const { audio } = await mountAndTrigger(
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { video, audio, slot } = await mountAndTrigger(
       audioConfig({ ...CUE, asset: "javascript:alert(1)" }),
     );
-
-    expect(audio.hasAttribute("src")).toBe(false);
-    expect(ctrl().mode).toBe("tts");
+    expectSkipped(video, audio, slot);
   });
 
-  it("falls back — loudly — when the placeholder was never expanded", async () => {
+  it("skips — loudly — when the placeholder was never expanded", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { audio, video, slot } = await mountAndTrigger(
+    const { video, audio, slot } = await mountAndTrigger(
       audioConfig({ ...CUE, asset: "{{asset:2025-12-22-at-00-22-27-intro}}" }),
     );
 
-    // Graceful for the learner: the cue still runs, spoken from `script`.
-    expect(audio.hasAttribute("src")).toBe(false);
-    expect(ctrl().mode).toBe("tts");
-    expect(ctrl().state).toBe("playing");
-    expect(video.paused).toBe(true);
-    expect(slot.dataset.kind).toBe("audio");
+    expectSkipped(video, audio, slot);
     // Loud for the operator: the cue id and the actionable hint are both named.
-    expect(warn).toHaveBeenCalled();
     const message = warn.mock.calls.map((call) => String(call[0])).join("\n");
     expect(message).toContain('audio cue "a1"');
     expect(message).toContain("In Seite anzeigen");
@@ -359,9 +355,20 @@ describe("audio cue: TTS fallback", () => {
     expect(message).toContain("config.assets");
   });
 
-  it("falls back when play() is rejected by the autoplay policy", async () => {
+  it("does not retry a skipped cue on the next tick", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await mountAndTrigger(audioConfig({ ...CUE, asset: "intro" }));
+    const warnings = warn.mock.calls.length;
+
+    emitTime(2.4);
+
+    expect(warn.mock.calls.length).toBe(warnings);
+  });
+
+  it("ends the cue when play() is rejected by the autoplay policy", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     installPlayerStub();
-    const video = setupConfigDom(audioConfig({ ...CUE, asset: SIGNED_HREF }));
+    const video = setupConfigDom(audioConfig(CUE));
     await import("../../demo-overlays/index");
     await nextFrames();
     // The learner was watching before the cue came due. This has to happen
@@ -370,56 +377,53 @@ describe("audio cue: TTS fallback", () => {
     // paused player means no cue fires at all (see the playback gate in
     // recomputeActive), which is not what this test is about.
     await video.play();
-    vi.spyOn(window.HTMLMediaElement.prototype, "play").mockImplementation(() =>
-      Promise.reject(new Error("blocked")),
-    );
+    const play = vi
+      .spyOn(window.HTMLMediaElement.prototype, "play")
+      .mockImplementationOnce(() => Promise.reject(new Error("blocked")));
     emitTime(2);
     await nextFrames();
-
-    expect(ctrl().mode).toBe("tts");
-    expect(ctrl().state).toBe("playing");
-  });
-
-  it("falls back when the element reports a load error", async () => {
-    const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
-    );
-    expect(ctrl().mode).toBe("file");
-
-    audio.dispatchEvent(new Event("error"));
-
-    expect(ctrl().mode).toBe("tts");
-    expect(ctrl().state).toBe("playing");
-    expect(audio.paused).toBe(true);
-    expect(slot.dataset.kind).toBe("audio");
-  });
-
-  it("ignores an audio 'ended' event once the cue fell back to TTS", async () => {
-    const { audio } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
-    );
-    audio.dispatchEvent(new Event("error"));
-
-    audio.dispatchEvent(new Event("ended"));
-
-    expect(ctrl().state).toBe("playing");
-  });
-
-  it("clears the audio src when a cue that fell back to TTS ends", async () => {
-    const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
-    );
-    audio.dispatchEvent(new Event("error"));
-
-    (slot.querySelector('[data-action="audio-skip"]') as HTMLElement).click();
+    play.mockRestore();
 
     expect(ctrl().state).toBe("idle");
-    expect(audio.hasAttribute("src")).toBe(false);
+    expect(document.getElementById("vp-slot-lt")?.dataset.kind).not.toBe(
+      "audio",
+    );
   });
 
-  it("does not let an ended file cue leave the simulated clock running", async () => {
+  it("keeps the cue when its own pause() interrupts a pending play()", async () => {
+    installPlayerStub();
+    const video = setupConfigDom(audioConfig(CUE));
+    await import("../../demo-overlays/index");
+    await nextFrames();
+    await video.play();
+    const play = vi
+      .spyOn(window.HTMLMediaElement.prototype, "play")
+      .mockImplementationOnce(() =>
+        Promise.reject(new DOMException("interrupted", "AbortError")),
+      );
+    emitTime(2);
+    await nextFrames();
+    play.mockRestore();
+
+    expect(ctrl().state).toBe("playing");
+  });
+
+  it("ends the cue and resumes the video when the element reports a load error", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { video, audio, slot } = await mountAndTrigger(
+      audioConfig(CUE),
+    );
+    expect(ctrl().state).toBe("playing");
+
+    audio.dispatchEvent(new Event("error"));
+
+    expectSkipped(video, audio, slot);
+    expect(video.currentTime).toBe(2);
+  });
+
+  it("takes the progress clock from timeupdate only", async () => {
     const { audio } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
 
     vi.useFakeTimers();
@@ -428,7 +432,6 @@ describe("audio cue: TTS fallback", () => {
     vi.advanceTimersByTime(1000);
     vi.useRealTimers();
 
-    // File mode takes its clock from timeupdate only — no simulated advance.
     expect(ctrl().audioTime).toBe(5);
   });
 });
@@ -448,7 +451,7 @@ describe("audio cue: TTS fallback", () => {
 describe("audio cue: the host moves the position out from under a cue", () => {
   it("withdraws the cue and resumes where the seek landed", async () => {
     const { video } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     expect(ctrl().state).toBe("playing");
     expect(video.paused).toBe(true);
@@ -466,7 +469,7 @@ describe("audio cue: the host moves the position out from under a cue", () => {
 
   it("leaves the cue alone for a re-buffer that lands where it left", async () => {
     const { video } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     expect(ctrl().state).toBe("playing");
 
@@ -481,7 +484,7 @@ describe("audio cue: the host moves the position out from under a cue", () => {
 
   it("does not re-fire the cue it just withdrew", async () => {
     const { video } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     video.currentTime = 45;
     video.dispatchEvent(new Event("seeked"));
@@ -646,9 +649,9 @@ describe("audio cue: playback-start gate", () => {
     // is live", a first cue that exhausted the cap would leave every later cue
     // in the lesson defenceless.
     const { video } = await mountOnly({
-      ...audioConfig({ ...CUE_AT_ZERO, asset: SIGNED_HREF }),
+      ...audioConfig(CUE_AT_ZERO),
       audios: [
-        { ...CUE_AT_ZERO, asset: SIGNED_HREF },
+        CUE_AT_ZERO,
         { ...CUE, id: "a2", t: 5, asset: SIGNED_HREF },
       ],
     });
@@ -660,7 +663,7 @@ describe("audio cue: playback-start gate", () => {
     }
     expect(video.paused).toBe(false); // first cue's budget spent
 
-    // End it (file mode, so `ended` is the real exit) and let the second fire.
+    // End it and let the second fire.
     const audio = document.getElementById("vp-audio-el") as HTMLAudioElement;
     audio.dispatchEvent(new Event("ended"));
     expect(ctrl().state).toBe("idle");
@@ -673,11 +676,8 @@ describe("audio cue: playback-start gate", () => {
   });
 
   it("resumes the video after the pre-roll with no second press", async () => {
-    // File mode on purpose: the cue has to end via the element's `ended` event,
-    // and onAudioEnded is guarded on mode === "file". A TTS cue ends on its
-    // SpeechSynthesis utterance instead, which happy-dom never fires.
     const { video } = await mountOnly(
-      audioConfig({ ...CUE_AT_ZERO, asset: SIGNED_HREF }),
+      audioConfig(CUE_AT_ZERO),
     );
     await video.play();
     emitPlay(0);
@@ -789,7 +789,7 @@ describe("voice-over card", () => {
 
   it("renders the portrait when `avatar` resolves to an expanded URL", async () => {
     const { slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF, avatar: SIGNED_HREF }),
+      audioConfig({ ...CUE, avatar: SIGNED_HREF }),
     );
 
     const img = slot.querySelector(".vp-audio-portrait") as HTMLImageElement;
@@ -851,14 +851,14 @@ describe("voice-over card", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const { slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF, avatar: "{{asset:missing}}" }),
+      audioConfig({ ...CUE, avatar: "{{asset:missing}}" }),
     );
 
     const messages = warn.mock.calls.map((call) => String(call[0])).join("\n");
     expect(slot.querySelector(".vp-audio-initials")).not.toBeNull();
     expect(messages).toContain("showing initials instead");
     // The audio-fault path — the one that beacons — must not have been entered.
-    expect(messages).not.toContain("speaking the script instead");
+    expect(messages).not.toContain("skipping the cue");
   });
 
   it("does raise an audio fault when the AUDIO asset is the broken one", async () => {
@@ -870,7 +870,7 @@ describe("voice-over card", () => {
     await mountAndTrigger(audioConfig({ ...CUE, asset: "{{asset:missing}}" }));
 
     const messages = warn.mock.calls.map((call) => String(call[0])).join("\n");
-    expect(messages).toContain("speaking the script instead");
+    expect(messages).toContain("skipping the cue");
   });
 
   // The shape admin-toggle's prompt now emits: one portrait per speaker, matched
@@ -945,7 +945,7 @@ describe("voice-over card", () => {
 
   it("swaps the transport icon by attribute, without rebuilding the card", async () => {
     const { slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     const before = card();
     expect(before.dataset.playing).toBe("1");
@@ -965,7 +965,7 @@ describe("voice-over card", () => {
 
   it("keeps the status label in step with the icon", async () => {
     const { slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     const status = () => slot.querySelector("[data-status]")?.textContent;
     const playing = status();
@@ -979,7 +979,7 @@ describe("voice-over card", () => {
 
   it("gives Skip a visible label, not just a title", async () => {
     const { slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     const label = slot.querySelector(".vp-audio-skip-label");
     expect(label?.textContent?.trim()).toBeTruthy();
@@ -987,7 +987,7 @@ describe("voice-over card", () => {
 
   it("keeps all four transport hooks wired", async () => {
     const { audio, slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
     audio.currentTime = 5;
     audio.dispatchEvent(new Event("timeupdate"));
@@ -1002,7 +1002,7 @@ describe("voice-over card", () => {
 
   it("injects its own stylesheet, outranking the slot reset on specificity", async () => {
     const { slot } = await mountAndTrigger(
-      audioConfig({ ...CUE, asset: SIGNED_HREF }),
+      audioConfig(CUE),
     );
 
     expect(document.getElementById("__vp-audio-style")).not.toBeNull();
