@@ -180,13 +180,13 @@ later phases can assert against it. P5 completes mobile parity.
   PRP: link to generated plan file once created
 -->
 
-| #   | Phase                 | Description                                                                      | Status  | Parallel | Depends | PRP Plan |
-| --- | --------------------- | -------------------------------------------------------------------------------- | ------- | -------- | ------- | -------- |
-| 1   | Dead affordances      | `__vpSidebarTab` and "Öffnen" only while a host is installed                     | pending | with 2   | -       | -        |
-| 2   | Mobile canary harness | `canary-mobile` Playwright project and test-only helpers                         | pending | with 1   | -       | -        |
-| 3   | Mobile sheet          | `sidebar-host.ts` and `mobile-sheet.ts`: tab bar, docked sheet, `open(tab)`      | pending | -        | 1, 2    | -        |
-| 4   | Compact overlays      | `compact.ts` and compact CSS for voice-over and pills; tap targets; hover guards | pending | -        | 3       | -        |
-| 5   | Quiz on mobile        | Move the quiz slot to `body` on compact players and cover the whole screen       | pending | -        | 4       | -        |
+| #   | Phase                 | Description                                                                      | Status      | Parallel | Depends | PRP Plan                                                                         |
+| --- | --------------------- | -------------------------------------------------------------------------------- | ----------- | -------- | ------- | -------------------------------------------------------------------------------- |
+| 1   | Dead affordances      | `__vpSidebarTab` and "Öffnen" only while a host is installed                     | in-progress | with 2   | -       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md`      |
+| 2   | Mobile canary harness | `canary-mobile` Playwright project and test-only helpers                         | in-progress | with 1   | -       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` |
+| 3   | Mobile sheet          | `sidebar-host.ts` and `mobile-sheet.ts`: tab bar, docked sheet, `open(tab)`      | in-progress | -        | 1, 2    | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md`          |
+| 4   | Compact overlays      | `compact.ts` and compact CSS for voice-over and pills; tap targets; hover guards | in-progress | -        | 3       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md`      |
+| 5   | Quiz on mobile        | Move the quiz slot to `body` on compact players and cover the whole screen       | in-progress | -        | 4       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p5-quiz-on-mobile.plan.md`        |
 
 ### Phase Details
 
@@ -258,6 +258,11 @@ of `__vpSidebarTab` with `host.open`, and it adds its assertions to P2's project
 run in sequence: the compact section-pill tap calls P3's `open()`, and P5 keys on P4's compact
 attribute. Phases 3–5 all edit `index.ts` and `styles.ts`, so running them in parallel would
 conflict.
+
+All five plans were written on 2026-09-29, at the user's request to plan every item up front. The
+plans for phases 3–5 were drafted before their dependencies were implemented. Each one carries a
+"planned ahead" note listing the contracts it relies on, and must be re-checked against the code
+before its first task. "in-progress" here means "plan written", not "implementation started".
 
 ---
 
