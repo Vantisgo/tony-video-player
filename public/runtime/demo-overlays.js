@@ -2251,20 +2251,24 @@
         w.__vpHighlightedScience = active.id;
         w.__vpExpandedScience = active.id;
         renderScienceHighlight();
+        const canOpen = typeof w.__vpSidebarTab === "function";
         slotTR.innerHTML = `
-      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
+      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px ${canOpen ? "6px" : "12px"} 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:${canOpen ? "pointer" : "default"};">
         <span style="font-size:14px;line-height:1">🧪</span>
         <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">${esc(t("demo.science.label"))}</span>
         <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(t("demo.science.open"))}</button>
+        ${canOpen ? `<button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(t("demo.science.open"))}</button>` : ""}
       </div>`;
-        const openSci = (e) => {
-          var _a2;
-          e.stopPropagation();
-          (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "science");
-        };
-        slotTR.querySelector('[data-overlay-action="science"]').onclick = openSci;
-        slotTR.querySelector("button").onclick = openSci;
+        if (canOpen) {
+          const openSci = (e) => {
+            var _a2;
+            e.stopPropagation();
+            (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "science");
+          };
+          slotTR.querySelector('[data-overlay-action="science"]').onclick = openSci;
+          const openBtn = slotTR.querySelector("button");
+          if (openBtn) openBtn.onclick = openSci;
+        }
       }
       const videoEl = (_h = findPlayers()[0]) != null ? _h : null;
       (_i = document.getElementById(AUDIO_EL_ID)) == null ? void 0 : _i.remove();
@@ -2658,8 +2662,9 @@
         if (slotBR.dataset.activeMeta === active.id) return;
         slotBR.dataset.kind = "meta";
         slotBR.dataset.activeMeta = active.id;
+        const canOpen = typeof w.__vpSidebarTab === "function";
         slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="${esc(t("demo.meta.openTitle"))}">
+      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:${canOpen ? "pointer" : "default"};"${canOpen ? ` title="${esc(t("demo.meta.openTitle"))}"` : ""}>
         <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
         <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">${esc(
           t("demo.meta.step", { n: active.n, total: metaSteps.length })
@@ -2667,11 +2672,12 @@
         <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
         <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
       </div>`;
-        slotBR.querySelector('[data-overlay-action="meta"]').onclick = (e) => {
-          var _a2;
-          e.stopPropagation();
-          (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "meta");
-        };
+        if (canOpen)
+          slotBR.querySelector('[data-overlay-action="meta"]').onclick = (e) => {
+            var _a2;
+            e.stopPropagation();
+            (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "meta");
+          };
       }
       if (showQuiz) {
         const quizStyleId = "__vp-quiz-style";
@@ -2833,10 +2839,12 @@
           p.style.display = p.getAttribute("data-panel") === target ? "" : "none";
         });
       }
-      w.__vpSidebarTab = setTab;
-      onCleanup(() => {
-        delete w.__vpSidebarTab;
-      });
+      if (showSidebar) {
+        w.__vpSidebarTab = setTab;
+        onCleanup(() => {
+          delete w.__vpSidebarTab;
+        });
+      }
       sidebar.querySelectorAll(".vp-tab").forEach((btn) => {
         btn.onclick = () => setTab(btn.dataset.tab);
       });
