@@ -3,7 +3,7 @@
 //
 // Runs only in the `canary-mobile` project (390×844, isMobile, hasTouch — see
 // playwright.config.ts). It starts with what already holds today and declares
-// the geometry later phases fix as `test.fixme`, naming the phase that flips it
+// the geometry later phases fix as `test.fixme`, naming the phase that flips it (P4 flipped the last one)
 // (spec docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md,
 // measurements M2–M6). Targets are read at MODULE SCOPE for the same reason as
 // in overlay-canary.spec.ts: tests must exist before the module finishes.
@@ -222,28 +222,90 @@ for (const video of videos) {
       await expect(page.locator(`${SHEET}[data-open="1"]`)).toHaveCount(0);
     });
 
-    // Fails today: the 320×168 voice-over card starts 7px above a 219px-tall
-    // player and covers the section pill, and the science pill covers the
-    // section pill (spec M3/M4). P4's compact overlays flip this to `test`.
-    test.fixme("pills and the voice-over never overlap — spec M3/M4, fixed in P4", async ({
+    // ── P4: compact overlays ────────────────────────────────────────────────
+
+    test("the slots are marked compact on a phone-sized player", async ({
+      page,
+    }) => {
+      for (const slot of SLOTS)
+        await expect(
+          page.locator(`${slot}[data-vp-compact="1"]`),
+          `${slot} must carry data-vp-compact on a 390px player (isCompact: width < 750)`,
+        ).toHaveCount(1);
+    });
+
+    // Was fixme until P4: the 320×168 voice-over card started 7px above a
+    // 219px-tall player and covered the section pill, and the science pill
+    // covered the section pill (spec M3/M4).
+    test("pills and the voice-over never overlap and stay inside the player", async ({
       page,
     }) => {
       const { audio } = await demoMoments(page);
       test.skip(audio === null, "this lesson's config has no voice-over cue");
-      await seekTo(page, Math.max(0, audio! - 5));
+      // Play first, then seek: starting playback makes LearningSuite jump to
+      // the shared account's saved watch position, which can lie past the cue
+      // (measured: playback resumed at 70s with the cue at 45s).
       await tapHostPlay(page);
+      await seekTo(page, Math.max(0, audio! - 3));
       await expect(page.locator(VOICE_OVER)).toHaveCount(1, {
         timeout: 20_000,
       });
-      // Let the 350ms slide-in animation settle before measuring.
-      await page.waitForTimeout(600);
-      await expectInsidePlayer(page, [VOICE_OVER]);
+      await expectInsidePlayer(page, [VOICE_OVER, SECTION_PILL]);
       await expectNoOverlap(page, [
         SECTION_PILL,
         SCIENCE_PILL,
         META_PILL,
         VOICE_OVER,
       ]);
+      const card = await readBox(page, VOICE_OVER);
+      expect(
+        card!.h,
+        `the compact voice-over bar must be one row, at most 60px tall (was 168)`,
+      ).toBeLessThanOrEqual(60);
+      const buttons = await page
+        .locator(`${VOICE_OVER} .vp-audio-btn:visible`)
+        .evaluateAll((els) =>
+          els.map((el) => {
+            const r = el.getBoundingClientRect();
+            return { w: r.width, h: r.height };
+          }),
+        );
+      expect(buttons.length, "play/pause and skip must be visible").toBe(2);
+      for (const b of buttons)
+        expect(
+          Math.min(b.w, b.h),
+          "compact voice-over buttons must be at least 40px",
+        ).toBeGreaterThanOrEqual(40);
+    });
+
+    test("the science pill's Open button is at least 40px and fits beside the section pill", async ({
+      page,
+    }) => {
+      const { science } = await demoMoments(page);
+      test.skip(science === null, "this lesson's config has no science moment");
+      await seekTo(page, science! + 1.5);
+      await expect(page.locator(`${SCIENCE_PILL} .vp-sci-open`)).toHaveCount(1);
+      await expectNoOverlap(page, [SECTION_PILL, SCIENCE_PILL]);
+      const open = await readBox(page, `${SCIENCE_PILL} .vp-sci-open`);
+      expect(
+        Math.min(open!.w, open!.h),
+        "the Open button must be at least 40px (it was 58×23)",
+      ).toBeGreaterThanOrEqual(40);
+    });
+
+    test("tapping the section pill opens the sheet on Coaching", async ({
+      page,
+    }) => {
+      const pill = page.locator(SECTION_PILL);
+      test.skip(
+        (await pill.count()) === 0,
+        "this lesson has a single phase, so no section pill",
+      );
+      await pill.tap();
+      await expect(page.locator(`${SHEET}[data-open="1"]`)).toHaveCount(1);
+      await expect(
+        page.locator(`${SHEET} [data-panel="coaching"]`),
+      ).toBeVisible();
     });
   });
 }

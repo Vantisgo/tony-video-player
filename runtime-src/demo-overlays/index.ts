@@ -21,11 +21,13 @@ import {
 import {
   ANIM_CSS,
   AUDIO_CSS,
+  PILL_CSS,
   QUIZ_CSS,
   SECTION_CSS,
   SLOT_CSS,
   T,
 } from "./styles";
+import { observeCompact } from "./compact";
 import { createQuizController } from "./quiz";
 import { interventionCard } from "./intervention-card";
 import { scienceCard } from "./science-card";
@@ -182,6 +184,7 @@ const OWNED_NODE_IDS = [
   "__vp-section-style",
   "__vp-audio-style",
   "__vp-quiz-style",
+  "__vp-pill-style",
   AUDIO_EL_ID,
 ];
 
@@ -477,7 +480,15 @@ function main(): string {
       "top:14px; left:14px; right:14px; max-width:none",
     );
     const slotTR = makeSlot("vp-slot-tr", "top:10px; right:10px;");
-    const slotBR = makeSlot("vp-slot-br", "bottom:58px; right:14px;");
+    // bottom:58px is measured, not guessed: on a 390×219 phone player
+    // LearningSuite's progress line sits ~57px above the player's bottom while
+    // its controls show, and the controls leave the DOM during playback
+    // (2026-09-29, spec M7). The max-width keeps a long meta title inside the
+    // player (it used to run off the left edge).
+    const slotBR = makeSlot(
+      "vp-slot-br",
+      "bottom:58px; right:14px; max-width:calc(100% - 28px);",
+    );
     // Keeps the id `vp-slot-lt` even though the voice-over card is no longer a
     // lower third: the e2e canary asserts `#vp-slot-*` by id and checkAlive()
     // reads this one, so renaming buys a tidier name at the cost of both. It
@@ -497,6 +508,39 @@ function main(): string {
           QUIZ_SLOT_Z,
         )
       : null;
+
+    // ─── Compact overlays (player under 750×280, see compact.ts) ───
+    // One attribute on every slot switches the CSS variants in styles.ts; the
+    // voice-over slot's 320px width is inline (makeSlot), so it is widened to
+    // the player here instead.
+    const compactSlots = [
+      slotTL,
+      slotTR,
+      slotBR,
+      slotLowerThird,
+      slotQuiz,
+    ].filter((s): s is HTMLElement => s !== null);
+    const isCompactNow = observeCompact(
+      playerHost,
+      (compact) => {
+        for (const s of compactSlots)
+          if (compact) s.setAttribute("data-vp-compact", "1");
+          else s.removeAttribute("data-vp-compact");
+        slotLowerThird.style.left = compact ? "14px" : "";
+        slotLowerThird.style.width = compact ? "auto" : "320px";
+      },
+      onCleanup,
+    );
+
+    const pillStyleId = "__vp-pill-style";
+    document.getElementById(pillStyleId)?.remove();
+    {
+      const s = document.createElement("style");
+      s.id = pillStyleId;
+      s.textContent = PILL_CSS;
+      document.head.appendChild(s);
+      onCleanup(() => document.getElementById(pillStyleId)?.remove());
+    }
 
     // ─── Section indicator (top-left) ───
     const sectionStyleId = "__vp-section-style";
@@ -554,12 +598,26 @@ function main(): string {
     let renderedPhaseId: string | null = null;
 
     sectionPill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // Compact: the pill never expands inside the video (SECTION_CSS) — the
+      // sheet, or the desktop sidebar, shows the same progress with room to
+      // read it. Its rows are hidden then, so no row can be the target.
+      if (isCompactNow()) {
+        w.__vpSidebarTab?.("coaching");
+        return;
+      }
       const row = (e.target as HTMLElement).closest(
         "[data-seek]",
       ) as HTMLElement | null;
-      if (!row) return;
-      e.stopPropagation();
-      window.player.seek(Number(row.dataset.seek) + 0.1);
+      if (row) {
+        window.player.seek(Number(row.dataset.seek) + 0.1);
+        return;
+      }
+      // Touch without hover: an explicit pin replaces the sticky :hover that
+      // used to open it by accident (spec M5). With a mouse, hover does it.
+      if (window.matchMedia("(hover: none)").matches)
+        sectionPill.dataset.pinned =
+          sectionPill.dataset.pinned === "1" ? "" : "1";
     });
 
     function renderSection(): void {
@@ -674,12 +732,13 @@ function main(): string {
       // Offer "Open" only when there is something to open: without an installed
       // sidebar the pill stays, as information, but promises no action.
       const canOpen = typeof w.__vpSidebarTab === "function";
+      // Styled by class (PILL_CSS), not inline, so compact mode can vary it.
       slotTR.innerHTML = `
-      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px ${canOpen ? "6px" : "12px"} 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:${canOpen ? "pointer" : "default"};">
-        <span style="font-size:14px;line-height:1">🧪</span>
-        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">${esc(tr("demo.science.label"))}</span>
-        <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        ${canOpen ? `<button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(tr("demo.science.open"))}</button>` : ""}
+      <div data-overlay-action="science" class="vp-sci-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}">
+        <span class="vp-sci-icon">🧪</span>
+        <span class="vp-sci-label">${esc(tr("demo.science.label"))}</span>
+        <span class="vp-sci-name">${esc(active.name)}</span>
+        ${canOpen ? `<button class="vp-sci-open">${esc(tr("demo.science.open"))}</button>` : ""}
       </div>`;
       if (canOpen) {
         const openSci = (e: Event) => {
@@ -1205,13 +1264,13 @@ function main(): string {
       // promises a sidebar which is not installed.
       const canOpen = typeof w.__vpSidebarTab === "function";
       slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:${canOpen ? "pointer" : "default"};"${canOpen ? ` title="${esc(tr("demo.meta.openTitle"))}"` : ""}>
-        <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
-        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">${esc(
+      <div data-overlay-action="meta" class="vp-meta-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}"${canOpen ? ` title="${esc(tr("demo.meta.openTitle"))}"` : ""}>
+        <div class="vp-meta-num">${esc(active.n)}</div>
+        <span class="vp-meta-step">${esc(
           tr("demo.meta.step", { n: active.n, total: metaSteps.length }),
         )}</span>
-        <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
-        <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
+        <span class="vp-meta-divider"></span>
+        <span class="vp-meta-title">${esc(active.title)}</span>
       </div>`;
       if (canOpen)
         (

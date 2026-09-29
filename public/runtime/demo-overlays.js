@@ -794,6 +794,59 @@
   var SLOT_CSS = `
       .vp-slot, .vp-slot *, .vp-sheet-ui, .vp-sheet-ui * { white-space:normal; }
     `;
+  var PILL_CSS = `
+      .vp-slot .vp-sci-pill {
+        display:inline-flex; align-items:center; gap:8px; box-sizing:border-box;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38); border-radius:999px;
+        padding:5px 12px 5px 12px; backdrop-filter:blur(10px);
+        box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6;
+        pointer-events:auto; cursor:default;
+      }
+      .vp-slot .vp-sci-pill[data-can-open="1"] { padding-right:6px; cursor:pointer; }
+      .vp-slot .vp-sci-icon { font-size:14px; line-height:1; }
+      .vp-slot .vp-sci-label { font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px; }
+      .vp-slot .vp-sci-name {
+        font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .vp-slot .vp-sci-open {
+        background:#00e1a5; color:#062b22; border:0; border-radius:999px;
+        padding:4px 11px; font:600 11.5px system-ui; cursor:pointer;
+        flex-shrink:0; line-height:1.3; pointer-events:auto;
+      }
+      .vp-slot .vp-meta-pill {
+        display:inline-flex; align-items:center; gap:10px; box-sizing:border-box; max-width:100%;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38); border-radius:999px;
+        padding:5px 14px 5px 5px; backdrop-filter:blur(10px);
+        box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6;
+        pointer-events:auto; white-space:nowrap; cursor:default;
+      }
+      .vp-slot .vp-meta-pill[data-can-open="1"] { cursor:pointer; }
+      .vp-slot .vp-meta-num {
+        width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22;
+        display:flex; align-items:center; justify-content:center;
+        font:700 13px system-ui; flex-shrink:0;
+      }
+      .vp-slot .vp-meta-step {
+        font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase;
+        color:rgba(168,191,186,.82);
+      }
+      .vp-slot .vp-meta-divider { width:1px; height:14px; background:rgba(0,225,165,.28); flex-shrink:0; }
+      .vp-slot .vp-meta-title {
+        font:600 13px system-ui; color:#f4f7f6; line-height:1;
+        min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+
+      .vp-slot[data-vp-compact="1"] .vp-sci-label,
+      .vp-slot[data-vp-compact="1"] .vp-sci-name { display:none; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-pill { min-height:40px; padding:0 12px; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-pill[data-can-open="1"] { padding:0 0 0 12px; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-open { min-height:40px; padding:0 14px; font-size:13px; }
+      .vp-slot[data-vp-compact="1"] .vp-meta-step,
+      .vp-slot[data-vp-compact="1"] .vp-meta-divider { display:none; }
+    `;
   var ANIM_CSS = `
       @keyframes vp-slide-in-right { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
       @keyframes vp-slide-in-bottom{ from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
@@ -819,11 +872,16 @@
       }
       .vp-section-pill .vp-sec-collapsed { display:flex; flex-direction:column; gap:2px; min-width:0; }
       .vp-section-pill .vp-sec-expanded  { display:none; }
-      .vp-section-pill:hover .vp-sec-card,
+      /* Hover only where there is real hover: on touch screens a tap left the
+         sticky :hover on, opening a 228×191 panel over a 219px-tall video
+         (spec M5). Touch devices pin it with a tap instead (data-pinned). */
+      @media (hover:hover) {
+        .vp-section-pill:hover .vp-sec-card { border-radius:18px; padding:18px 18px 16px; }
+        .vp-section-pill:hover .vp-sec-collapsed { display:none; }
+        .vp-section-pill:hover .vp-sec-expanded { display:block; }
+      }
       .vp-section-pill[data-pinned="1"] .vp-sec-card { border-radius:18px; padding:18px 18px 16px; }
-      .vp-section-pill:hover .vp-sec-collapsed,
       .vp-section-pill[data-pinned="1"] .vp-sec-collapsed { display:none; }
-      .vp-section-pill:hover .vp-sec-expanded,
       .vp-section-pill[data-pinned="1"] .vp-sec-expanded { display:block; }
       .vp-section-pill .vp-sec-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .vp-section-pill .vp-sec-cur-row { display:flex; align-items:center; gap:6px; color:rgba(168,191,186,.9); min-width:0; }
@@ -837,7 +895,9 @@
       .vp-section-pill .vp-sec-rows { display:grid; gap:4px; }
       .vp-section-pill .vp-sec-row { display:flex; gap:10px; align-items:flex-start; padding:6px 8px; border-radius:8px; cursor:pointer; transition:background .2s; }
       .vp-section-pill .vp-sec-row[data-current="1"] { background:rgba(255,255,255,.12); }
-      .vp-section-pill .vp-sec-row[data-current="0"]:hover { background:rgba(255,255,255,.06); }
+      @media (hover:hover) {
+        .vp-section-pill .vp-sec-row[data-current="0"]:hover { background:rgba(255,255,255,.06); }
+      }
       .vp-section-pill .vp-sec-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; }
       .vp-section-pill .vp-sec-dot[data-state="completed"] { background:#00e1a5; }
       .vp-section-pill .vp-sec-dot[data-state="completed"]::after { content:"✓"; color:#062b22; font-size:10px; font-weight:700; }
@@ -848,6 +908,17 @@
       .vp-section-pill .vp-sec-row[data-state="current"]   .vp-sec-row-title { color:#f4f7f6; font-weight:500; }
       .vp-section-pill .vp-sec-row[data-state="completed"] .vp-sec-row-title { color:rgba(168,191,186,.68); font-weight:400; }
       .vp-section-pill .vp-sec-row[data-state="upcoming"]  .vp-sec-row-title { color:rgba(168,191,186,.48); font-weight:400; }
+
+      /* Compact: the top-right corner stays reserved for the science pill even
+         when none is showing, so the section pill never jumps when one appears:
+         250px of the 362px-wide #vp-slot-tl on a phone, ending at x≤264 against
+         the compact science pill's x≥280. It never expands inside the video —
+         a tap opens the Coaching tab instead (index.ts). (0,4,0) beats the
+         hover/pinned rules above (0,3,0). */
+      .vp-slot[data-vp-compact="1"] .vp-section-pill { max-width:calc(100% - 112px); cursor:pointer; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-card { border-radius:12px; padding:8px 14px; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-collapsed { display:flex; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-expanded { display:none; }
     `;
   var AUDIO_CSS = `
       .vp-audio-card {
@@ -912,12 +983,16 @@
         background:rgba(22,79,73,.72); color:${T.fg};
         font:600 11.5px system-ui; padding:9px 10px; min-width:0; flex:0 0 auto;
       }
-      .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      @media (hover:hover) {
+        .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      }
       .vp-audio-btn:focus-visible { outline:2px solid ${T.primary}; outline-offset:2px; }
       .vp-audio-btn-primary {
         background:${T.primary}; color:${T.primaryFg}; padding:9px 13px;
       }
-      .vp-audio-btn-primary:hover { background:#2edbb1; }
+      @media (hover:hover) {
+        .vp-audio-btn-primary:hover { background:#2edbb1; }
+      }
       /* Skip absorbs the leftover width and truncates instead of overflowing —
          "Überspringen" is 12 characters in a 320px card. */
       .vp-audio-btn-skip { flex:1 1 auto; }
@@ -929,6 +1004,33 @@
       /* The transport icon swap: one attribute write per state change. */
       .vp-audio-card[data-playing="1"] .vp-audio-icon-play { display:none; }
       .vp-audio-card[data-playing="0"] .vp-audio-icon-pause { display:none; }
+
+      /* Compact: one row of ~58px (8 + 40 + 8 + borders) instead of a 320×168
+         card that started 7px above a 219px-tall phone player and covered the
+         section pill (spec M4). Avatar, title, play/pause and icon-only skip;
+         progress becomes a 3px line on the bottom edge. The slot itself is
+         widened to the player by JS (its 320px width is inline). */
+      .vp-slot[data-vp-compact="1"] .vp-audio-card {
+        display:flex; align-items:center; gap:10px; position:relative;
+        padding:8px 8px 8px 10px; border-radius:14px; overflow:hidden;
+      }
+      .vp-slot[data-vp-compact="1"] .vp-audio-head { flex:1 1 auto; min-width:0; align-items:center; gap:10px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-avatar,
+      .vp-slot[data-vp-compact="1"] .vp-audio-portrait,
+      .vp-slot[data-vp-compact="1"] .vp-audio-initials { width:32px; height:32px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-initials { font-size:12px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-badge,
+      .vp-slot[data-vp-compact="1"] .vp-audio-byline,
+      .vp-slot[data-vp-compact="1"] .vp-audio-state,
+      .vp-slot[data-vp-compact="1"] .vp-audio-times,
+      .vp-slot[data-vp-compact="1"] .vp-audio-skip-label,
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn[data-action="audio-back"],
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn[data-action="audio-fwd"] { display:none; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-progress { position:absolute; left:0; right:0; bottom:0; gap:0; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-bar { height:3px; border-radius:0; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-controls { flex:0 0 auto; gap:6px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn { min-width:40px; min-height:40px; padding:0 10px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn-skip { flex:0 0 auto; }
     `;
   var QUIZ_CSS = `
       #vp-slot-quiz { container-type: inline-size; container-name: vp-quiz; }
@@ -967,7 +1069,9 @@
         border-radius:12px; padding:9px 11px;
         transition:background .18s ease, border-color .18s ease;
       }
-      .vp-quiz-option:hover:not(:disabled) { background:rgba(22,79,73,.7); }
+      @media (hover:hover) {
+        .vp-quiz-option:hover:not(:disabled) { background:rgba(22,79,73,.7); }
+      }
       .vp-quiz-option:focus-visible { outline:2px solid #00e1a5; outline-offset:2px; }
       .vp-quiz-option[data-state="correct"] { border-color:#4ade80; background:rgba(74,222,128,.16); }
       .vp-quiz-option[data-state="wrong"] { border-color:#f87171; background:rgba(248,113,113,.16); animation:vp-quiz-shake .4s ease; }
@@ -1017,6 +1121,37 @@
          specificity makes the outcome order-independent and testable. */
       .vp-quiz-card .vp-quiz-summary-row-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     `;
+
+  // runtime-src/demo-overlays/compact.ts
+  var FULL_MIN_WIDTH = 750;
+  var FULL_MIN_HEIGHT = 280;
+  function isCompact(width, height) {
+    return width < FULL_MIN_WIDTH || height < FULL_MIN_HEIGHT;
+  }
+  function observeCompact(target, apply, onCleanup, classify = isCompact) {
+    const measure = () => {
+      const r = target.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return false;
+      return classify(r.width, r.height);
+    };
+    let state = measure();
+    apply(state);
+    const update = () => {
+      const next = measure();
+      if (next === state) return;
+      state = next;
+      apply(next);
+    };
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(update);
+      ro.observe(target);
+      onCleanup(() => ro.disconnect());
+    } else {
+      window.addEventListener("resize", update);
+      onCleanup(() => window.removeEventListener("resize", update));
+    }
+    return () => state;
+  }
 
   // runtime-src/demo-overlays/quiz.ts
   function qzEl(tag, props, kids) {
@@ -2191,6 +2326,7 @@
     "__vp-section-style",
     "__vp-audio-style",
     "__vp-quiz-style",
+    "__vp-pill-style",
     AUDIO_EL_ID
   ];
   function main() {
@@ -2310,7 +2446,7 @@
       }
     }
     function mountInner(cfgHit, mountState) {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
       const onCleanup = (fn) => {
         mountState.cleanups.push(fn);
       };
@@ -2397,7 +2533,10 @@
         "top:14px; left:14px; right:14px; max-width:none"
       );
       const slotTR = makeSlot("vp-slot-tr", "top:10px; right:10px;");
-      const slotBR = makeSlot("vp-slot-br", "bottom:58px; right:14px;");
+      const slotBR = makeSlot(
+        "vp-slot-br",
+        "bottom:58px; right:14px; max-width:calc(100% - 28px);"
+      );
       const slotLowerThird = makeSlot(
         "vp-slot-lt",
         "right:14px; bottom:58px; width:320px; max-width:calc(100% - 28px);"
@@ -2407,8 +2546,38 @@
         "inset:0; display:flex; align-items:center; justify-content:center;",
         QUIZ_SLOT_Z
       ) : null;
+      const compactSlots = [
+        slotTL,
+        slotTR,
+        slotBR,
+        slotLowerThird,
+        slotQuiz
+      ].filter((s) => s !== null);
+      const isCompactNow = observeCompact(
+        playerHost,
+        (compact) => {
+          for (const s of compactSlots)
+            if (compact) s.setAttribute("data-vp-compact", "1");
+            else s.removeAttribute("data-vp-compact");
+          slotLowerThird.style.left = compact ? "14px" : "";
+          slotLowerThird.style.width = compact ? "auto" : "320px";
+        },
+        onCleanup
+      );
+      const pillStyleId = "__vp-pill-style";
+      (_g = document.getElementById(pillStyleId)) == null ? void 0 : _g.remove();
+      {
+        const s = document.createElement("style");
+        s.id = pillStyleId;
+        s.textContent = PILL_CSS;
+        document.head.appendChild(s);
+        onCleanup(() => {
+          var _a2;
+          return (_a2 = document.getElementById(pillStyleId)) == null ? void 0 : _a2.remove();
+        });
+      }
       const sectionStyleId = "__vp-section-style";
-      (_g = document.getElementById(sectionStyleId)) == null ? void 0 : _g.remove();
+      (_h = document.getElementById(sectionStyleId)) == null ? void 0 : _h.remove();
       {
         const s = document.createElement("style");
         s.id = sectionStyleId;
@@ -2453,12 +2622,21 @@
       let renderedRows = [];
       let renderedPhaseId = null;
       sectionPill.addEventListener("click", (e) => {
+        var _a2;
+        e.stopPropagation();
+        if (isCompactNow()) {
+          (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "coaching");
+          return;
+        }
         const row = e.target.closest(
           "[data-seek]"
         );
-        if (!row) return;
-        e.stopPropagation();
-        window.player.seek(Number(row.dataset.seek) + 0.1);
+        if (row) {
+          window.player.seek(Number(row.dataset.seek) + 0.1);
+          return;
+        }
+        if (window.matchMedia("(hover: none)").matches)
+          sectionPill.dataset.pinned = sectionPill.dataset.pinned === "1" ? "" : "1";
       });
       function renderSection() {
         var _a2, _b2;
@@ -2560,11 +2738,11 @@
         renderScienceHighlight();
         const canOpen = typeof w.__vpSidebarTab === "function";
         slotTR.innerHTML = `
-      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px ${canOpen ? "6px" : "12px"} 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:${canOpen ? "pointer" : "default"};">
-        <span style="font-size:14px;line-height:1">🧪</span>
-        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">${esc(t("demo.science.label"))}</span>
-        <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        ${canOpen ? `<button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(t("demo.science.open"))}</button>` : ""}
+      <div data-overlay-action="science" class="vp-sci-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}">
+        <span class="vp-sci-icon">🧪</span>
+        <span class="vp-sci-label">${esc(t("demo.science.label"))}</span>
+        <span class="vp-sci-name">${esc(active.name)}</span>
+        ${canOpen ? `<button class="vp-sci-open">${esc(t("demo.science.open"))}</button>` : ""}
       </div>`;
         if (canOpen) {
           const openSci = (e) => {
@@ -2577,8 +2755,8 @@
           if (openBtn) openBtn.onclick = openSci;
         }
       }
-      const videoEl = (_h = findPlayers()[0]) != null ? _h : null;
-      (_i = document.getElementById(AUDIO_EL_ID)) == null ? void 0 : _i.remove();
+      const videoEl = (_i = findPlayers()[0]) != null ? _i : null;
+      (_j = document.getElementById(AUDIO_EL_ID)) == null ? void 0 : _j.remove();
       const audioEl = document.createElement("audio");
       audioEl.id = AUDIO_EL_ID;
       audioEl.preload = "none";
@@ -2852,7 +3030,7 @@
       }
       if (showAudio) {
         const audioStyleId = "__vp-audio-style";
-        (_j = document.getElementById(audioStyleId)) == null ? void 0 : _j.remove();
+        (_k = document.getElementById(audioStyleId)) == null ? void 0 : _k.remove();
         const s = document.createElement("style");
         s.id = audioStyleId;
         s.textContent = AUDIO_CSS;
@@ -2971,13 +3149,13 @@
         slotBR.dataset.activeMeta = active.id;
         const canOpen = typeof w.__vpSidebarTab === "function";
         slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:${canOpen ? "pointer" : "default"};"${canOpen ? ` title="${esc(t("demo.meta.openTitle"))}"` : ""}>
-        <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
-        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">${esc(
+      <div data-overlay-action="meta" class="vp-meta-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}"${canOpen ? ` title="${esc(t("demo.meta.openTitle"))}"` : ""}>
+        <div class="vp-meta-num">${esc(active.n)}</div>
+        <span class="vp-meta-step">${esc(
           t("demo.meta.step", { n: active.n, total: metaSteps.length })
         )}</span>
-        <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
-        <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
+        <span class="vp-meta-divider"></span>
+        <span class="vp-meta-title">${esc(active.title)}</span>
       </div>`;
         if (canOpen)
           slotBR.querySelector('[data-overlay-action="meta"]').onclick = (e) => {
@@ -2988,7 +3166,7 @@
       }
       if (showQuiz) {
         const quizStyleId = "__vp-quiz-style";
-        (_k = document.getElementById(quizStyleId)) == null ? void 0 : _k.remove();
+        (_l = document.getElementById(quizStyleId)) == null ? void 0 : _l.remove();
         const s = document.createElement("style");
         s.id = quizStyleId;
         s.textContent = QUIZ_CSS;
@@ -3283,7 +3461,7 @@
         if (e.type === "ended") quizCtrl == null ? void 0 : quizCtrl.onEnded();
       });
       if (typeof offBus === "function") onCleanup(offBus);
-      recomputeActive((_l = window.player.current) != null ? _l : 0);
+      recomputeActive((_m = window.player.current) != null ? _m : 0);
       mountState.checkAlive = () => {
         if (!playerHost.isConnected) return false;
         if (window.player !== mountedPlayer) return false;

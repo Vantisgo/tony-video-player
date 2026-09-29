@@ -157,14 +157,14 @@ describe("pill open affordances", () => {
     const sci = sciencePill();
     expect(sci).not.toBeNull();
     expect(document.querySelector("#vp-slot-tr button")).toBeNull();
-    expect(sci!.style.cursor).toBe("default");
+    expect(sci!.dataset.canOpen).toBe("");
     expect(sci!.onclick).toBeNull();
 
     emitTime(3);
     const meta = metaPill();
     expect(meta).not.toBeNull();
     expect(meta!.hasAttribute("title")).toBe(false);
-    expect(meta!.style.cursor).toBe("default");
+    expect(meta!.dataset.canOpen).toBe("");
     expect(meta!.onclick).toBeNull();
   });
 
@@ -177,7 +177,7 @@ describe("pill open affordances", () => {
       "#vp-slot-tr button",
     ) as HTMLButtonElement | null;
     expect(button).not.toBeNull();
-    expect(sciencePill()!.style.cursor).toBe("pointer");
+    expect(sciencePill()!.dataset.canOpen).toBe("1");
 
     button!.click();
     expect(panel("science").style.display).toBe("");
