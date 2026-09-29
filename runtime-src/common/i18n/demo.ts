@@ -8,6 +8,10 @@ const EN = {
   "demo.tab.coaching": "Coaching",
   "demo.tab.science": "Science Corner",
   "demo.tab.meta": "Meta Structure",
+  // Mobile sheet (screen-reader labels; the visible tabs reuse demo.tab.*)
+  "demo.sheet.label": "Lesson details",
+  "demo.sheet.close": "Close",
+  "demo.sheet.tabs": "Lesson sections",
   // Section pill (video overlay, top-left)
   "demo.section.eyebrow": "Course Section",
   "demo.section.intro": "Intro",
@@ -62,6 +66,9 @@ const DE: Record<DemoKey, string> = {
   "demo.tab.coaching": "Coaching",
   "demo.tab.science": "Science Corner",
   "demo.tab.meta": "Master-Schritte",
+  "demo.sheet.label": "Lektionsdetails",
+  "demo.sheet.close": "Schließen",
+  "demo.sheet.tabs": "Lektionsbereiche",
   "demo.section.eyebrow": "Sektion",
   "demo.section.intro": "Intro",
   "demo.section.empty": "Startet in Kürze …",

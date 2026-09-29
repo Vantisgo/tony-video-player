@@ -126,6 +126,10 @@
     "demo.tab.coaching": "Coaching",
     "demo.tab.science": "Science Corner",
     "demo.tab.meta": "Meta Structure",
+    // Mobile sheet (screen-reader labels; the visible tabs reuse demo.tab.*)
+    "demo.sheet.label": "Lesson details",
+    "demo.sheet.close": "Close",
+    "demo.sheet.tabs": "Lesson sections",
     // Section pill (video overlay, top-left)
     "demo.section.eyebrow": "Course Section",
     "demo.section.intro": "Intro",
@@ -172,6 +176,9 @@
     "demo.tab.coaching": "Coaching",
     "demo.tab.science": "Science Corner",
     "demo.tab.meta": "Master-Schritte",
+    "demo.sheet.label": "Lektionsdetails",
+    "demo.sheet.close": "Schließen",
+    "demo.sheet.tabs": "Lektionsbereiche",
     "demo.section.eyebrow": "Sektion",
     "demo.section.intro": "Intro",
     "demo.section.empty": "Startet in Kürze …",
@@ -767,7 +774,60 @@
     radius: "12px"
   };
   var SLOT_CSS = `
-      .vp-slot, .vp-slot * { white-space:normal; }
+      .vp-slot, .vp-slot *, .vp-sheet-ui, .vp-sheet-ui * { white-space:normal; }
+    `;
+  var PILL_CSS = `
+      .vp-slot .vp-sci-pill {
+        display:inline-flex; align-items:center; gap:8px; box-sizing:border-box;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38); border-radius:999px;
+        padding:5px 12px 5px 12px; backdrop-filter:blur(10px);
+        box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6;
+        pointer-events:auto; cursor:default;
+      }
+      .vp-slot .vp-sci-pill[data-can-open="1"] { padding-right:6px; cursor:pointer; }
+      .vp-slot .vp-sci-icon { font-size:14px; line-height:1; }
+      .vp-slot .vp-sci-label { font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px; }
+      .vp-slot .vp-sci-name {
+        font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .vp-slot .vp-sci-open {
+        background:#00e1a5; color:#062b22; border:0; border-radius:999px;
+        padding:4px 11px; font:600 11.5px system-ui; cursor:pointer;
+        flex-shrink:0; line-height:1.3; pointer-events:auto;
+      }
+      .vp-slot .vp-meta-pill {
+        display:inline-flex; align-items:center; gap:10px; box-sizing:border-box; max-width:100%;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38); border-radius:999px;
+        padding:5px 14px 5px 5px; backdrop-filter:blur(10px);
+        box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6;
+        pointer-events:auto; white-space:nowrap; cursor:default;
+      }
+      .vp-slot .vp-meta-pill[data-can-open="1"] { cursor:pointer; }
+      .vp-slot .vp-meta-num {
+        width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22;
+        display:flex; align-items:center; justify-content:center;
+        font:700 13px system-ui; flex-shrink:0;
+      }
+      .vp-slot .vp-meta-step {
+        font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase;
+        color:rgba(168,191,186,.82);
+      }
+      .vp-slot .vp-meta-divider { width:1px; height:14px; background:rgba(0,225,165,.28); flex-shrink:0; }
+      .vp-slot .vp-meta-title {
+        font:600 13px system-ui; color:#f4f7f6; line-height:1;
+        min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+
+      .vp-slot[data-vp-compact="1"] .vp-sci-label,
+      .vp-slot[data-vp-compact="1"] .vp-sci-name { display:none; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-pill { min-height:40px; padding:0 12px; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-pill[data-can-open="1"] { padding:0 0 0 12px; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-open { min-height:40px; padding:0 14px; font-size:13px; }
+      .vp-slot[data-vp-compact="1"] .vp-meta-step,
+      .vp-slot[data-vp-compact="1"] .vp-meta-divider { display:none; }
     `;
   var ANIM_CSS = `
       @keyframes vp-slide-in-right { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
@@ -794,11 +854,16 @@
       }
       .vp-section-pill .vp-sec-collapsed { display:flex; flex-direction:column; gap:2px; min-width:0; }
       .vp-section-pill .vp-sec-expanded  { display:none; }
-      .vp-section-pill:hover .vp-sec-card,
+      /* Hover only where there is real hover: on touch screens a tap left the
+         sticky :hover on, opening a 228×191 panel over a 219px-tall video
+         (spec M5). Touch devices pin it with a tap instead (data-pinned). */
+      @media (hover:hover) {
+        .vp-section-pill:hover .vp-sec-card { border-radius:18px; padding:18px 18px 16px; }
+        .vp-section-pill:hover .vp-sec-collapsed { display:none; }
+        .vp-section-pill:hover .vp-sec-expanded { display:block; }
+      }
       .vp-section-pill[data-pinned="1"] .vp-sec-card { border-radius:18px; padding:18px 18px 16px; }
-      .vp-section-pill:hover .vp-sec-collapsed,
       .vp-section-pill[data-pinned="1"] .vp-sec-collapsed { display:none; }
-      .vp-section-pill:hover .vp-sec-expanded,
       .vp-section-pill[data-pinned="1"] .vp-sec-expanded { display:block; }
       .vp-section-pill .vp-sec-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .vp-section-pill .vp-sec-cur-row { display:flex; align-items:center; gap:6px; color:rgba(168,191,186,.9); min-width:0; }
@@ -812,7 +877,9 @@
       .vp-section-pill .vp-sec-rows { display:grid; gap:4px; }
       .vp-section-pill .vp-sec-row { display:flex; gap:10px; align-items:flex-start; padding:6px 8px; border-radius:8px; cursor:pointer; transition:background .2s; }
       .vp-section-pill .vp-sec-row[data-current="1"] { background:rgba(255,255,255,.12); }
-      .vp-section-pill .vp-sec-row[data-current="0"]:hover { background:rgba(255,255,255,.06); }
+      @media (hover:hover) {
+        .vp-section-pill .vp-sec-row[data-current="0"]:hover { background:rgba(255,255,255,.06); }
+      }
       .vp-section-pill .vp-sec-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; }
       .vp-section-pill .vp-sec-dot[data-state="completed"] { background:#00e1a5; }
       .vp-section-pill .vp-sec-dot[data-state="completed"]::after { content:"✓"; color:#062b22; font-size:10px; font-weight:700; }
@@ -823,6 +890,17 @@
       .vp-section-pill .vp-sec-row[data-state="current"]   .vp-sec-row-title { color:#f4f7f6; font-weight:500; }
       .vp-section-pill .vp-sec-row[data-state="completed"] .vp-sec-row-title { color:rgba(168,191,186,.68); font-weight:400; }
       .vp-section-pill .vp-sec-row[data-state="upcoming"]  .vp-sec-row-title { color:rgba(168,191,186,.48); font-weight:400; }
+
+      /* Compact: the top-right corner stays reserved for the science pill even
+         when none is showing, so the section pill never jumps when one appears:
+         250px of the 362px-wide #vp-slot-tl on a phone, ending at x≤264 against
+         the compact science pill's x≥280. It never expands inside the video —
+         a tap opens the Coaching tab instead (index.ts). (0,4,0) beats the
+         hover/pinned rules above (0,3,0). */
+      .vp-slot[data-vp-compact="1"] .vp-section-pill { max-width:calc(100% - 112px); cursor:pointer; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-card { border-radius:12px; padding:8px 14px; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-collapsed { display:flex; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-expanded { display:none; }
     `;
   var AUDIO_CSS = `
       .vp-audio-card {
@@ -887,12 +965,16 @@
         background:rgba(22,79,73,.72); color:${T.fg};
         font:600 11.5px system-ui; padding:9px 10px; min-width:0; flex:0 0 auto;
       }
-      .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      @media (hover:hover) {
+        .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      }
       .vp-audio-btn:focus-visible { outline:2px solid ${T.primary}; outline-offset:2px; }
       .vp-audio-btn-primary {
         background:${T.primary}; color:${T.primaryFg}; padding:9px 13px;
       }
-      .vp-audio-btn-primary:hover { background:#2edbb1; }
+      @media (hover:hover) {
+        .vp-audio-btn-primary:hover { background:#2edbb1; }
+      }
       /* Skip absorbs the leftover width and truncates instead of overflowing —
          "Überspringen" is 12 characters in a 320px card. */
       .vp-audio-btn-skip { flex:1 1 auto; }
@@ -904,6 +986,33 @@
       /* The transport icon swap: one attribute write per state change. */
       .vp-audio-card[data-playing="1"] .vp-audio-icon-play { display:none; }
       .vp-audio-card[data-playing="0"] .vp-audio-icon-pause { display:none; }
+
+      /* Compact: one row of ~58px (8 + 40 + 8 + borders) instead of a 320×168
+         card that started 7px above a 219px-tall phone player and covered the
+         section pill (spec M4). Avatar, title, play/pause and icon-only skip;
+         progress becomes a 3px line on the bottom edge. The slot itself is
+         widened to the player by JS (its 320px width is inline). */
+      .vp-slot[data-vp-compact="1"] .vp-audio-card {
+        display:flex; align-items:center; gap:10px; position:relative;
+        padding:8px 8px 8px 10px; border-radius:14px; overflow:hidden;
+      }
+      .vp-slot[data-vp-compact="1"] .vp-audio-head { flex:1 1 auto; min-width:0; align-items:center; gap:10px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-avatar,
+      .vp-slot[data-vp-compact="1"] .vp-audio-portrait,
+      .vp-slot[data-vp-compact="1"] .vp-audio-initials { width:32px; height:32px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-initials { font-size:12px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-badge,
+      .vp-slot[data-vp-compact="1"] .vp-audio-byline,
+      .vp-slot[data-vp-compact="1"] .vp-audio-state,
+      .vp-slot[data-vp-compact="1"] .vp-audio-times,
+      .vp-slot[data-vp-compact="1"] .vp-audio-skip-label,
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn[data-action="audio-back"],
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn[data-action="audio-fwd"] { display:none; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-progress { position:absolute; left:0; right:0; bottom:0; gap:0; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-bar { height:3px; border-radius:0; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-controls { flex:0 0 auto; gap:6px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn { min-width:40px; min-height:40px; padding:0 10px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn-skip { flex:0 0 auto; }
     `;
   var QUIZ_CSS = `
       #vp-slot-quiz { container-type: inline-size; container-name: vp-quiz; }
@@ -935,6 +1044,10 @@
       @container vp-quiz (min-width: 380px) {
         .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr 1fr; }
       }
+      /* Promoted to the viewport on compact players (index.ts placeQuizSlot):
+         the slot is now as wide as the phone (≥ 380px), so the container
+         query would pick two cramped columns of 158px. (1,3,0) beats it. */
+      #vp-slot-quiz[data-vp-promoted="1"] .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr; }
       .vp-quiz-option {
         display:flex; align-items:center; gap:10px; width:100%;
         text-align:left; cursor:pointer; font:500 13.5px system-ui; color:#f4f7f6;
@@ -942,7 +1055,9 @@
         border-radius:12px; padding:9px 11px;
         transition:background .18s ease, border-color .18s ease;
       }
-      .vp-quiz-option:hover:not(:disabled) { background:rgba(22,79,73,.7); }
+      @media (hover:hover) {
+        .vp-quiz-option:hover:not(:disabled) { background:rgba(22,79,73,.7); }
+      }
       .vp-quiz-option:focus-visible { outline:2px solid #00e1a5; outline-offset:2px; }
       .vp-quiz-option[data-state="correct"] { border-color:#4ade80; background:rgba(74,222,128,.16); }
       .vp-quiz-option[data-state="wrong"] { border-color:#f87171; background:rgba(248,113,113,.16); animation:vp-quiz-shake .4s ease; }
@@ -992,6 +1107,37 @@
          specificity makes the outcome order-independent and testable. */
       .vp-quiz-card .vp-quiz-summary-row-text { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     `;
+
+  // runtime-src/demo-overlays/compact.ts
+  var FULL_MIN_WIDTH = 750;
+  var FULL_MIN_HEIGHT = 280;
+  function isCompact(width, height) {
+    return width < FULL_MIN_WIDTH || height < FULL_MIN_HEIGHT;
+  }
+  function observeCompact(target, apply, onCleanup, classify = isCompact) {
+    const measure = () => {
+      const r = target.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return false;
+      return classify(r.width, r.height);
+    };
+    let state = measure();
+    apply(state);
+    const update = () => {
+      const next = measure();
+      if (next === state) return;
+      state = next;
+      apply(next);
+    };
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(update);
+      ro.observe(target);
+      onCleanup(() => ro.disconnect());
+    } else {
+      window.addEventListener("resize", update);
+      onCleanup(() => window.removeEventListener("resize", update));
+    }
+    return () => state;
+  }
 
   // runtime-src/demo-overlays/quiz.ts
   function qzEl(tag, props, kids) {
@@ -1821,6 +1967,314 @@
   </div>`;
   }
 
+  // runtime-src/demo-overlays/sheet-geometry.ts
+  function sheetMaxTop(vw, vh) {
+    return Math.round(vh * (vh >= vw ? 0.55 : 0.4));
+  }
+  function sheetTop(i) {
+    const targetScroll = Math.min(
+      Math.max(i.scrollY + i.playerTop, 0),
+      Math.max(i.maxScroll, 0)
+    );
+    const bottomAfter = i.playerBottom - (targetScroll - i.scrollY);
+    const top = Math.min(Math.max(bottomAfter, 0), sheetMaxTop(i.vw, i.vh));
+    return { top: Math.round(top), targetScroll: Math.round(targetScroll) };
+  }
+
+  // runtime-src/demo-overlays/mobile-sheet.ts
+  var TAB_BAR_ID = "vp-mobile-tabs";
+  var SHEET_Z = 1100;
+  function createMobileSheet(deps) {
+    var _a, _b;
+    const { sidebar, playerHost, tabs, setTab, onCleanup } = deps;
+    let opened = false;
+    let opener = null;
+    let frame = 0;
+    sidebar.classList.add("vp-sheet-ui");
+    sidebar.setAttribute("role", "dialog");
+    sidebar.setAttribute("aria-modal", "false");
+    sidebar.setAttribute("aria-label", t("demo.sheet.label"));
+    sidebar.style.cssText = `position:fixed; left:0; right:0; bottom:0; top:0; width:auto; max-height:none; z-index:${SHEET_Z}; box-sizing:border-box; background:${T.card}; color:${T.fg}; color-scheme:dark; font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; border-bottom:0; border-radius:14px 14px 0 0; box-shadow:0 -8px 24px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden;`;
+    sidebar.querySelectorAll(".vp-tab").forEach((b) => b.style.minHeight = "44px");
+    const panels = sidebar.querySelector("#vp-panels");
+    if (panels) panels.style.overscrollBehavior = "contain";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "vp-sheet-close";
+    closeBtn.setAttribute("aria-label", t("demo.sheet.close"));
+    closeBtn.textContent = "✕";
+    closeBtn.style.cssText = `flex:0 0 44px; height:44px; border:0; border-radius:8px; background:transparent; color:${T.mutedFg}; font:600 16px system-ui; cursor:pointer;`;
+    closeBtn.onclick = () => close();
+    (_b = (_a = sidebar.querySelector(".vp-tab")) == null ? void 0 : _a.parentElement) == null ? void 0 : _b.appendChild(closeBtn);
+    function applyClosed(animate) {
+      sidebar.style.transition = animate ? "transform .25s ease, visibility 0s linear .25s" : "";
+      sidebar.style.transform = "translateY(100%)";
+      sidebar.style.visibility = "hidden";
+      sidebar.inert = true;
+      delete sidebar.dataset.open;
+    }
+    applyClosed(false);
+    const fullscreenHost = () => {
+      var _a2;
+      const fs = (_a2 = document.fullscreenElement) != null ? _a2 : null;
+      return fs && fs.contains(playerHost) ? fs : null;
+    };
+    const place = () => {
+      var _a2;
+      const parent = (_a2 = fullscreenHost()) != null ? _a2 : document.body;
+      if (sidebar.parentElement !== parent) parent.appendChild(sidebar);
+    };
+    place();
+    const nav = document.createElement("nav");
+    nav.id = TAB_BAR_ID;
+    nav.className = "vp-sheet-ui";
+    nav.setAttribute("aria-label", t("demo.sheet.tabs"));
+    nav.style.cssText = "display:flex; gap:6px; padding:8px 0; box-sizing:border-box; font:600 13px system-ui;";
+    const tabButtons = tabs.map((tab) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.sheetTab = tab.key;
+      b.setAttribute("aria-controls", sidebar.id);
+      b.setAttribute("aria-expanded", "false");
+      b.textContent = tab.label;
+      b.style.cssText = `flex:1; min-height:44px; border:0; border-radius:10px; background:${T.muted}; color:${T.fg}; font:inherit; cursor:pointer;`;
+      b.onclick = () => open(tab.key);
+      nav.appendChild(b);
+      return b;
+    });
+    playerHost.after(nav);
+    function open(tab) {
+      var _a2;
+      setTab(tab);
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let top;
+      if (fullscreenHost()) {
+        top = sheetMaxTop(vw, vh);
+      } else {
+        const r = playerHost.getBoundingClientRect();
+        const se = (_a2 = document.scrollingElement) != null ? _a2 : document.documentElement;
+        const next = sheetTop({
+          playerTop: r.top,
+          playerBottom: r.bottom,
+          scrollY: window.scrollY,
+          maxScroll: se.scrollHeight - vh,
+          vw,
+          vh
+        });
+        top = next.top;
+        if (Math.abs(next.targetScroll - window.scrollY) >= 1)
+          window.scrollTo({ top: next.targetScroll, behavior: "smooth" });
+      }
+      if (!opened) opener = document.activeElement;
+      opened = true;
+      sidebar.style.top = `${top}px`;
+      sidebar.style.transition = "transform .25s ease";
+      sidebar.style.transform = "none";
+      sidebar.style.visibility = "visible";
+      sidebar.inert = false;
+      sidebar.dataset.open = "1";
+      tabButtons.forEach(
+        (b) => b.setAttribute("aria-expanded", String(b.dataset.sheetTab === tab))
+      );
+      try {
+        closeBtn.focus({ preventScroll: true });
+      } catch {
+      }
+    }
+    function close() {
+      if (!opened) return;
+      opened = false;
+      applyClosed(true);
+      tabButtons.forEach((b) => b.setAttribute("aria-expanded", "false"));
+      const back = opener;
+      opener = null;
+      if (back instanceof HTMLElement && back.isConnected)
+        try {
+          back.focus({ preventScroll: true });
+        } catch {
+        }
+    }
+    const follow = () => {
+      if (!opened || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!opened) return;
+        const max = sheetMaxTop(window.innerWidth, window.innerHeight);
+        const bottom = fullscreenHost() ? max : playerHost.getBoundingClientRect().bottom;
+        sidebar.style.top = `${Math.round(Math.min(Math.max(bottom, 0), max))}px`;
+      });
+    };
+    const onKeydown = (e) => {
+      if (e.key === "Escape" && opened) close();
+    };
+    const onFullscreen = () => {
+      place();
+      follow();
+    };
+    window.addEventListener("scroll", follow, { passive: true });
+    window.addEventListener("resize", follow);
+    document.addEventListener("keydown", onKeydown);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    document.addEventListener("webkitfullscreenchange", onFullscreen);
+    onCleanup(() => {
+      window.removeEventListener("scroll", follow);
+      window.removeEventListener("resize", follow);
+      document.removeEventListener("keydown", onKeydown);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+      document.removeEventListener("webkitfullscreenchange", onFullscreen);
+      if (frame) cancelAnimationFrame(frame);
+      nav.remove();
+      sidebar.remove();
+    });
+    return {
+      open,
+      close,
+      isOpen: () => opened,
+      isConnected: () => nav.isConnected && sidebar.isConnected
+    };
+  }
+
+  // runtime-src/demo-overlays/sidebar-host.ts
+  function chooseHostMode(viewportFits, hasContent) {
+    if (!hasContent) return "none";
+    return viewportFits ? "desktop" : "sheet";
+  }
+  function installSidebarHost(deps) {
+    if (deps.mode === "sheet") {
+      const sheet = createMobileSheet(deps);
+      return {
+        mode: "sheet",
+        open: sheet.open,
+        isConnected: sheet.isConnected
+      };
+    }
+    installDesktop(deps.sidebar, deps.onCleanup);
+    return {
+      mode: "desktop",
+      open: deps.setTab,
+      isConnected: () => deps.sidebar.isConnected
+    };
+  }
+  function installDesktop(sidebar, onCleanup) {
+    function detectTopNavHeight() {
+      let bottom = 0;
+      const candidates = document.querySelectorAll(
+        'header, nav, [role="banner"], [class*="AppBar"], [class*="Toolbar"], [class*="topbar"], [class*="TopBar"], [class*="navbar"]'
+      );
+      for (const el of candidates) {
+        const cs = getComputedStyle(el);
+        if (cs.position !== "fixed" && cs.position !== "sticky") continue;
+        const r = el.getBoundingClientRect();
+        if (r.top > 6 || r.height > 200 || r.height < 24) continue;
+        if (r.bottom > bottom) bottom = r.bottom;
+      }
+      return bottom;
+    }
+    const SIDEBAR_W = "clamp(340px, 30vw, 476px)";
+    const SIDEBAR_GAP = 16;
+    const SIDEBAR_MIN_TOP = 24;
+    function applyFixedRightRail() {
+      const topClear = Math.max(
+        SIDEBAR_MIN_TOP,
+        Math.ceil(detectTopNavHeight() + 8)
+      );
+      sidebar.style.position = "fixed";
+      sidebar.style.top = topClear + "px";
+      sidebar.style.right = SIDEBAR_GAP + "px";
+      sidebar.style.bottom = SIDEBAR_GAP + "px";
+      sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
+      sidebar.style.zIndex = "50";
+      sidebar.style.width = SIDEBAR_W;
+      sidebar.style.alignSelf = "";
+      if (sidebar.parentElement !== document.body)
+        document.body.appendChild(sidebar);
+      const reserve = `calc(${SIDEBAR_W} + ${SIDEBAR_GAP * 2}px)`;
+      const targets = [
+        document.querySelector("main"),
+        document.querySelector('[class*="MainScroll"]'),
+        document.querySelector('[class*="content-scroll"]'),
+        document.body
+      ].filter(Boolean);
+      for (const t2 of targets) {
+        const prev = t2.style.paddingRight;
+        t2.style.paddingRight = reserve;
+        onCleanup(() => {
+          t2.style.paddingRight = prev;
+        });
+      }
+      const onResize = () => {
+        const next = Math.max(
+          SIDEBAR_MIN_TOP,
+          Math.ceil(detectTopNavHeight() + 8)
+        );
+        sidebar.style.top = next + "px";
+        sidebar.style.maxHeight = `calc(100vh - ${next + SIDEBAR_GAP}px)`;
+      };
+      window.addEventListener("resize", onResize);
+      onCleanup(() => window.removeEventListener("resize", onResize));
+    }
+    function tryFlexSibling() {
+      const mainEl = document.querySelector("main");
+      if (!mainEl) return false;
+      const flexParent = mainEl.parentElement;
+      if (!flexParent) return false;
+      const mainBox = mainEl.getBoundingClientRect();
+      if (mainBox.width <= 0 || mainBox.height <= 0) return false;
+      const prevDisplays = /* @__PURE__ */ new Map();
+      [...flexParent.children].forEach((child) => {
+        const c = child;
+        if (c !== mainEl && c.id !== "vp-demo-sidebar") {
+          prevDisplays.set(c, c.style.display);
+          c.style.display = "none";
+        }
+      });
+      const prevParentDisplay = flexParent.style.display;
+      const prevParentGap = flexParent.style.gap;
+      const prevMainFlex = mainEl.style.flex;
+      const prevMainMinWidth = mainEl.style.minWidth;
+      if (getComputedStyle(flexParent).display !== "flex")
+        flexParent.style.display = "flex";
+      flexParent.style.gap = "24px";
+      mainEl.style.flex = "1 1 0";
+      mainEl.style.minWidth = "0";
+      flexParent.appendChild(sidebar);
+      const mainRect = mainEl.getBoundingClientRect();
+      const sbRect = sidebar.getBoundingClientRect();
+      const fitsToRightOfMain = sbRect.left + 5 >= mainRect.right;
+      const visibleInViewport = sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
+      const restoreHost = () => {
+        prevDisplays.forEach((v, child) => {
+          child.style.display = v;
+        });
+        flexParent.style.display = prevParentDisplay;
+        flexParent.style.gap = prevParentGap;
+        mainEl.style.flex = prevMainFlex;
+        mainEl.style.minWidth = prevMainMinWidth;
+      };
+      if (fitsToRightOfMain && visibleInViewport) {
+        onCleanup(restoreHost);
+        const siblingWatch = new MutationObserver((records) => {
+          for (const rec of records)
+            rec.addedNodes.forEach((n) => {
+              if (!(n instanceof HTMLElement)) return;
+              if (n === mainEl || n.id === "vp-demo-sidebar") return;
+              if (n.tagName === "MAIN" || n.querySelector("main")) return;
+              if (!prevDisplays.has(n)) prevDisplays.set(n, n.style.display);
+              n.style.display = "none";
+            });
+        });
+        siblingWatch.observe(flexParent, { childList: true });
+        onCleanup(() => siblingWatch.disconnect());
+        return true;
+      }
+      restoreHost();
+      return false;
+    }
+    if (!tryFlexSibling()) applyFixedRightRail();
+    onCleanup(() => sidebar.remove());
+  }
+
   // runtime-src/demo-overlays/index.ts
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
@@ -1828,6 +2282,7 @@
   var SEEK_EPSILON_SEC = 1.5;
   var SLOT_Z = 15;
   var QUIZ_SLOT_Z = 20;
+  var PROMOTED_QUIZ_Z = 1150;
   var ICON_PLAY = '<svg class="vp-audio-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
   var ICON_PAUSE = '<svg class="vp-audio-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   var ICON_SKIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/></svg>';
@@ -1864,11 +2319,13 @@
     "vp-slot-lt",
     "vp-slot-quiz",
     "vp-demo-sidebar",
+    TAB_BAR_ID,
     "vp-anim-style",
     "__vp-slot-style",
     "__vp-section-style",
     "__vp-audio-style",
     "__vp-quiz-style",
+    "__vp-pill-style",
     AUDIO_EL_ID
   ];
   function main() {
@@ -1988,7 +2445,7 @@
       }
     }
     function mountInner(cfgHit, mountState) {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
       const onCleanup = (fn) => {
         mountState.cleanups.push(fn);
       };
@@ -2006,7 +2463,10 @@
       const showScienceTab = sciences.length > 0;
       const showMetaTab = metaSteps.length > 0;
       const sidebarFits = sidebarViewport.matches;
-      const showSidebar = sidebarFits && (showCoachingTab || showScienceTab || showMetaTab);
+      const hostMode = chooseHostMode(
+        sidebarFits,
+        showCoachingTab || showScienceTab || showMetaTab
+      );
       const showAudio = audios.length > 0;
       const showQuiz = quiz !== null;
       w.__vpConfig = {
@@ -2072,7 +2532,10 @@
         "top:14px; left:14px; right:14px; max-width:none"
       );
       const slotTR = makeSlot("vp-slot-tr", "top:10px; right:10px;");
-      const slotBR = makeSlot("vp-slot-br", "bottom:58px; right:14px;");
+      const slotBR = makeSlot(
+        "vp-slot-br",
+        "bottom:58px; right:14px; max-width:calc(100% - 28px);"
+      );
       const slotLowerThird = makeSlot(
         "vp-slot-lt",
         "right:14px; bottom:58px; width:320px; max-width:calc(100% - 28px);"
@@ -2082,8 +2545,63 @@
         "inset:0; display:flex; align-items:center; justify-content:center;",
         QUIZ_SLOT_Z
       ) : null;
+      const compactSlots = [
+        slotTL,
+        slotTR,
+        slotBR,
+        slotLowerThird,
+        slotQuiz
+      ].filter((s) => s !== null);
+      function placeQuizSlot(compact) {
+        var _a2;
+        if (!slotQuiz) return;
+        const promote = compact && !document.fullscreenElement;
+        const parent = promote ? document.body : playerHost;
+        if (slotQuiz.parentElement === parent) return;
+        const hadFocus = slotQuiz.contains(document.activeElement);
+        parent.appendChild(slotQuiz);
+        slotQuiz.style.position = promote ? "fixed" : "absolute";
+        slotQuiz.style.zIndex = String(promote ? PROMOTED_QUIZ_Z : QUIZ_SLOT_Z);
+        if (promote) slotQuiz.setAttribute("data-vp-promoted", "1");
+        else slotQuiz.removeAttribute("data-vp-promoted");
+        if (hadFocus)
+          (_a2 = slotQuiz.querySelector(".vp-quiz-card")) == null ? void 0 : _a2.focus({ preventScroll: true });
+      }
+      const isCompactNow = observeCompact(
+        playerHost,
+        (compact) => {
+          for (const s of compactSlots)
+            if (compact) s.setAttribute("data-vp-compact", "1");
+            else s.removeAttribute("data-vp-compact");
+          slotLowerThird.style.left = compact ? "14px" : "";
+          slotLowerThird.style.width = compact ? "auto" : "320px";
+          placeQuizSlot(compact);
+        },
+        onCleanup
+      );
+      if (slotQuiz) {
+        const onFullscreen = () => placeQuizSlot(isCompactNow());
+        document.addEventListener("fullscreenchange", onFullscreen);
+        document.addEventListener("webkitfullscreenchange", onFullscreen);
+        onCleanup(() => {
+          document.removeEventListener("fullscreenchange", onFullscreen);
+          document.removeEventListener("webkitfullscreenchange", onFullscreen);
+        });
+      }
+      const pillStyleId = "__vp-pill-style";
+      (_g = document.getElementById(pillStyleId)) == null ? void 0 : _g.remove();
+      {
+        const s = document.createElement("style");
+        s.id = pillStyleId;
+        s.textContent = PILL_CSS;
+        document.head.appendChild(s);
+        onCleanup(() => {
+          var _a2;
+          return (_a2 = document.getElementById(pillStyleId)) == null ? void 0 : _a2.remove();
+        });
+      }
       const sectionStyleId = "__vp-section-style";
-      (_g = document.getElementById(sectionStyleId)) == null ? void 0 : _g.remove();
+      (_h = document.getElementById(sectionStyleId)) == null ? void 0 : _h.remove();
       {
         const s = document.createElement("style");
         s.id = sectionStyleId;
@@ -2128,12 +2646,21 @@
       let renderedRows = [];
       let renderedPhaseId = null;
       sectionPill.addEventListener("click", (e) => {
+        var _a2;
+        e.stopPropagation();
+        if (isCompactNow()) {
+          (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "coaching");
+          return;
+        }
         const row = e.target.closest(
           "[data-seek]"
         );
-        if (!row) return;
-        e.stopPropagation();
-        window.player.seek(Number(row.dataset.seek) + 0.1);
+        if (row) {
+          window.player.seek(Number(row.dataset.seek) + 0.1);
+          return;
+        }
+        if (window.matchMedia("(hover: none)").matches)
+          sectionPill.dataset.pinned = sectionPill.dataset.pinned === "1" ? "" : "1";
       });
       function renderSection() {
         var _a2, _b2;
@@ -2233,23 +2760,27 @@
         w.__vpHighlightedScience = active.id;
         w.__vpExpandedScience = active.id;
         renderScienceHighlight();
+        const canOpen = typeof w.__vpSidebarTab === "function";
         slotTR.innerHTML = `
-      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
-        <span style="font-size:14px;line-height:1">🧪</span>
-        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">${esc(t("demo.science.label"))}</span>
-        <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(t("demo.science.open"))}</button>
+      <div data-overlay-action="science" class="vp-sci-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}">
+        <span class="vp-sci-icon">🧪</span>
+        <span class="vp-sci-label">${esc(t("demo.science.label"))}</span>
+        <span class="vp-sci-name">${esc(active.name)}</span>
+        ${canOpen ? `<button class="vp-sci-open">${esc(t("demo.science.open"))}</button>` : ""}
       </div>`;
-        const openSci = (e) => {
-          var _a2;
-          e.stopPropagation();
-          (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "science");
-        };
-        slotTR.querySelector('[data-overlay-action="science"]').onclick = openSci;
-        slotTR.querySelector("button").onclick = openSci;
+        if (canOpen) {
+          const openSci = (e) => {
+            var _a2;
+            e.stopPropagation();
+            (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "science");
+          };
+          slotTR.querySelector('[data-overlay-action="science"]').onclick = openSci;
+          const openBtn = slotTR.querySelector("button");
+          if (openBtn) openBtn.onclick = openSci;
+        }
       }
-      const videoEl = (_h = findPlayers()[0]) != null ? _h : null;
-      (_i = document.getElementById(AUDIO_EL_ID)) == null ? void 0 : _i.remove();
+      const videoEl = (_i = findPlayers()[0]) != null ? _i : null;
+      (_j = document.getElementById(AUDIO_EL_ID)) == null ? void 0 : _j.remove();
       const audioEl = document.createElement("audio");
       audioEl.id = AUDIO_EL_ID;
       audioEl.preload = "none";
@@ -2452,7 +2983,7 @@
       }
       if (showAudio) {
         const audioStyleId = "__vp-audio-style";
-        (_j = document.getElementById(audioStyleId)) == null ? void 0 : _j.remove();
+        (_k = document.getElementById(audioStyleId)) == null ? void 0 : _k.remove();
         const s = document.createElement("style");
         s.id = audioStyleId;
         s.textContent = AUDIO_CSS;
@@ -2569,24 +3100,26 @@
         if (slotBR.dataset.activeMeta === active.id) return;
         slotBR.dataset.kind = "meta";
         slotBR.dataset.activeMeta = active.id;
+        const canOpen = typeof w.__vpSidebarTab === "function";
         slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="${esc(t("demo.meta.openTitle"))}">
-        <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
-        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">${esc(
+      <div data-overlay-action="meta" class="vp-meta-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}"${canOpen ? ` title="${esc(t("demo.meta.openTitle"))}"` : ""}>
+        <div class="vp-meta-num">${esc(active.n)}</div>
+        <span class="vp-meta-step">${esc(
           t("demo.meta.step", { n: active.n, total: metaSteps.length })
         )}</span>
-        <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
-        <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
+        <span class="vp-meta-divider"></span>
+        <span class="vp-meta-title">${esc(active.title)}</span>
       </div>`;
-        slotBR.querySelector('[data-overlay-action="meta"]').onclick = (e) => {
-          var _a2;
-          e.stopPropagation();
-          (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "meta");
-        };
+        if (canOpen)
+          slotBR.querySelector('[data-overlay-action="meta"]').onclick = (e) => {
+            var _a2;
+            e.stopPropagation();
+            (_a2 = w.__vpSidebarTab) == null ? void 0 : _a2.call(w, "meta");
+          };
       }
       if (showQuiz) {
         const quizStyleId = "__vp-quiz-style";
-        (_k = document.getElementById(quizStyleId)) == null ? void 0 : _k.remove();
+        (_l = document.getElementById(quizStyleId)) == null ? void 0 : _l.remove();
         const s = document.createElement("style");
         s.id = quizStyleId;
         s.textContent = QUIZ_CSS;
@@ -2622,112 +3155,14 @@
       ).join("")}
     </div>
   `;
-      function detectTopNavHeight() {
-        let bottom = 0;
-        const candidates = document.querySelectorAll(
-          'header, nav, [role="banner"], [class*="AppBar"], [class*="Toolbar"], [class*="topbar"], [class*="TopBar"], [class*="navbar"]'
-        );
-        for (const el of candidates) {
-          const cs = getComputedStyle(el);
-          if (cs.position !== "fixed" && cs.position !== "sticky") continue;
-          const r = el.getBoundingClientRect();
-          if (r.top > 6 || r.height > 200 || r.height < 24) continue;
-          if (r.bottom > bottom) bottom = r.bottom;
-        }
-        return bottom;
-      }
-      const SIDEBAR_W = "clamp(340px, 30vw, 476px)";
-      const SIDEBAR_GAP = 16;
-      const SIDEBAR_MIN_TOP = 24;
-      function applyFixedRightRail() {
-        const topClear = Math.max(
-          SIDEBAR_MIN_TOP,
-          Math.ceil(detectTopNavHeight() + 8)
-        );
-        sidebar.style.position = "fixed";
-        sidebar.style.top = topClear + "px";
-        sidebar.style.right = SIDEBAR_GAP + "px";
-        sidebar.style.bottom = SIDEBAR_GAP + "px";
-        sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
-        sidebar.style.zIndex = "50";
-        sidebar.style.width = SIDEBAR_W;
-        sidebar.style.alignSelf = "";
-        if (sidebar.parentElement !== document.body)
-          document.body.appendChild(sidebar);
-        const reserve = `calc(${SIDEBAR_W} + ${SIDEBAR_GAP * 2}px)`;
-        const targets = [
-          document.querySelector("main"),
-          document.querySelector('[class*="MainScroll"]'),
-          document.querySelector('[class*="content-scroll"]'),
-          document.body
-        ].filter(Boolean);
-        for (const t2 of targets) {
-          const prev = t2.style.paddingRight;
-          t2.style.paddingRight = reserve;
-          onCleanup(() => {
-            t2.style.paddingRight = prev;
-          });
-        }
-        const onResize = () => {
-          const next = Math.max(
-            SIDEBAR_MIN_TOP,
-            Math.ceil(detectTopNavHeight() + 8)
-          );
-          sidebar.style.top = next + "px";
-          sidebar.style.maxHeight = `calc(100vh - ${next + SIDEBAR_GAP}px)`;
-        };
-        window.addEventListener("resize", onResize);
-        onCleanup(() => window.removeEventListener("resize", onResize));
-      }
-      function tryFlexSibling() {
-        const mainEl = document.querySelector("main");
-        if (!mainEl) return false;
-        const flexParent = mainEl.parentElement;
-        if (!flexParent) return false;
-        const mainBox = mainEl.getBoundingClientRect();
-        if (mainBox.width <= 0 || mainBox.height <= 0) return false;
-        const prevDisplays = /* @__PURE__ */ new Map();
-        [...flexParent.children].forEach((child) => {
-          const c = child;
-          if (c !== mainEl && c.id !== "vp-demo-sidebar") {
-            prevDisplays.set(c, c.style.display);
-            c.style.display = "none";
-          }
-        });
-        const prevParentDisplay = flexParent.style.display;
-        const prevParentGap = flexParent.style.gap;
-        const prevMainFlex = mainEl.style.flex;
-        const prevMainMinWidth = mainEl.style.minWidth;
-        if (getComputedStyle(flexParent).display !== "flex")
-          flexParent.style.display = "flex";
-        flexParent.style.gap = "24px";
-        mainEl.style.flex = "1 1 0";
-        mainEl.style.minWidth = "0";
-        flexParent.appendChild(sidebar);
-        const mainRect = mainEl.getBoundingClientRect();
-        const sbRect = sidebar.getBoundingClientRect();
-        const fitsToRightOfMain = sbRect.left + 5 >= mainRect.right;
-        const visibleInViewport = sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
-        const restoreHost = () => {
-          prevDisplays.forEach((v, child) => {
-            child.style.display = v;
-          });
-          flexParent.style.display = prevParentDisplay;
-          flexParent.style.gap = prevParentGap;
-          mainEl.style.flex = prevMainFlex;
-          mainEl.style.minWidth = prevMainMinWidth;
-        };
-        if (fitsToRightOfMain && visibleInViewport) {
-          onCleanup(restoreHost);
-          return true;
-        }
-        restoreHost();
-        return false;
-      }
-      if (showSidebar) {
-        if (!tryFlexSibling()) applyFixedRightRail();
-        onCleanup(() => sidebar.remove());
-      }
+      const host = hostMode === "none" ? null : installSidebarHost({
+        mode: hostMode,
+        sidebar,
+        playerHost,
+        tabs: tabDefs,
+        setTab,
+        onCleanup
+      });
       function setTab(name) {
         var _a2;
         const target = tabDefs.some((tab) => tab.key === name) ? name : (_a2 = tabDefs[0]) == null ? void 0 : _a2.key;
@@ -2744,10 +3179,12 @@
           p.style.display = p.getAttribute("data-panel") === target ? "" : "none";
         });
       }
-      w.__vpSidebarTab = setTab;
-      onCleanup(() => {
-        delete w.__vpSidebarTab;
-      });
+      if (host) {
+        w.__vpSidebarTab = host.open;
+        onCleanup(() => {
+          delete w.__vpSidebarTab;
+        });
+      }
       sidebar.querySelectorAll(".vp-tab").forEach((btn) => {
         btn.onclick = () => setTab(btn.dataset.tab);
       });
@@ -2862,7 +3299,8 @@
         const card = sciencePanel.querySelector(
           `[data-sci-card="${CSS.escape(id)}"]`
         );
-        if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        if (card && !sidebar.inert)
+          card.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
       renderSciencePanel();
       const metaPanel = sidebar.querySelector('[data-panel="meta"]');
@@ -2976,7 +3414,7 @@
         if (e.type === "ended") quizCtrl == null ? void 0 : quizCtrl.onEnded();
       });
       if (typeof offBus === "function") onCleanup(offBus);
-      recomputeActive((_l = window.player.current) != null ? _l : 0);
+      recomputeActive((_m = window.player.current) != null ? _m : 0);
       mountState.checkAlive = () => {
         if (!playerHost.isConnected) return false;
         if (window.player !== mountedPlayer) return false;
@@ -2986,7 +3424,7 @@
         if (!slotBR.isConnected) return false;
         if (!slotLowerThird.isConnected) return false;
         if (showQuiz && !(slotQuiz == null ? void 0 : slotQuiz.isConnected)) return false;
-        if (showSidebar && !sidebar.isConnected) return false;
+        if (host && !host.isConnected()) return false;
         if (sidebarViewport.matches !== sidebarFits) return false;
         return true;
       };

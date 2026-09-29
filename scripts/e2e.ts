@@ -3,7 +3,8 @@
 //
 // A run is two Playwright invocations, not one. Phase 1 resolves the target into
 // e2e/.auth/targets.json; phase 2 loads that file while collecting tests and
-// emits one test per video. They cannot be a single run: Playwright fixes its
+// emits one test per video, on both device projects (desktop `canary` and the
+// phone `canary-mobile`). They cannot be a single run: Playwright fixes its
 // test list while loading spec files, so a targets file written by a project in
 // the same run arrives too late — the suite would collect nothing and report
 // green. This script exists so nobody has to know that.
@@ -90,4 +91,11 @@ if (resolveCode !== 0) {
   process.exit(resolveCode);
 }
 
-process.exit(run("run canary", ["test", "--project=canary", ...parsed.rest]));
+process.exit(
+  run("run canary", [
+    "test",
+    "--project=canary",
+    "--project=canary-mobile",
+    ...parsed.rest,
+  ]),
+);
