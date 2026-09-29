@@ -12,12 +12,7 @@ import { getRuntimeBaseUrl } from "../common/runtime-url";
 import { shouldRun } from "../common/killswitch";
 import { report } from "../common/beacon";
 import type { Audio, Phase, VpConfig } from "../common/types";
-import {
-  DEFAULT_AUDIOS,
-  DEFAULT_META_STEPS,
-  DEFAULT_PHASES,
-  DEFAULT_SCIENCES,
-} from "./data";
+import { DEFAULT_META_STEPS, DEFAULT_PHASES, DEFAULT_SCIENCES } from "./data";
 import {
   ANIM_CSS,
   AUDIO_CSS,
@@ -127,23 +122,17 @@ const ASSET_FAILURES: Record<
 
 interface AudioController {
   state: "idle" | "playing" | "paused";
-  // "file" plays the cue's uploaded asset and takes its clock from the
-  // element's timeupdate; "tts" speaks `script` on a simulated clock.
-  mode: "tts" | "file";
   active: Audio | null;
   audioTime: number;
   videoResumeTime: number;
   triggered: Set<string>;
   audioEl: HTMLAudioElement | null;
-  _tickHandle: ReturnType<typeof setTimeout> | null;
   activate(a: Audio, videoT: number): void;
   togglePlay(): void;
   end(opts?: { resume?: boolean }): void;
   skip(): void;
   seekRel(delta: number): void;
-  _speak(a: Audio): void;
   isActive(): boolean;
-  _scheduleTick(): void;
   _render(): void;
 }
 
@@ -359,7 +348,8 @@ function main(): string {
     const isDemo = parsed.demo === true;
     const phases: Phase[] = parsed.phases ?? (isDemo ? DEFAULT_PHASES : []);
     const sciences = parsed.sciences ?? (isDemo ? DEFAULT_SCIENCES : []);
-    const audios = parsed.audios ?? (isDemo ? DEFAULT_AUDIOS : []);
+    // No demo voice-overs: a cue needs a real audio asset to play at all.
+    const audios = parsed.audios ?? [];
     const metaSteps = parsed.metaSteps ?? (isDemo ? DEFAULT_META_STEPS : []);
     const assets = parsed.assets ?? {};
     const quiz = parsed.quiz ?? null;
@@ -810,9 +800,9 @@ function main(): string {
     document.body.appendChild(audioEl);
 
     // Failure policy for a cue's `asset` reference: **graceful for the learner,
-    // loud for the operator.** A learner never sees a diagnostic — every failure
-    // degrades to the TTS path, which is why `script` is mandatory on every cue.
-    // The operator gets a named console warning plus one deduped beacon.
+    // loud for the operator.** A learner never sees a diagnostic — a cue without
+    // playable audio is simply skipped and the video keeps running. The operator
+    // gets a named console warning plus one deduped beacon.
     //
     // Resolve at cue time rather than at mount: the reference is cheap to
     // resolve and a late-arriving config revision is then picked up for free.
@@ -823,7 +813,7 @@ function main(): string {
       if (!failure) return url;
       const { errorType, hint } = ASSET_FAILURES[failure];
       console.warn(
-        `[vp] audio cue "${a.id}": ${hint} — speaking the script instead`,
+        `[vp] audio cue "${a.id}": ${hint} — skipping the cue`,
         a.asset,
       );
       reportFailure(errorType);
@@ -858,93 +848,77 @@ function main(): string {
       return (letters || "?").toUpperCase();
     }
 
-    // Play the real file when the cue's asset resolves; otherwise (and on any
-    // playback failure) speak the script instead.
-    function startFile(a: Audio, url: string): void {
-      audioCtrl.mode = "file";
-      audioEl.src = url;
-      try {
-        audioEl.currentTime = 0;
-      } catch {
-        /* ignore */
-      }
-      const p = audioEl.play();
-      if (p && typeof p.catch === "function") p.catch(() => fallbackToTts(a));
+    // A cue whose audio cannot play (autoplay refusal, broken URL) ends like a
+    // skipped one: the learner pressed play, and a parked video with a silent
+    // card is worse than a cue that never shows.
+    function abandonCue(reason: unknown): void {
+      if (audioCtrl.state === "idle") return;
+      // Our own pause() or src swap interrupting a pending play() — not a failure.
+      if (reason instanceof DOMException && reason.name === "AbortError")
+        return;
+      console.warn("[vp] audio playback failed; skipping the cue", reason);
+      audioCtrl.end({ resume: true });
     }
 
-    function fallbackToTts(a: Audio): void {
-      if (audioCtrl.state === "idle" || audioCtrl.mode !== "file") return;
-      audioCtrl.mode = "tts";
-      try {
-        audioEl.pause();
-      } catch {
-        /* ignore */
-      }
-      audioCtrl._speak(a);
-      audioCtrl._scheduleTick();
+    // Bumped by every end(), so a play() promise that settles after its cue
+    // ended cannot abandon the next one.
+    let cueGeneration = 0;
+    function playCue(): void {
+      const generation = cueGeneration;
+      audioEl.play()?.catch((reason: unknown) => {
+        if (generation === cueGeneration) abandonCue(reason);
+      });
     }
 
     const audioCtrl: AudioController = {
       state: "idle",
-      mode: "tts",
       active: null,
       audioTime: 0,
       videoResumeTime: 0,
       triggered: new Set(),
       audioEl,
-      _tickHandle: null,
 
       activate(a, videoT) {
         if (audioCtrl.state !== "idle") return;
+        // Marked before resolving so an unplayable cue is not retried every tick.
+        audioCtrl.triggered.add(a.id);
+        const url = resolveAudioUrl(a);
+        if (!url) return;
         audioCtrl.state = "playing";
         audioCtrl.active = a;
         audioCtrl.audioTime = 0;
         audioCtrl.videoResumeTime = videoT;
-        audioCtrl.triggered.add(a.id);
         try {
           videoEl?.pause();
         } catch {
           /* ignore */
         }
-        const url = resolveAudioUrl(a);
-        if (url) {
-          startFile(a, url);
-          audioCtrl._render();
-          return;
+        audioEl.src = url;
+        try {
+          audioEl.currentTime = 0;
+        } catch {
+          /* ignore */
         }
-        audioCtrl.mode = "tts";
-        audioCtrl._speak(a);
-        audioCtrl._scheduleTick();
+        playCue();
+        audioCtrl._render();
       },
       togglePlay() {
         if (audioCtrl.state === "idle") return;
         const pausing = audioCtrl.state === "playing";
         audioCtrl.state = pausing ? "paused" : "playing";
         try {
-          if (audioCtrl.mode === "file") {
-            if (pausing) audioEl.pause();
-            else {
-              const p = audioEl.play();
-              if (p && typeof p.catch === "function")
-                p.catch((err) => console.warn("[vp] audio resume failed", err));
-            }
-          } else if (pausing) speechSynthesis.pause();
-          else speechSynthesis.resume();
+          if (pausing) audioEl.pause();
+          else playCue();
         } catch {
           /* ignore */
         }
-        audioCtrl._scheduleTick();
         audioCtrl._render();
       },
       end({ resume = true }: { resume?: boolean } = {}) {
+        cueGeneration++;
         audioCtrl.state = "idle";
         audioCtrl.active = null;
         audioCtrl.audioTime = 0;
-        if (audioCtrl._tickHandle) {
-          clearTimeout(audioCtrl._tickHandle);
-          audioCtrl._tickHandle = null;
-        }
-        // Also covers a cue that started in file mode and fell back to TTS.
         if (audioEl.hasAttribute("src")) {
           try {
             audioEl.pause();
@@ -953,12 +927,6 @@ function main(): string {
           } catch {
             /* ignore */
           }
-        }
-        audioCtrl.mode = "tts";
-        try {
-          speechSynthesis.cancel();
-        } catch {
-          /* ignore */
         }
         slotLowerThird.innerHTML = "";
         slotLowerThird.dataset.kind = "";
@@ -979,61 +947,20 @@ function main(): string {
       },
       seekRel(delta) {
         if (audioCtrl.state === "idle" || !audioCtrl.active) return;
-        const from =
-          audioCtrl.mode === "file" ? audioEl.currentTime : audioCtrl.audioTime;
-        const next = Math.max(0, Math.min(audioCtrl.active.dur, from + delta));
+        const next = Math.max(
+          0,
+          Math.min(audioCtrl.active.dur, audioEl.currentTime + delta),
+        );
         audioCtrl.audioTime = next;
-        if (audioCtrl.mode === "file") {
-          try {
-            audioEl.currentTime = next;
-          } catch {
-            /* ignore */
-          }
-        }
-        audioCtrl._render();
-      },
-      _speak(a) {
         try {
-          if (!("speechSynthesis" in window)) return;
-          speechSynthesis.cancel();
-          const u = new SpeechSynthesisUtterance(a.script || a.title);
-          u.lang = "de-DE";
-          u.rate = 1.0;
-          u.pitch = 1.0;
-          u.onend = () => {
-            if (audioCtrl.state !== "idle") audioCtrl.end({ resume: true });
-          };
-          speechSynthesis.speak(u);
+          audioEl.currentTime = next;
         } catch {
           /* ignore */
         }
+        audioCtrl._render();
       },
       isActive() {
         return audioCtrl.state !== "idle";
-      },
-      _scheduleTick() {
-        if (audioCtrl._tickHandle) {
-          clearTimeout(audioCtrl._tickHandle);
-          audioCtrl._tickHandle = null;
-        }
-        // File mode takes its clock from the element's timeupdate; the simulated
-        // clock is TTS-only.
-        if (audioCtrl.mode === "file") return;
-        if (audioCtrl.state !== "playing") return;
-        audioCtrl._tickHandle = setTimeout(() => {
-          audioCtrl._tickHandle = null;
-          if (audioCtrl.state !== "playing" || !audioCtrl.active) return;
-          audioCtrl.audioTime = Math.min(
-            audioCtrl.active.dur,
-            audioCtrl.audioTime + 0.1,
-          );
-          if (audioCtrl.audioTime >= audioCtrl.active.dur) {
-            audioCtrl.end({ resume: true });
-            return;
-          }
-          audioCtrl._render();
-          audioCtrl._scheduleTick();
-        }, 100);
       },
       _render() {
         renderAudio();
@@ -1058,30 +985,14 @@ function main(): string {
 
     // Wired once, on the persistent element — never inside activate().
     const onAudioTimeUpdate = () => {
-      if (
-        audioCtrl.state === "idle" ||
-        audioCtrl.mode !== "file" ||
-        !audioCtrl.active
-      )
-        return;
+      if (audioCtrl.state === "idle" || !audioCtrl.active) return;
       audioCtrl.audioTime = Math.min(audioCtrl.active.dur, audioEl.currentTime);
       audioCtrl._render();
     };
     const onAudioEnded = () => {
-      // Only the file clock ends a cue; a TTS cue ends on the utterance.
-      if (audioCtrl.state !== "idle" && audioCtrl.mode === "file")
-        audioCtrl.end({ resume: true });
+      if (audioCtrl.state !== "idle") audioCtrl.end({ resume: true });
     };
-    const onAudioError = () => {
-      const active = audioCtrl.active;
-      if (audioCtrl.state === "idle" || audioCtrl.mode !== "file" || !active)
-        return;
-      console.warn(
-        "[vp] audio load failed; falling back to TTS",
-        audioEl.error,
-      );
-      fallbackToTts(active);
-    };
+    const onAudioError = () => abandonCue(audioEl.error);
     audioEl.addEventListener("timeupdate", onAudioTimeUpdate);
     audioEl.addEventListener("ended", onAudioEnded);
     // A cue belongs to the position it is anchored to. LearningSuite restores its

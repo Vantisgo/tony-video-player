@@ -1,4 +1,4 @@
-import type { Audio, MetaStep, Phase, Science } from "../common/types";
+import type { MetaStep, Phase, Science } from "../common/types";
 
 // Defaults used when a config section is absent (e.g. authoring stage).
 export const DEFAULT_PHASES: Phase[] = [
@@ -115,27 +115,6 @@ export const DEFAULT_SCIENCES: Science[] = [
     name: "Interoception",
     description: "Wahrnehmung innerer Körpersignale.",
     timestampsSec: [40],
-  },
-];
-
-export const DEFAULT_AUDIOS: Audio[] = [
-  {
-    id: "a1",
-    t: 30,
-    dur: 9,
-    title: "Voice-Over: Klarheit als Werkzeug",
-    voice: "Dr. Frederik Hümmeke",
-    script:
-      "Klarheit ist nicht nur eine Eigenschaft. Sie ist ein wiederholbares Werkzeug, mit dem du im Alltag wirken kannst.",
-  },
-  {
-    id: "a2",
-    t: 115,
-    dur: 8,
-    title: "Voice-Over: Reflexionsimpuls",
-    voice: "Dr. Frederik Hümmeke",
-    script:
-      "Halte einen Moment inne. Frage dich: wo handle ich heute schon klar, und wo zögere ich noch?",
   },
 ];
 

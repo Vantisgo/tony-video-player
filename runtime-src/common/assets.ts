@@ -23,7 +23,7 @@
 //
 // Pure and defensive like `getBunnyVideoId` in ./tracks: returns a reason code
 // instead of throwing, and never logs or reports on its own — the caller owns
-// the policy (learners get TTS, operators get telemetry).
+// the policy (learners get a skipped cue, operators get telemetry).
 
 // The literal an unexpanded placeholder still carries. Matched anywhere in the
 // string, not just at position 0, because the block may render the token with
@@ -79,8 +79,8 @@ export function resolveAssetUrl(
   assets: Readonly<Record<string, string>> = {},
 ): AssetResolution {
   const ref = String(reference ?? "").trim();
-  // An absent reference is not a failure: a cue may deliberately carry no audio
-  // file and be spoken from `script` instead.
+  // An absent reference is not a failure to report: the caller skips the cue
+  // (voice-over) or shows initials (portrait).
   if (!ref) return ok("");
 
   if (ref.includes(PLACEHOLDER)) return fail("unexpanded");
