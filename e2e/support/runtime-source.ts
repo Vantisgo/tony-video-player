@@ -63,21 +63,42 @@ export async function useRuntimeSource(page: Page): Promise<RuntimeSource> {
       value;
   }, scriptUrl);
 
+  // A loopback preview (a developer's `bun dev`, e.g.
+  // E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js) must never be
+  // requested BY THE PAGE: the tenant is https, and Chrome's Local Network
+  // Access check silently blocks it from loading http://localhost — measured
+  // 2026-09-29, the child bundles never ran and __vpReskinStatus was never set.
+  // So every request to that origin (bundles, the kill-switch, language packs,
+  // telemetry) is answered from the Node side instead.
+  const loopback = isLoopback(previewDir);
   await page.route(
-    (url) => RUNTIME_SCRIPT.test(url.pathname),
-    (route) => serveFromPreview(route, previewDir),
+    (url) =>
+      RUNTIME_SCRIPT.test(url.pathname) ||
+      (loopback && url.origin === previewDir.origin),
+    (route) => serveFromPreview(route, previewDir, loopback),
   );
 
   return { mode: "preview", scriptUrl };
 }
 
-async function serveFromPreview(route: Route, previewDir: URL): Promise<void> {
+function isLoopback(url: URL): boolean {
+  return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+}
+
+async function serveFromPreview(
+  route: Route,
+  previewDir: URL,
+  loopback: boolean,
+): Promise<void> {
   const requested = new URL(route.request().url());
 
-  // Already pointed at the preview (the loader resolves children from the
-  // override): let it through untouched rather than round-tripping it.
   if (requested.origin === previewDir.origin) {
-    await route.fallback();
+    // Already pointed at the preview (the loader resolves children from the
+    // override). A remote preview is let through untouched rather than
+    // round-tripped; a loopback one is fetched here, as-is, with its own
+    // headers (CORS and content type included), for the reason above.
+    if (loopback) await route.fulfill({ response: await route.fetch() });
+    else await route.fallback();
     return;
   }
 

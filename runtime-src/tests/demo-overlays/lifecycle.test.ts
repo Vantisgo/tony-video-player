@@ -254,7 +254,7 @@ describe("idempotency", () => {
 });
 
 describe("mobile viewport", () => {
-  it("installs no sidebar below 1024px and mounts it once the viewport widens", async () => {
+  it("installs the sheet host below 1024px and the desktop sidebar once the viewport widens", async () => {
     const happyDOM = (
       window as unknown as {
         happyDOM: { setViewport(v: { width: number }): void };
@@ -265,17 +265,29 @@ describe("mobile viewport", () => {
     addPlayer();
     await load();
 
+    // Sheet host: the <aside> is a closed (inert) sheet under <body>, a tab bar
+    // sits after the player, and no LearningSuite layout is touched.
     expect(document.getElementById("vp-slot-tl")).not.toBeNull();
-    expect(document.getElementById("vp-demo-sidebar")).toBeNull();
+    const sheet = document.getElementById("vp-demo-sidebar");
+    expect(sheet?.parentElement).toBe(document.body);
+    expect(sheet?.inert).toBe(true);
+    expect(document.getElementById("vp-mobile-tabs")).not.toBeNull();
     expect(document.body.style.paddingRight).toBe("");
 
+    // Desktop host (the fixed rail here: happy-dom has no layout, so the flex
+    // sibling's precondition fails): no tab bar.
     happyDOM.setViewport({ width: 1280 });
     await settle();
     expect(document.getElementById("vp-demo-sidebar")).not.toBeNull();
+    expect(document.getElementById("vp-demo-sidebar")?.inert).toBe(false);
+    expect(document.getElementById("vp-mobile-tabs")).toBeNull();
 
+    // Back to the sheet: the rail's padding is restored.
     happyDOM.setViewport({ width: 390 });
     await settle();
-    expect(document.getElementById("vp-demo-sidebar")).toBeNull();
+    expect(document.getElementById("vp-mobile-tabs")).not.toBeNull();
+    expect(document.getElementById("vp-demo-sidebar")?.inert).toBe(true);
+    expect(document.body.style.paddingRight).toBe("");
     happyDOM.setViewport({ width: 1024 });
   });
 });

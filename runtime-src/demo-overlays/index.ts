@@ -21,14 +21,22 @@ import {
 import {
   ANIM_CSS,
   AUDIO_CSS,
+  PILL_CSS,
   QUIZ_CSS,
   SECTION_CSS,
   SLOT_CSS,
   T,
 } from "./styles";
+import { observeCompact } from "./compact";
 import { createQuizController } from "./quiz";
 import { interventionCard } from "./intervention-card";
 import { scienceCard } from "./science-card";
+import { TAB_BAR_ID } from "./mobile-sheet";
+import {
+  chooseHostMode,
+  installSidebarHost,
+  type SidebarHost,
+} from "./sidebar-host";
 
 const CLEANUP_KEY = "__vpDemoCleanup";
 const AUDIO_EL_ID = "vp-audio-el";
@@ -57,6 +65,11 @@ const SEEK_EPSILON_SEC = 1.5;
 
 const SLOT_Z = 15;
 const QUIZ_SLOT_Z = 20;
+// A promoted quiz (compact player, see placeQuizSlot) leaves the player and
+// stacks against the PAGE instead: above LearningSuite's fixed bottom bar
+// (999, measured 2026-09-29) and our own mobile sheet (1100), below
+// LearningSuite's full-viewport overlay layers (1200) so their menus win.
+const PROMOTED_QUIZ_Z = 1150;
 
 // Inline SVG for the voice-over transport, replacing the emoji glyphs (▶ ⏸ ⏭)
 // and the 🎙️ badge: emoji render differently per platform and cannot take
@@ -170,11 +183,13 @@ const OWNED_NODE_IDS = [
   "vp-slot-lt",
   "vp-slot-quiz",
   "vp-demo-sidebar",
+  TAB_BAR_ID,
   "vp-anim-style",
   "__vp-slot-style",
   "__vp-section-style",
   "__vp-audio-style",
   "__vp-quiz-style",
+  "__vp-pill-style",
   AUDIO_EL_ID,
 ];
 
@@ -353,9 +368,13 @@ function main(): string {
     const showCoachingTab = phases.length > 0;
     const showScienceTab = sciences.length > 0;
     const showMetaTab = metaSteps.length > 0;
+    // Read once per mount: crossing 1024px remounts via checkAlive, which is
+    // what switches between the desktop sidebar and the mobile sheet.
     const sidebarFits = sidebarViewport.matches;
-    const showSidebar =
-      sidebarFits && (showCoachingTab || showScienceTab || showMetaTab);
+    const hostMode = chooseHostMode(
+      sidebarFits,
+      showCoachingTab || showScienceTab || showMetaTab,
+    );
     const showAudio = audios.length > 0;
     const showQuiz = quiz !== null;
 
@@ -466,7 +485,15 @@ function main(): string {
       "top:14px; left:14px; right:14px; max-width:none",
     );
     const slotTR = makeSlot("vp-slot-tr", "top:10px; right:10px;");
-    const slotBR = makeSlot("vp-slot-br", "bottom:58px; right:14px;");
+    // bottom:58px is measured, not guessed: on a 390×219 phone player
+    // LearningSuite's progress line sits ~57px above the player's bottom while
+    // its controls show, and the controls leave the DOM during playback
+    // (2026-09-29, spec M7). The max-width keeps a long meta title inside the
+    // player (it used to run off the left edge).
+    const slotBR = makeSlot(
+      "vp-slot-br",
+      "bottom:58px; right:14px; max-width:calc(100% - 28px);",
+    );
     // Keeps the id `vp-slot-lt` even though the voice-over card is no longer a
     // lower third: the e2e canary asserts `#vp-slot-*` by id and checkAlive()
     // reads this one, so renaming buys a tidier name at the cost of both. It
@@ -486,6 +513,76 @@ function main(): string {
           QUIZ_SLOT_Z,
         )
       : null;
+
+    // ─── Compact overlays (player under 750×280, see compact.ts) ───
+    // One attribute on every slot switches the CSS variants in styles.ts; the
+    // voice-over slot's 320px width is inline (makeSlot), so it is widened to
+    // the player here instead.
+    const compactSlots = [
+      slotTL,
+      slotTR,
+      slotBR,
+      slotLowerThird,
+      slotQuiz,
+    ].filter((s): s is HTMLElement => s !== null);
+    // On a compact player the player cannot hold a question and four answers
+    // (spec M6: 350px of content in a 185px box). The SAME element moves to
+    // <body> — the quiz controller, checkAlive and the event swallowing all
+    // hold it by reference — and becomes viewport-fixed; its scrim stays
+    // absolute inside it, so nothing depends on whether the slot's
+    // container-type captures fixed descendants. Not in fullscreen: body-level
+    // fixed elements are not rendered there, and the player fills the screen.
+    function placeQuizSlot(compact: boolean): void {
+      if (!slotQuiz) return;
+      const promote = compact && !document.fullscreenElement;
+      const parent = promote ? document.body : playerHost!;
+      if (slotQuiz.parentElement === parent) return;
+      const hadFocus = slotQuiz.contains(document.activeElement);
+      parent.appendChild(slotQuiz);
+      slotQuiz.style.position = promote ? "fixed" : "absolute";
+      slotQuiz.style.zIndex = String(promote ? PROMOTED_QUIZ_Z : QUIZ_SLOT_Z);
+      if (promote) slotQuiz.setAttribute("data-vp-promoted", "1");
+      else slotQuiz.removeAttribute("data-vp-promoted");
+      // Re-inserting a node drops focus; keep the dialog operable by keyboard.
+      if (hadFocus)
+        slotQuiz
+          .querySelector<HTMLElement>(".vp-quiz-card")
+          ?.focus({ preventScroll: true });
+    }
+
+    const isCompactNow = observeCompact(
+      playerHost,
+      (compact) => {
+        for (const s of compactSlots)
+          if (compact) s.setAttribute("data-vp-compact", "1");
+          else s.removeAttribute("data-vp-compact");
+        slotLowerThird.style.left = compact ? "14px" : "";
+        slotLowerThird.style.width = compact ? "auto" : "320px";
+        // The argument, not isCompactNow(): this first runs synchronously,
+        // inside observeCompact, before isCompactNow is assigned.
+        placeQuizSlot(compact);
+      },
+      onCleanup,
+    );
+    if (slotQuiz) {
+      const onFullscreen = (): void => placeQuizSlot(isCompactNow());
+      document.addEventListener("fullscreenchange", onFullscreen);
+      document.addEventListener("webkitfullscreenchange", onFullscreen);
+      onCleanup(() => {
+        document.removeEventListener("fullscreenchange", onFullscreen);
+        document.removeEventListener("webkitfullscreenchange", onFullscreen);
+      });
+    }
+
+    const pillStyleId = "__vp-pill-style";
+    document.getElementById(pillStyleId)?.remove();
+    {
+      const s = document.createElement("style");
+      s.id = pillStyleId;
+      s.textContent = PILL_CSS;
+      document.head.appendChild(s);
+      onCleanup(() => document.getElementById(pillStyleId)?.remove());
+    }
 
     // ─── Section indicator (top-left) ───
     const sectionStyleId = "__vp-section-style";
@@ -543,12 +640,26 @@ function main(): string {
     let renderedPhaseId: string | null = null;
 
     sectionPill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // Compact: the pill never expands inside the video (SECTION_CSS) — the
+      // sheet, or the desktop sidebar, shows the same progress with room to
+      // read it. Its rows are hidden then, so no row can be the target.
+      if (isCompactNow()) {
+        w.__vpSidebarTab?.("coaching");
+        return;
+      }
       const row = (e.target as HTMLElement).closest(
         "[data-seek]",
       ) as HTMLElement | null;
-      if (!row) return;
-      e.stopPropagation();
-      window.player.seek(Number(row.dataset.seek) + 0.1);
+      if (row) {
+        window.player.seek(Number(row.dataset.seek) + 0.1);
+        return;
+      }
+      // Touch without hover: an explicit pin replaces the sticky :hover that
+      // used to open it by accident (spec M5). With a mouse, hover does it.
+      if (window.matchMedia("(hover: none)").matches)
+        sectionPill.dataset.pinned =
+          sectionPill.dataset.pinned === "1" ? "" : "1";
     });
 
     function renderSection(): void {
@@ -660,21 +771,28 @@ function main(): string {
       w.__vpHighlightedScience = active.id;
       w.__vpExpandedScience = active.id;
       renderScienceHighlight();
+      // Offer "Open" only when there is something to open: without an installed
+      // sidebar the pill stays, as information, but promises no action.
+      const canOpen = typeof w.__vpSidebarTab === "function";
+      // Styled by class (PILL_CSS), not inline, so compact mode can vary it.
       slotTR.innerHTML = `
-      <div data-overlay-action="science" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 6px 5px 12px; backdrop-filter:blur(10px); box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; cursor:pointer;">
-        <span style="font-size:14px;line-height:1">🧪</span>
-        <span style="font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px">${esc(tr("demo.science.label"))}</span>
-        <span style="font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(active.name)}</span>
-        <button style="background:#00e1a5; color:#062b22; border:0; border-radius:999px; padding:4px 11px; font:600 11.5px system-ui; cursor:pointer; flex-shrink:0; line-height:1.3; pointer-events:auto;">${esc(tr("demo.science.open"))}</button>
+      <div data-overlay-action="science" class="vp-sci-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}">
+        <span class="vp-sci-icon">🧪</span>
+        <span class="vp-sci-label">${esc(tr("demo.science.label"))}</span>
+        <span class="vp-sci-name">${esc(active.name)}</span>
+        ${canOpen ? `<button class="vp-sci-open">${esc(tr("demo.science.open"))}</button>` : ""}
       </div>`;
-      const openSci = (e: Event) => {
-        e.stopPropagation();
-        w.__vpSidebarTab?.("science");
-      };
-      (
-        slotTR.querySelector('[data-overlay-action="science"]') as HTMLElement
-      ).onclick = openSci;
-      (slotTR.querySelector("button") as HTMLElement).onclick = openSci;
+      if (canOpen) {
+        const openSci = (e: Event) => {
+          e.stopPropagation();
+          w.__vpSidebarTab?.("science");
+        };
+        (
+          slotTR.querySelector('[data-overlay-action="science"]') as HTMLElement
+        ).onclick = openSci;
+        const openBtn = slotTR.querySelector("button");
+        if (openBtn) openBtn.onclick = openSci;
+      }
     }
 
     // ─── Audio state machine ───
@@ -1184,21 +1302,25 @@ function main(): string {
       if (slotBR.dataset.activeMeta === active.id) return;
       slotBR.dataset.kind = "meta";
       slotBR.dataset.activeMeta = active.id;
+      // Same rule as the science pill: no tooltip, pointer or handler that
+      // promises a sidebar which is not installed.
+      const canOpen = typeof w.__vpSidebarTab === "function";
       slotBR.innerHTML = `
-      <div data-overlay-action="meta" class="vp-anim-right" style="display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92)); border:1px solid rgba(0,225,165,.38); border-radius:999px; padding:5px 14px 5px 5px; backdrop-filter:blur(10px); box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6; pointer-events:auto; white-space:nowrap; cursor:pointer;" title="${esc(tr("demo.meta.openTitle"))}">
-        <div style="width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22; display:flex; align-items:center; justify-content:center; font:700 13px system-ui; flex-shrink:0">${esc(active.n)}</div>
-        <span style="font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase; color:rgba(168,191,186,.82)">${esc(
+      <div data-overlay-action="meta" class="vp-meta-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}"${canOpen ? ` title="${esc(tr("demo.meta.openTitle"))}"` : ""}>
+        <div class="vp-meta-num">${esc(active.n)}</div>
+        <span class="vp-meta-step">${esc(
           tr("demo.meta.step", { n: active.n, total: metaSteps.length }),
         )}</span>
-        <span style="width:1px; height:14px; background:rgba(0,225,165,.28)"></span>
-        <span style="font:600 13px system-ui; color:#f4f7f6; line-height:1">${esc(active.title)}</span>
+        <span class="vp-meta-divider"></span>
+        <span class="vp-meta-title">${esc(active.title)}</span>
       </div>`;
-      (
-        slotBR.querySelector('[data-overlay-action="meta"]') as HTMLElement
-      ).onclick = (e) => {
-        e.stopPropagation();
-        w.__vpSidebarTab?.("meta");
-      };
+      if (canOpen)
+        (
+          slotBR.querySelector('[data-overlay-action="meta"]') as HTMLElement
+        ).onclick = (e) => {
+          e.stopPropagation();
+          w.__vpSidebarTab?.("meta");
+        };
     }
 
     // ─── Quiz overlay styles ───
@@ -1253,130 +1375,21 @@ function main(): string {
     </div>
   `;
 
-    function detectTopNavHeight(): number {
-      let bottom = 0;
-      const candidates = document.querySelectorAll(
-        'header, nav, [role="banner"], [class*="AppBar"], [class*="Toolbar"], [class*="topbar"], [class*="TopBar"], [class*="navbar"]',
-      );
-      for (const el of candidates) {
-        const cs = getComputedStyle(el);
-        if (cs.position !== "fixed" && cs.position !== "sticky") continue;
-        const r = el.getBoundingClientRect();
-        if (r.top > 6 || r.height > 200 || r.height < 24) continue;
-        if (r.bottom > bottom) bottom = r.bottom;
-      }
-      return bottom;
-    }
-
-    const SIDEBAR_W = "clamp(340px, 30vw, 476px)";
-    const SIDEBAR_GAP = 16;
-    const SIDEBAR_MIN_TOP = 24;
-
-    function applyFixedRightRail(): void {
-      const topClear = Math.max(
-        SIDEBAR_MIN_TOP,
-        Math.ceil(detectTopNavHeight() + 8),
-      );
-      sidebar.style.position = "fixed";
-      sidebar.style.top = topClear + "px";
-      sidebar.style.right = SIDEBAR_GAP + "px";
-      sidebar.style.bottom = SIDEBAR_GAP + "px";
-      sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
-      sidebar.style.zIndex = "50";
-      sidebar.style.width = SIDEBAR_W;
-      sidebar.style.alignSelf = "";
-      if (sidebar.parentElement !== document.body)
-        document.body.appendChild(sidebar);
-
-      const reserve = `calc(${SIDEBAR_W} + ${SIDEBAR_GAP * 2}px)`;
-      const targets = [
-        document.querySelector("main"),
-        document.querySelector('[class*="MainScroll"]'),
-        document.querySelector('[class*="content-scroll"]'),
-        document.body,
-      ].filter(Boolean) as HTMLElement[];
-      for (const t of targets) {
-        const prev = t.style.paddingRight;
-        t.style.paddingRight = reserve;
-        onCleanup(() => {
-          t.style.paddingRight = prev;
-        });
-      }
-
-      const onResize = () => {
-        const next = Math.max(
-          SIDEBAR_MIN_TOP,
-          Math.ceil(detectTopNavHeight() + 8),
-        );
-        sidebar.style.top = next + "px";
-        sidebar.style.maxHeight = `calc(100vh - ${next + SIDEBAR_GAP}px)`;
-      };
-      window.addEventListener("resize", onResize);
-      onCleanup(() => window.removeEventListener("resize", onResize));
-    }
-
-    function tryFlexSibling(): boolean {
-      const mainEl = document.querySelector("main") as HTMLElement | null;
-      if (!mainEl) return false;
-      const flexParent = mainEl.parentElement;
-      if (!flexParent) return false;
-      // Precondition: only run the invasive sibling reshuffle on a real, laid-out
-      // layout. An unsized <main> means the layout isn't ready/valid — fall back
-      // to the non-invasive fixed rail instead of mutating a collapsed layout.
-      const mainBox = mainEl.getBoundingClientRect();
-      if (mainBox.width <= 0 || mainBox.height <= 0) return false;
-      const prevDisplays = new Map<HTMLElement, string>();
-      [...flexParent.children].forEach((child) => {
-        const c = child as HTMLElement;
-        if (c !== mainEl && c.id !== "vp-demo-sidebar") {
-          prevDisplays.set(c, c.style.display);
-          c.style.display = "none";
-        }
-      });
-      const prevParentDisplay = flexParent.style.display;
-      const prevParentGap = flexParent.style.gap;
-      const prevMainFlex = mainEl.style.flex;
-      const prevMainMinWidth = mainEl.style.minWidth;
-      if (getComputedStyle(flexParent).display !== "flex")
-        flexParent.style.display = "flex";
-      flexParent.style.gap = "24px";
-      mainEl.style.flex = "1 1 0";
-      mainEl.style.minWidth = "0";
-      flexParent.appendChild(sidebar);
-
-      const mainRect = mainEl.getBoundingClientRect();
-      const sbRect = sidebar.getBoundingClientRect();
-      const fitsToRightOfMain = sbRect.left + 5 >= mainRect.right;
-      const visibleInViewport =
-        sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
-
-      const restoreHost = (): void => {
-        prevDisplays.forEach((v, child) => {
-          child.style.display = v;
-        });
-        flexParent.style.display = prevParentDisplay;
-        flexParent.style.gap = prevParentGap;
-        mainEl.style.flex = prevMainFlex;
-        mainEl.style.minWidth = prevMainMinWidth;
-      };
-
-      // On success the host stays reshuffled only for this mount's lifetime: a
-      // remount onto a narrow viewport installs no sidebar, and LearningSuite's
-      // own column must come back rather than stay hidden with nothing beside it.
-      if (fitsToRightOfMain && visibleInViewport) {
-        onCleanup(restoreHost);
-        return true;
-      }
-      restoreHost();
-      return false;
-    }
-
-    // Installing the sidebar hides LearningSuite's own right column, so with
-    // nothing to show we must not touch the host layout at all.
-    if (showSidebar) {
-      if (!tryFlexSibling()) applyFixedRightRail();
-      onCleanup(() => sidebar.remove());
-    }
+    // Where the <aside> goes (sidebar-host.ts): beside <main> on desktop, a
+    // docked sheet under the video below 1024px. Installing the desktop sidebar
+    // hides LearningSuite's own right column, so with nothing to show neither
+    // host runs and the host layout is not touched at all.
+    const host: SidebarHost | null =
+      hostMode === "none"
+        ? null
+        : installSidebarHost({
+            mode: hostMode,
+            sidebar,
+            playerHost,
+            tabs: tabDefs,
+            setTab,
+            onCleanup,
+          });
 
     function setTab(name: string): void {
       const target = tabDefs.some((tab) => tab.key === name)
@@ -1396,10 +1409,16 @@ function main(): string {
           p.getAttribute("data-panel") === target ? "" : "none";
       });
     }
-    w.__vpSidebarTab = setTab;
-    onCleanup(() => {
-      delete w.__vpSidebarTab;
-    });
+    // Only an installed host can be opened. Assigned without one, this pointed
+    // the pills at an <aside> that was never attached, so "Öffnen" was a dead
+    // tap (measured 2026-09-29, spec M1). On the sheet host, open() also
+    // raises the sheet; on desktop it only switches the tab.
+    if (host) {
+      w.__vpSidebarTab = host.open;
+      onCleanup(() => {
+        delete w.__vpSidebarTab;
+      });
+    }
     sidebar.querySelectorAll(".vp-tab").forEach((btn) => {
       (btn as HTMLElement).onclick = () =>
         setTab((btn as HTMLElement).dataset.tab!);
@@ -1536,7 +1555,10 @@ function main(): string {
       const card = sciencePanel.querySelector(
         `[data-sci-card="${CSS.escape(id)}"]`,
       );
-      if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      // A closed sheet is off-screen (and inert): scrolling a card inside it
+      // into view would scroll the learner's page instead.
+      if (card && !sidebar.inert)
+        card.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
     renderSciencePanel();
 
@@ -1761,7 +1783,7 @@ function main(): string {
       if (!slotBR.isConnected) return false;
       if (!slotLowerThird.isConnected) return false;
       if (showQuiz && !slotQuiz?.isConnected) return false;
-      if (showSidebar && !sidebar.isConnected) return false;
+      if (host && !host.isConnected()) return false;
       if (sidebarViewport.matches !== sidebarFits) return false;
       return true;
     };

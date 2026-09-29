@@ -115,6 +115,17 @@
   LearningSuite origin. Consequence for any new rule: `.vp-slot *` is specificity
   0,1,0, so a `white-space` declaration meant to survive it needs **two**
   classes, not one — do not rely on stylesheet order to break the tie.
+- **The runtime is ES2020-lib: no ES2021+ built-ins.** `tsconfig.runtime.json`
+  has `lib: es2020`, and esbuild only rewrites _syntax_ down to ES2019. It never
+  polyfills built-ins. So `Array.prototype.at`, `String.prototype.replaceAll`,
+  `WeakRef` and similar fail `typecheck:runtime`, and would throw on older
+  Safari if they slipped through. `science-card.ts` shipped `.at(-1)` and left
+  the check red on the base branch until 2026-09-29.
+- **Measure LearningSuite's layout on fresh loads.** Their layout inserts and
+  removes columns at runtime by breakpoint (left navigation from 1280px; a
+  lesson column next to `<main>` from 1536px, re-inserted on every crossing). A
+  page resized after load is a different scenario, not a baseline. See the
+  2026-09-29 mobile-overlays spec, amendment (b).
 
 ---
 
@@ -865,3 +876,135 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   renderer-pegging note in `admin-toggle/index.ts`).
 - **Gap**: "In Pop-Up anzeigen" cannot be detected from the saved string; it still only shows up
   as `audio-asset-unexpanded` telemetry.
+
+## 2026-09-29 · mobile-overlays · P1 — no dead open affordances on the pills
+
+- **Decision**: `window.__vpSidebarTab` exists exactly while a sidebar is
+  installed (assigned inside `if (showSidebar)`). The science and meta pills read
+  it at render time (`canOpen`) and emit their "Öffnen" button, pointer cursor,
+  tooltip and click handler only then. `setTab` itself stays unconditional,
+  because the panels and tab buttons still use it on a detached `<aside>`.
+- **Deviation**: without the button the science pill's right padding is 12px
+  (was 6px, sized for the button), so the pill does not look cut off. Also fixed
+  the pre-existing `.at()` in `science-card.ts` in its own commit (see Standing
+  Constraints).
+- **Gotcha**: `bun run build:runtime` bundles the whole working tree. When
+  committing one change while another is uncommitted, stash the other before
+  building, or the committed `public/runtime/*.js` contains code its source
+  commit does not.
+- **Gotcha**: `bun run lint` is red repo-wide for reasons unrelated to the
+  runtime: 255 errors in the generated `playwright-report/trace/` (not
+  ESLint-ignored) and 7 in `app/`/`components/`. Lint the changed files
+  (`bunx eslint <files>`) to validate a runtime change.
+
+## 2026-09-29 · mobile-overlays · P2 — phone canary project
+
+- **Decision**: `canary-mobile` (390×844, `isMobile`, `hasTouch`) runs
+  `e2e/overlay-mobile.spec.ts` only. `canary` has `testIgnore` for it,
+  because the top-level `testMatch` would otherwise hand the phone spec to
+  the desktop project. `bun run e2e` runs both in phase 2. Geometry a later
+  phase fixes is declared `test.fixme` naming that phase.
+- **Gotcha**: preview mode against a local dev server
+  (`E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js`) only works
+  because loopback requests are fulfilled from the Node side
+  (`runtime-source.ts`). Let the https tenant page request `http://localhost`
+  itself and Chrome's Local Network Access check silently blocks it: no
+  bundle runs and `__vpReskinStatus` is never set.
+- **Gotcha**: read overlay boxes only after their entrance animation
+  (`vp-anim-*`, 350ms slide). A mid-slide box is up to 20px off.
+  `settleAnimations` waits for the element's own finite animations; infinite
+  ones (the voice-over pulse) never finish.
+- **Gotcha**: `__vpDemoStatus` means the controller is armed, not mounted.
+  `__vpConfig` appears only at mount (two frames later). Wait for it before
+  reading the lesson's moments, or a test silently skips.
+- **Gotcha**: in Playwright it is `hasTouch`, not `isMobile`, that makes
+  `(hover:hover)` false and `(pointer:coarse)` true.
+
+## 2026-09-29 · mobile-overlays · P3 — sidebar as a docked sheet on phones
+
+- **Decision**: one `<aside>`, two hosts (`demo-overlays/sidebar-host.ts`):
+  `desktop` is the flex sibling or fixed rail (moved unchanged from
+  `index.ts`); `sheet` (< 1024px) is `mobile-sheet.ts`, a tab bar after the
+  player plus the same aside as a fixed sheet under `<body>`, z-index 1100,
+  `inert` while closed. `window.__vpSidebarTab` is `host.open`, and
+  `checkAlive` uses `host.isConnected()`. Anything that opens the sidebar must
+  go through `open(tab)`, never `setTab` directly.
+- **Decision**: the sheet's top is computed from the scroll target
+  (`sheet-geometry.ts`, pure, also imported by the e2e spec), never measured
+  after scrolling: iOS before 26.2 fires no `scrollend`. While open, it follows
+  the player's bottom on scroll and resize. The page scroll is never locked.
+- **Deviation**: on the live lesson the sheet docks at 368, not the spec's 428.
+  The 60px tab bar gives the page 60px more scroll room. Assert against
+  `sheetTop()` computed on the page, not a constant.
+- **Gotcha**: code that scrolls sidebar content into view must skip a closed
+  sheet (`sidebar.inert`). `renderScienceHighlight` would otherwise scroll the
+  learner's page on every science moment.
+- **Gotcha**: the tab bar is a sibling of the player inside LearningSuite's
+  React tree and their pre-wrap block. It carries `.vp-sheet-ui` (the
+  `white-space` reset). React did not remove it during 25s of playback, and
+  `checkAlive` would remount if it ever did.
+- **Open**: which element LearningSuite puts into fullscreen on Android and
+  iPad is unverified (spec M13). The sheet re-parents into
+  `document.fullscreenElement` when that contains the player.
+
+## 2026-09-29 · mobile-overlays · P4 — compact overlays keyed on the player box
+
+- **Decision**: `observeCompact` (`demo-overlays/compact.ts`) watches the
+  player host and sets `data-vp-compact="1"` on every `.vp-slot` when
+  `isCompact(w, h)`: `width < 750 || height < 280`. This is the player box,
+  never the viewport (spec M14): every measured player up to the 1600px
+  desktop is compact, and 1920 (752×424) is full size. New in-player UI gets
+  its compact variant as CSS under `.vp-slot[data-vp-compact="1"]`, not a
+  second template.
+- **Decision**: the pills are styled by class (`PILL_CSS`), not inline. P1's
+  open/no-open state is the `data-can-open` attribute. The voice-over slot's
+  320px width stays inline and is switched by the `observeCompact` callback.
+- **Decision**: every `:hover` rule lives under `@media (hover:hover)`, and
+  `compact-overlays.test.ts` enforces it for the four stylesheets. Touch
+  expansion of the section pill is an explicit tap-pin (`data-pinned`). In
+  compact mode the pill never expands and a tap opens Coaching instead.
+- **User feedback**: the user chose to have `isCompact` written for them
+  rather than author it (planned as their contribution).
+- **Gotcha**: pressing play on the live lesson makes LearningSuite jump to the
+  shared e2e account's saved watch position. e2e tests that need a moment
+  must start playback first and seek afterwards.
+
+## 2026-09-29 · mobile-overlays · P5 — the quiz covers the whole screen on compact players
+
+- **Decision**: on compact players outside fullscreen, `placeQuizSlot` moves the
+  same `#vp-slot-quiz` element to `<body>` (fixed, z-index 1150). The stacking
+  order is LearningSuite's bar 999 < our sheet 1100 < promoted quiz 1150 <
+  LearningSuite's overlays 1200. The quiz controller, `checkAlive` and the
+  event swallowing hold the slot by reference, so moving it needs no other
+  change. Placement follows compact mode, not quiz activity: an empty promoted
+  slot stays under `<body>` and lets taps through.
+- **Decision**: the slot is the fixed element and the scrim stays `absolute`
+  inside it, so nothing depends on whether `container-type` on the slot
+  captures fixed descendants (it no longer does in Chrome 129+; unconfirmed on
+  iOS 17/18).
+- **Gotcha**: re-inserting a node drops focus. Moving a live dialog must put
+  focus back (`hadFocus`, then refocus `.vp-quiz-card`).
+- **Gotcha**: the 1024px desktop player (461×260) is compact too, so its quiz
+  covers the browser window. That is consistent with phones, and flagged to
+  the user with a screenshot.
+
+## 2026-09-29 · mobile-overlays · P6 — desktop squeeze past 1536px
+
+- **Decision**: on the flex-sibling path the desktop host keeps its layout
+  change in place with a `childList` `MutationObserver` on `<main>`'s parent.
+  Any element LearningSuite adds there later, other than `<main>` and our
+  sidebar, is hidden. Its first-seen inline `display` goes into
+  `restoreHost`'s map, and nothing is remounted. Any future change to the
+  host's layout has to survive LearningSuite re-rendering it, not just be
+  right at mount.
+- **Decision**: the watcher hides synchronously in the callback (a microtask,
+  so before the next paint) and is never debounced, unlike the body watcher.
+  It never hides a `<main>` or an element containing one: a replaced lesson is
+  `checkAlive`'s job.
+- **Gotcha**: DOM moves arrive as remove+add record pairs. Guard with
+  `prevDisplays.has(n)`, or a moved node records our own `none` as its
+  "original" value.
+- **Gotcha**: Playwright's `setViewportSize` resolves before the page's
+  `resize` event, media-query `change` and React commit. Resize tests must wait
+  for the DOM they expect (here: the inserted column) before measuring, or they
+  pass without testing anything.
