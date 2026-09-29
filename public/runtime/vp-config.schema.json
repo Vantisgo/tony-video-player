@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tony-video-player.vantisgo.io/runtime/vp-config.schema.json",
+  "title": "LearningSuite advanced video configuration",
+  "description": "Optional extensions for the JSON stored in a data-vp-config element. Existing phase, science, audio, and meta-step properties remain valid; phases[].interventions[].end and the quiz section are documented here.",
+  "type": "object",
+  "properties": {
+    "quiz": {
+      "$ref": "#/$defs/quiz"
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/phase"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "quiz": {
+      "type": "object",
+      "required": ["quizzes"],
+      "properties": {
+        "feedbackDurationSec": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 10,
+          "default": 3
+        },
+        "showScore": {
+          "type": "boolean",
+          "default": false
+        },
+        "showSummary": {
+          "type": "boolean",
+          "default": false
+        },
+        "passingPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "quizzes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/quizBreak"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "quizBreak": {
+      "type": "object",
+      "required": ["id", "t", "questions"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "t": {
+          "description": "Quiz-break trigger time in video seconds.",
+          "type": "number",
+          "minimum": 0
+        },
+        "resume": {
+          "description": "Automatically resume after the final feedback or wait for an explicit Continue action.",
+          "enum": ["auto", "manual"],
+          "default": "auto"
+        },
+        "questions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/question"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "question": {
+      "type": "object",
+      "required": ["id", "prompt", "options", "correctOptionId"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "explanation": {
+          "description": "Optional explanation shown during answer feedback.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "correctOptionId": {
+          "description": "The id of the single correct option.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "timeoutSec": {
+          "description": "Optional answer deadline. A timeout is evaluated as unanswered and reveals the correct option.",
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 300
+        },
+        "showCountdown": {
+          "description": "Show the visual countdown when timeoutSec is set. Defaults to true.",
+          "type": "boolean",
+          "default": true
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/answerOption"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "answerOption": {
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      },
+      "additionalProperties": false
+    },
+    "phase": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "startTimeSec",
+        "endTimeSec",
+        "interventions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "startTimeSec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "endTimeSec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "interventions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/intervention"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "intervention": {
+      "type": "object",
+      "required": ["id", "label", "title", "t"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "t": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end": {
+          "description": "Optional exclusive end time in video seconds. The intervention is current on [t, end). Omit to stay current until the next intervention or the end of the phase. Cross-field constraints (end > t) cannot be expressed here; they are enforced by the runtime and stated in the authoring prompt.",
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "desc": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

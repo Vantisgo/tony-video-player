@@ -30,6 +30,7 @@
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
+  --color-vp-neutral: var(--vp-neutral);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -82,38 +83,52 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
+/* Dark LearningSuite enrichment palette — the single source of truth for the
+   dark theme, including the colours the injected runtime overlays use. The
+   accent is the configured dark-mode teal; the supporting surfaces are the
+   accompanying charcoal swatches.
+
+   The injected runtime CANNOT read these custom properties: it executes on the
+   LearningSuite origin, where this stylesheet is never loaded. Its tokens in
+   runtime-src/demo-overlays/styles.ts are the sRGB translation of the values
+   below, each annotated with the var it came from. Change a colour HERE first,
+   then re-translate there. */
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.705 0.213 47.604);
-  --primary-foreground: oklch(0.98 0.016 73.684);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.705 0.213 47.604);
-  --accent-foreground: oklch(0.98 0.016 73.684);
+  --background: oklch(0.233 0.003 196.949); /* #1c1e1e */
+  --foreground: oklch(0.974 0.003 174.484); /* #f4f7f6 */
+  --card: oklch(0.32 0.001 197.087); /* #323333 */
+  --card-foreground: oklch(0.974 0.003 174.484); /* #f4f7f6 */
+  /* Neutral surface, distinct from the saturated --muted teal. The upstream
+     shadcn token set has no slot for this, so it carries our --vp- prefix.
+     Used for inactive rows that must NOT read as active. */
+  --vp-neutral: oklch(0.366 0.003 197.038); /* #3d3f3f */
+  --popover: oklch(0.32 0.001 197.087); /* #323333 */
+  --popover-foreground: oklch(0.974 0.003 174.484); /* #f4f7f6 */
+  --primary: oklch(0.806 0.169 165.365); /* #00e1a5 */
+  --primary-foreground: oklch(0.26 0.045 173.022); /* #062b22 */
+  --secondary: oklch(0.389 0.059 185.135); /* #164f49 */
+  --secondary-foreground: oklch(0.974 0.003 174.484); /* #f4f7f6 */
+  --muted: oklch(0.389 0.059 185.135); /* #164f49 */
+  --muted-foreground: oklch(0.786 0.026 181.069); /* #a8bfba */
+  --accent: oklch(0.806 0.169 165.365); /* #00e1a5 */
+  --accent-foreground: oklch(0.26 0.045 173.022); /* #062b22 */
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.837 0.128 66.29);
-  --chart-2: oklch(0.705 0.213 47.604);
-  --chart-3: oklch(0.646 0.222 41.116);
-  --chart-4: oklch(0.553 0.195 38.402);
-  --chart-5: oklch(0.47 0.157 37.304);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.705 0.213 47.604);
-  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
-  --sidebar-accent: oklch(0.705 0.213 47.604);
-  --sidebar-accent-foreground: oklch(0.98 0.016 73.684);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --border: oklch(0.439 0.004 174.307); /* #505352 */
+  --input: oklch(0.439 0.004 174.307); /* #505352 */
+  --ring: oklch(0.806 0.169 165.365); /* #00e1a5 */
+  --chart-1: oklch(0.806 0.169 165.365);
+  --chart-2: oklch(0.75 0.13 168);
+  --chart-3: oklch(0.68 0.1 175);
+  --chart-4: oklch(0.55 0.08 180);
+  --chart-5: oklch(0.389 0.059 185.135);
+  --sidebar: oklch(0.32 0.001 197.087); /* #323333 */
+  --sidebar-foreground: oklch(0.974 0.003 174.484); /* #f4f7f6 */
+  --sidebar-primary: oklch(0.806 0.169 165.365); /* #00e1a5 */
+  --sidebar-primary-foreground: oklch(0.26 0.045 173.022); /* #062b22 */
+  --sidebar-accent: oklch(0.806 0.169 165.365); /* #00e1a5 */
+  --sidebar-accent-foreground: oklch(0.26 0.045 173.022); /* #062b22 */
+  --sidebar-border: oklch(0.439 0.004 174.307); /* #505352 */
+  --sidebar-ring: oklch(0.806 0.169 165.365); /* #00e1a5 */
 }
 
 @layer base {

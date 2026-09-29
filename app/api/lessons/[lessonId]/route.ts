@@ -102,6 +102,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
                       (intervention: any, intIdx: number) => ({
                         title: intervention.title,
                         timestampSec: intervention.timestampSec,
+                        endTimeSec: intervention.endTimeSec ?? null,
                         prompt: intervention.prompt,
                         description: intervention.description,
                         methodModelFramework: intervention.methodModelFramework,

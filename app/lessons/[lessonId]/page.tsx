@@ -55,6 +55,7 @@ async function getLesson(lessonIdOrSlug: string): Promise<LessonData | null> {
         id: int.id,
         title: int.title,
         timestampSec: int.timestampSec,
+        endTimeSec: int.endTimeSec ?? undefined,
         prompt: int.prompt,
         description: int.description,
         methodModelFramework: int.methodModelFramework,

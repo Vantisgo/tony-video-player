@@ -60,6 +60,7 @@ export async function POST(request: Request) {
               create: phase.interventions.map((intervention, intIndex) => ({
                 title: intervention.title,
                 timestampSec: intervention.timestampSec,
+                endTimeSec: intervention.endTimeSec ?? null,
                 prompt: intervention.prompt,
                 description: intervention.description,
                 methodModelFramework: intervention.methodModelFramework,
