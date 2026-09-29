@@ -1062,6 +1062,10 @@
       @container vp-quiz (min-width: 380px) {
         .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr 1fr; }
       }
+      /* Promoted to the viewport on compact players (index.ts placeQuizSlot):
+         the slot is now as wide as the phone (≥ 380px), so the container
+         query would pick two cramped columns of 158px. (1,3,0) beats it. */
+      #vp-slot-quiz[data-vp-promoted="1"] .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr; }
       .vp-quiz-option {
         display:flex; align-items:center; gap:10px; width:100%;
         text-align:left; cursor:pointer; font:500 13.5px system-ui; color:#f4f7f6;
@@ -2284,6 +2288,7 @@
   var SEEK_EPSILON_SEC = 1.5;
   var SLOT_Z = 15;
   var QUIZ_SLOT_Z = 20;
+  var PROMOTED_QUIZ_Z = 1150;
   var ICON_PLAY = '<svg class="vp-audio-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
   var ICON_PAUSE = '<svg class="vp-audio-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   var ICON_SKIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19"/></svg>';
@@ -2553,6 +2558,21 @@
         slotLowerThird,
         slotQuiz
       ].filter((s) => s !== null);
+      function placeQuizSlot(compact) {
+        var _a2;
+        if (!slotQuiz) return;
+        const promote = compact && !document.fullscreenElement;
+        const parent = promote ? document.body : playerHost;
+        if (slotQuiz.parentElement === parent) return;
+        const hadFocus = slotQuiz.contains(document.activeElement);
+        parent.appendChild(slotQuiz);
+        slotQuiz.style.position = promote ? "fixed" : "absolute";
+        slotQuiz.style.zIndex = String(promote ? PROMOTED_QUIZ_Z : QUIZ_SLOT_Z);
+        if (promote) slotQuiz.setAttribute("data-vp-promoted", "1");
+        else slotQuiz.removeAttribute("data-vp-promoted");
+        if (hadFocus)
+          (_a2 = slotQuiz.querySelector(".vp-quiz-card")) == null ? void 0 : _a2.focus({ preventScroll: true });
+      }
       const isCompactNow = observeCompact(
         playerHost,
         (compact) => {
@@ -2561,9 +2581,19 @@
             else s.removeAttribute("data-vp-compact");
           slotLowerThird.style.left = compact ? "14px" : "";
           slotLowerThird.style.width = compact ? "auto" : "320px";
+          placeQuizSlot(compact);
         },
         onCleanup
       );
+      if (slotQuiz) {
+        const onFullscreen = () => placeQuizSlot(isCompactNow());
+        document.addEventListener("fullscreenchange", onFullscreen);
+        document.addEventListener("webkitfullscreenchange", onFullscreen);
+        onCleanup(() => {
+          document.removeEventListener("fullscreenchange", onFullscreen);
+          document.removeEventListener("webkitfullscreenchange", onFullscreen);
+        });
+      }
       const pillStyleId = "__vp-pill-style";
       (_g = document.getElementById(pillStyleId)) == null ? void 0 : _g.remove();
       {

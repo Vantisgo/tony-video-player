@@ -342,6 +342,10 @@ export const QUIZ_CSS = `
       @container vp-quiz (min-width: 380px) {
         .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr 1fr; }
       }
+      /* Promoted to the viewport on compact players (index.ts placeQuizSlot):
+         the slot is now as wide as the phone (≥ 380px), so the container
+         query would pick two cramped columns of 158px. (1,3,0) beats it. */
+      #vp-slot-quiz[data-vp-promoted="1"] .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr; }
       .vp-quiz-option {
         display:flex; align-items:center; gap:10px; width:100%;
         text-align:left; cursor:pointer; font:500 13.5px system-ui; color:#f4f7f6;

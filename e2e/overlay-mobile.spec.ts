@@ -116,15 +116,58 @@ for (const video of videos) {
       await expectInsidePlayer(page, [SECTION_PILL, SCIENCE_PILL]);
     });
 
-    test("an injected quiz break covers the player", async ({ page }) => {
+    // P5 (replaces P2's "covers the player"): on a phone the whole question and
+    // every answer must fit, so the quiz covers the viewport instead of the
+    // 219px-tall player (spec M6: 350px of content in a 185px box).
+    test("a quiz covers the whole phone screen and needs no scrolling", async ({
+      page,
+    }) => {
       await injectQuiz(page, QUIZ_FIXTURE);
-      const player = await playerBox(page);
+      // Play first, then seek: see the voice-over test below.
+      await tapHostPlay(page);
+      await seekTo(page, QUIZ_FIXTURE.quizzes[0].t - 2);
+      const card = page.locator("#vp-slot-quiz .vp-quiz-card");
+      await expect(card).toHaveCount(1, { timeout: 20_000 });
+      await page.waitForTimeout(400);
+
       const slot = await readBox(page, "#vp-slot-quiz");
-      expect(slot, "#vp-slot-quiz was not created").not.toBeNull();
+      const viewport = { x: 0, y: 0, w: 390, h: 844 };
       expect(
-        contains(player, slot!) && contains(slot!, player),
-        "the quiz slot must cover exactly the player (inset:0)",
+        contains(viewport, slot!) && contains(slot!, viewport),
+        `the promoted quiz slot must cover the viewport (${JSON.stringify(slot)})`,
       ).toBe(true);
+      expect(
+        await page.evaluate(
+          () => !!document.elementFromPoint(195, 812)?.closest("#vp-slot-quiz"),
+        ),
+        "the quiz must cover LearningSuite's fixed bottom bar",
+      ).toBe(true);
+      expect(
+        await card.evaluate((el) => el.scrollHeight <= el.clientHeight + 1),
+        "the question and every answer must fit without scrolling the card",
+      ).toBe(true);
+      const xs = await page
+        .locator("#vp-slot-quiz .vp-quiz-option")
+        .evaluateAll((els) =>
+          els.map((el) => Math.round(el.getBoundingClientRect().left)),
+        );
+      expect(new Set(xs).size, "answers must be in one column").toBe(1);
+
+      const first = page.locator("#vp-slot-quiz .vp-quiz-option").first();
+      await first.tap();
+      await expect(first).toHaveAttribute("data-state", "correct");
+      // After the feedback the break resumes; the empty promoted slot must
+      // then let taps through to the page again.
+      await expect(page.locator("#vp-slot-quiz .vp-quiz-scrim")).toHaveCount(
+        0,
+        { timeout: 20_000 },
+      );
+      expect(
+        await page.evaluate(
+          () => !!document.elementFromPoint(195, 812)?.closest("#vp-slot-quiz"),
+        ),
+        "after the quiz nothing of ours may block the page",
+      ).toBe(false);
     });
 
     // ── P3: the sheet host ──────────────────────────────────────────────────

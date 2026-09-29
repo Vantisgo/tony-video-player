@@ -65,6 +65,11 @@ const SEEK_EPSILON_SEC = 1.5;
 
 const SLOT_Z = 15;
 const QUIZ_SLOT_Z = 20;
+// A promoted quiz (compact player, see placeQuizSlot) leaves the player and
+// stacks against the PAGE instead: above LearningSuite's fixed bottom bar
+// (999, measured 2026-09-29) and our own mobile sheet (1100), below
+// LearningSuite's full-viewport overlay layers (1200) so their menus win.
+const PROMOTED_QUIZ_Z = 1150;
 
 // Inline SVG for the voice-over transport, replacing the emoji glyphs (▶ ⏸ ⏭)
 // and the 🎙️ badge: emoji render differently per platform and cannot take
@@ -520,6 +525,31 @@ function main(): string {
       slotLowerThird,
       slotQuiz,
     ].filter((s): s is HTMLElement => s !== null);
+    // On a compact player the player cannot hold a question and four answers
+    // (spec M6: 350px of content in a 185px box). The SAME element moves to
+    // <body> — the quiz controller, checkAlive and the event swallowing all
+    // hold it by reference — and becomes viewport-fixed; its scrim stays
+    // absolute inside it, so nothing depends on whether the slot's
+    // container-type captures fixed descendants. Not in fullscreen: body-level
+    // fixed elements are not rendered there, and the player fills the screen.
+    function placeQuizSlot(compact: boolean): void {
+      if (!slotQuiz) return;
+      const promote = compact && !document.fullscreenElement;
+      const parent = promote ? document.body : playerHost!;
+      if (slotQuiz.parentElement === parent) return;
+      const hadFocus = slotQuiz.contains(document.activeElement);
+      parent.appendChild(slotQuiz);
+      slotQuiz.style.position = promote ? "fixed" : "absolute";
+      slotQuiz.style.zIndex = String(promote ? PROMOTED_QUIZ_Z : QUIZ_SLOT_Z);
+      if (promote) slotQuiz.setAttribute("data-vp-promoted", "1");
+      else slotQuiz.removeAttribute("data-vp-promoted");
+      // Re-inserting a node drops focus; keep the dialog operable by keyboard.
+      if (hadFocus)
+        slotQuiz
+          .querySelector<HTMLElement>(".vp-quiz-card")
+          ?.focus({ preventScroll: true });
+    }
+
     const isCompactNow = observeCompact(
       playerHost,
       (compact) => {
@@ -528,9 +558,21 @@ function main(): string {
           else s.removeAttribute("data-vp-compact");
         slotLowerThird.style.left = compact ? "14px" : "";
         slotLowerThird.style.width = compact ? "auto" : "320px";
+        // The argument, not isCompactNow(): this first runs synchronously,
+        // inside observeCompact, before isCompactNow is assigned.
+        placeQuizSlot(compact);
       },
       onCleanup,
     );
+    if (slotQuiz) {
+      const onFullscreen = (): void => placeQuizSlot(isCompactNow());
+      document.addEventListener("fullscreenchange", onFullscreen);
+      document.addEventListener("webkitfullscreenchange", onFullscreen);
+      onCleanup(() => {
+        document.removeEventListener("fullscreenchange", onFullscreen);
+        document.removeEventListener("webkitfullscreenchange", onFullscreen);
+      });
+    }
 
     const pillStyleId = "__vp-pill-style";
     document.getElementById(pillStyleId)?.remove();
