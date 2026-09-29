@@ -51,6 +51,18 @@ async function pressHostControl(
   selector: string,
   what: string,
 ): Promise<void> {
+  const point = await hostControlPoint(page, selector, what);
+  await page.mouse.click(point.x, point.y);
+}
+
+// The centre of one of LearningSuite's controls, polled until it has a layout
+// box. Split out of pressHostControl so the mobile canary can deliver the same
+// press as a touchscreen tap (see e2e/support/mobile.ts).
+export async function hostControlPoint(
+  page: Page,
+  selector: string,
+  what: string,
+): Promise<{ x: number; y: number }> {
   const target = page.locator(HOST).locator(selector).first();
   // getBoundingClientRect via evaluate, NOT locator.boundingBox(): the latter
   // returns null for an element Playwright judges invisible, and their icons sit
@@ -84,13 +96,27 @@ async function pressHostControl(
       `LearningSuite's ${what} control (${selector}) never took a layout box. ` +
         "Their control markup changed shape; this canary's locators need updating.",
     );
-  await page.mouse.click(box.x + box.w / 2, box.y + box.h / 2);
+  return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
 }
+
+// How a press reaches the page: a mouse click on desktop, a touchscreen tap on
+// the mobile project. Either way it is a real input event, so the media element
+// gets the user activation a script play() lacks.
+export type HostPress = (
+  page: Page,
+  point: { x: number; y: number },
+) => Promise<void>;
+
+const mousePress: HostPress = (page, point) =>
+  page.mouse.click(point.x, point.y);
 
 // LearningSuite renders its full control bar only once playback has started —
 // before that the player shows a poster and a centre play affordance. So every
 // bar assertion has to start the video first.
-async function startHostPlayback(page: Page): Promise<void> {
+export async function startHostPlayback(
+  page: Page,
+  press: HostPress = mousePress,
+): Promise<void> {
   const isPaused = () =>
     page.evaluate(
       () =>
@@ -110,7 +136,10 @@ async function startHostPlayback(page: Page): Promise<void> {
   const anyPlay = 'svg[data-icon="play"]';
   const hasOverlay =
     (await page.locator(HOST).locator(overlayPlay).count()) > 0;
-  await pressHostControl(page, hasOverlay ? overlayPlay : anyPlay, "play");
+  await press(
+    page,
+    await hostControlPoint(page, hasOverlay ? overlayPlay : anyPlay, "play"),
+  );
   await page.waitForFunction(
     () =>
       (
