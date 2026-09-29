@@ -50,7 +50,7 @@ descendants: it no longer does in Chrome 129+, but iOS 17/18 is unconfirmed.
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T12:40Z
-- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed)
+- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750)
 - **Commits:**
 - **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P5) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 5) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (`observeCompact`, `apply`, `isCompactNow`) · `…_p3-mobile-sheet.plan.md` (sheet z-index 1100)
@@ -343,10 +343,10 @@ click.
   - Afterwards `elementFromPoint(195, 812)` is LearningSuite's bar again.
 - [ ] **V2 844×390 landscape:** the player is 732×413, compact under the agreed rule, so the quiz
       is promoted. The card needs `max-height` 390 − 32: record whether it scrolls.
-- [ ] **V5 1024×768 and V6 1920×1080:** compact (M14), so the quiz is promoted over the desktop
-      page. Record a screenshot for the user (Questionable below).
-- [ ] **Full-size player** (no-sidebar config at V6, player ≥ 760×280, as in the P4 check): the
-      quiz is unchanged inside the player (slot parent is the player host, `absolute`, z 20).
+- [ ] **V5 1024×768 and 1600×900:** compact (M14 corrected), so the quiz is promoted over the
+      desktop page. Record a screenshot for the user (Questionable below).
+- [ ] **V6 1920×1080, fresh load** (player 752×424, full size): the quiz is unchanged inside the
+      player (slot parent is the player host, `absolute`, z 20).
 
 ### Level 6: MANUAL_VALIDATION
 
@@ -398,14 +398,13 @@ gain. Confirm, and amend the spec's P5 criterion when implementing.
 </details>
 
 <details>
-<summary>Desktop also promotes — at every measured width</summary>
+<summary>Desktop promotes up to 1600px</summary>
 
-Under the agreed rule (`width < 760 || height < 280`, spec amendment 2026-09-29), every desktop
-player with our sidebar is compact (M14: 317–553px wide from 1024 to 1920). So the quiz covers the
-whole browser window on desktop as well. That is consistent, since the in-player quiz has the same
-space problem there (a 504×284 player at 1920), but it is a visible desktop change. The user
-chose the 760 threshold knowing compact becomes the normal desktop look. Confirm the quiz
-consequence with the screenshot from Level 5.
+Under the agreed rule (`width < 750 || height < 280`, spec amendment (b)), desktop players up to
+1600 are compact (M14 corrected: 441–641px wide). So the quiz covers the whole browser window
+there. At 1920 (752×424) it stays inside the player. That is consistent, since the in-player quiz
+has the same space problem at those sizes, but it is a visible desktop change. Confirm with the
+screenshot from Level 5.
 
 </details>
 
@@ -429,5 +428,15 @@ _Append-only history of changes made **after** this plan was first built (newest
 Every measured desktop and tablet player is now compact, so the quiz is promoted there too. The
 Level 5 checks were re-scoped: V2, V5 and V6 expect promotion, and the "unchanged in the player"
 check uses a no-sidebar config with a player ≥ 760×280. The desktop Questionable was updated.
+
+</details>
+
+<details>
+<summary>2026-09-29T15:00Z — rule corrected to 750; 1920 stays in the player</summary>
+
+With fresh-load measurements (spec amendment (b)), 1920 gives a 752×424 player, which is full size
+under the corrected rule `width < 750 || height < 280`. Level 5 now expects promotion at V5 and
+1600, and an unchanged in-player quiz on a fresh load at 1920. The desktop Questionable was
+updated.
 
 </details>

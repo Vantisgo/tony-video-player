@@ -267,6 +267,10 @@ mobile from then on.
 
 ## Amendment 2026-09-29 — the compact rule, agreed with the user
 
+> **Partly superseded by the next amendment.** The 1600 and 1920 rows below were measured after
+> resizing an already-loaded page, not on a fresh load, so they are wrong. The threshold became
+> 750, and the P6 diagnosis here was wrong.
+
 **Rule (the user writes it in P4):** a player is compact when `width < 760 || height < 280`.
 
 - **760** is the width at which the full overlays cannot collide for any config:
@@ -280,15 +284,15 @@ mobile from then on.
 
 **M14 — player size by desktop width** (live lesson, sidebar installed, measured 2026-09-29):
 
-| Viewport | Player  | Note                                                                      |
-| -------- | ------- | ------------------------------------------------------------------------- |
-| 1024     | 461×260 |                                                                           |
-| 1180     | 632×356 |                                                                           |
-| 1280     | 441×249 | LearningSuite's left course navigation appears from 1280 (`<main>` x=304) |
-| 1366     | 501×283 |                                                                           |
-| 1440     | 553×312 |                                                                           |
-| 1600     | 317×179 | LearningSuite's own lesson column appears from 1536 (MUI `xl`); see P6    |
-| 1920     | 504×284 |                                                                           |
+| Viewport | Player  | Note                                                                          |
+| -------- | ------- | ----------------------------------------------------------------------------- |
+| 1024     | 461×260 |                                                                               |
+| 1180     | 632×356 |                                                                               |
+| 1280     | 441×249 | LearningSuite's left course navigation appears from 1280 (`<main>` x=304)     |
+| 1366     | 501×283 |                                                                               |
+| 1440     | 553×312 |                                                                               |
+| 1600     | 317×179 | **wrong** (after a resize from 1440); fresh load 641×361 — see next amendment |
+| 1920     | 504×284 | **wrong** (after a resize from 1600); fresh load 752×424 — see next amendment |
 
 **Consequences:**
 
@@ -304,7 +308,89 @@ mobile from then on.
 - **Touch plus full size** is practically unreachable (tablets are compact), so P4's
   tap-to-pin only applies to rare large touch screens.
 
-**P6 added:** LearningSuite's `xl` lesson column is not a sibling of `<main>`, so `tryFlexSibling`
+**P6 added** (diagnosis superseded by M15 in the next amendment): LearningSuite's `xl` lesson column is not a sibling of `<main>`, so `tryFlexSibling`
 leaves it visible. Four columns then share the width (navigation, `<main>`, our sidebar growing
 with 30vw since `b87c8fd`, LearningSuite's lesson column), and the player shrinks to 317×179 at 1600. This is a desktop layout defect, tracked as P6 in the PRD. It needs its own design before a
 plan.
+
+## Amendment 2026-09-29 (b) — corrected measurements, threshold 750, P6 design
+
+**Correction.** The previous amendment's values for 1600 and 1920 came from resizing a page that
+had been loaded at a narrower width. Every value below is a fresh load (`reload` at that
+viewport), live lesson, sidebar installed.
+
+**M14 (corrected):**
+
+| Viewport | Player  | Note                                                                           |
+| -------- | ------- | ------------------------------------------------------------------------------ |
+| 1024     | 461×260 |                                                                                |
+| 1180     | 632×356 |                                                                                |
+| 1280     | 441×249 | LearningSuite's left course navigation appears from 1280                       |
+| 1366     | 501×283 |                                                                                |
+| 1440     | 553×312 |                                                                                |
+| 1600     | 641×361 | LearningSuite's lesson column (≥ 1536, MUI `xl`) is hidden by `tryFlexSibling` |
+| 1920     | 752×424 |                                                                                |
+
+**Rule (agreed with the user, supersedes 760):** compact when `width < 750 || height < 280`.
+
+- 1920 desktops (752×424) get the full overlays; everything measured at 1600 and below is compact.
+- Accepted cost: at widths 750–752, a max-length phase title plus a max-length science name (which
+  need 753) can overlap by 1–3px. Typical content (161px + 309px pills measured) has more than
+  250px to spare.
+- **Success criterion:** players ≥ 750×280 look as today. The full variants are verified on a
+  fresh load at 1920 with the real config.
+
+**M15 — the P6 root cause (reproduced):**
+
+1. Load at 1440 → `tryFlexSibling` hides `<main>`'s siblings (at that width LearningSuite renders
+   no lesson column) → player 553×312.
+2. Widen past 1536 → React **inserts** LearningSuite's lesson column (`div.MuiStack-root`, 300px)
+   as a new child of `<main>`'s flex parent (MutationObserver probe: `added DIV`).
+3. Nothing hides it: `tryFlexSibling` runs once per mount, and `checkAlive` only checks our own
+   nodes → four columns share the width → player 317×179.
+
+A fresh load at 1600 is fine (641×361). Every later crossing of 1536 inserts a new column.
+
+### P6 — keep `<main>`'s flex parent at two visible columns (approved design)
+
+- **Approach (chosen over a `checkAlive` remount):** on `tryFlexSibling`'s success path in
+  `sidebar-host.ts`, a `MutationObserver` (`childList`) on `<main>`'s flex parent hides every
+  element LearningSuite adds there that is not `<main>` or our sidebar. Its original inline
+  `display` goes into the same `prevDisplays` map `restoreHost` uses, so teardown restores it.
+  The observer is disconnected by an `onCleanup` registered after `restoreHost` (so it runs
+  first, LIFO).
+- **Why not a remount:** a remount tears down every overlay, which stops a running voice-over and
+  resets an open quiz.
+- **Rules:**
+  - A node removed and re-inserted stays hidden, and its original `display` is recorded only on
+    first sight.
+  - Entries for nodes LearningSuite has removed stay in the map; restoring a detached node is
+    harmless.
+  - Text nodes and our sidebar are ignored.
+  - The fixed-rail fallback and the mobile sheet install no observer.
+  - Style writes cause no `childList` records, so the observer cannot loop.
+- **Depends on P3** (desktop placement lives in `sidebar-host.ts`).
+
+**Acceptance criteria:**
+
+- **AC1:** after the window crosses 1536px post-mount, the inserted column is hidden and the player
+  equals a fresh load at that width (±2px; 1600 → 641×361).
+- **AC2:** teardown restores the column's original `display`.
+- **AC3:** widening the window never shrinks the player.
+- **AC4:** no remount happens (slot elements keep their identity).
+
+**Verification:**
+
+- **Unit** (the `safety-net.test.ts` flex harness with stubbed boxes):
+  - an inserted sibling is hidden;
+  - teardown restores its original value (e.g. `"flex"`);
+  - removed and re-inserted, it stays hidden and still restores;
+  - text nodes and the sidebar are ignored;
+  - the fixed rail installs no observer;
+  - `#vp-slot-tl` keeps its identity.
+- **Chrome:**
+  - load at 1440, widen to 1600 → player 641×361 ±2 and the column `display:none`;
+  - shrink and widen again → same;
+  - a fresh load at 1600 is unchanged;
+  - removing the config makes the column visible again.
+- **e2e (desktop canary):** load at 1440, widen to 1600, expect the player width not to shrink.

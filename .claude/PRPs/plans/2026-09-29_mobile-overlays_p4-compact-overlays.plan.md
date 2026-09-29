@@ -62,7 +62,7 @@ At 1024px desktop the player is 461×260 (M12), so the problem is not phone-only
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T12:40Z
-- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed)
+- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750)
 - **Commits:**
 - **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P4) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 4) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (`host.open`, `__vpSidebarTab`) · `…_p2-mobile-canary-harness.plan.md` (fixme flipped here)
@@ -262,15 +262,16 @@ if (showAudio) {
   // PLAYER's box, not the viewport: at 1024px desktop the player is 461×260
   // (narrower than a tablet's 708×399), measured 2026-09-29, spec M12.
   //
-  // Agreed rule (spec amendment 2026-09-29): compact when width < 760 or
-  // height < 280. 760: the top pills need 24 + 384 (section max) + ~345
-  // (science max) = 753, and from 760 the voice-over card (left edge
-  // W − 334 ≥ 426) never shares a column with the section pill (x ≤ 398).
+  // Agreed rule (spec amendment (b) 2026-09-29): compact when width < 750 or
+  // height < 280. 750: typical top pills need ~494px; the worst case
+  // (max-length section title + science name) needs 753, accepted as a
+  // 1–3px risk so 1920 desktops (752×424) keep the full overlays.
   // 280: the card under the science pill needs 10 + 35 + 8 + 168 + 58 = 279.
-  // Every measured player with our sidebar is compact (spec M14):
-  //   390×219 phone · 441×249 @1280 · 461×260 @1024 · 501×283 @1366
-  //   504×284 @1920 · 553×312 @1440 · 317×179 @1600 · 632×356 tablet
-  //   708×399 tablet · 732×413 phone landscape
+  // Measured players (fresh loads, spec M14 corrected):
+  //   compact: 390×219 phone · 441×249 @1280 · 461×260 @1024 · 501×283 @1366
+  //            553×312 @1440 · 632×356 tablet · 641×361 @1600 · 708×399 tablet
+  //            732×413 phone landscape
+  //   full:    752×424 @1920
   export function isCompact(width: number, height: number): boolean {
     // TODO(user): written by the user — see plan Task 2.
     void width;
@@ -301,7 +302,8 @@ if (showAudio) {
 ### `[ ]` Task 2: USER CONTRIBUTION — `isCompact(width, height)`
 
 - **ACTION**: **STOP and hand this function to the user.** The rule was agreed with the user on
-  2026-09-29: compact when `width < 760 || height < 280`, width and height both checked, no
+  2026-09-29 (and corrected the same day from 760 to 750): compact when
+  `width < 750 || height < 280`, width and height both checked, no
   hysteresis. There is no feedback loop, because compact mode never changes the player's size, so
   the rule can only flip once per threshold crossing. The user writes the body: naming, constants,
   comments and the exact boundaries are theirs.
@@ -314,11 +316,11 @@ if (showAudio) {
 ### `[ ]` Task 3: CREATE `runtime-src/tests/demo-overlays/compact.test.ts`
 
 - **IMPLEMENT** (write this BEFORE Task 2 is resumed, so the table is the contract):
-  - **`isCompact` table (spec amendment 2026-09-29, M14):**
-    - **Compact (true):** 390×219, 441×249, 461×260, 501×283, 504×284, 553×312, 317×179, 632×356,
-      708×399, 732×413.
-    - **Boundaries:** 759×427 true; 760×428 false; 800×279 true (too short); 800×280 false.
-    - **Wide full:** 1200×675 false.
+  - **`isCompact` table (spec amendment (b), M14 corrected):**
+    - **Compact (true):** 390×219, 441×249, 461×260, 501×283, 553×312, 632×356, 641×361, 708×399,
+      732×413.
+    - **Full (false):** 752×424 (1920 desktop), 1200×675.
+    - **Boundaries:** 749×421 true; 750×422 false; 800×279 true (too short); 800×280 false.
   - **`observeCompact`:** use `FakeResizeObserver` and stub `target.getBoundingClientRect`.
     - It applies the initial state once.
     - After a size change plus `fire()`, it applies the new state once.
@@ -535,19 +537,16 @@ seek to 40 for the cue at 45; seek 13.5 for science and 5.5 for meta.
   - Every button is ≥ 40px.
   - The voice-over bar is ≤ 60px tall.
   - A section-pill tap opens the sheet (V1) or the sidebar's Coaching tab (V5).
-- [ ] **V3 820×1180, V4 1180×820, V6 1920×945:** all compact under the agreed rule (M14). Same
-      checks as V1/V5.
-- [ ] **Full variants** (need a player ≥ 760×280, which no real desktop width gives while our
-      sidebar is installed):
-  - At V6, rewrite `[data-vp-config]` client-side to audios only (no phases/sciences/meta), so no
-    sidebar is installed.
-  - Measure the player. If it is ≥ 760×280: the voice-over card is 320×168, the science pill shows
-    label and name (add one science back if needed), and `.vp-sci-pill`'s computed styles equal the
-    pre-change inline values (spot-check background, padding, font).
-  - If no tested width gives ≥ 760, record the widest player and rely on the unit tests.
+- [ ] **V3 820×1180, V4 1180×820 and 1600×900:** compact under the agreed rule. Same checks as
+      V1/V5.
+- [ ] **Full variants, V6 at 1920×1080 on a fresh load** (player 752×424, full size):
+  - The voice-over card is 320×168.
+  - The science pill shows label and name.
+  - `.vp-sci-pill`'s computed styles equal the pre-change inline values (spot-check background,
+    padding, font).
+  - Hover still expands the section pill.
 - [ ] **Touch plus full size:** not reachable on the measured devices (tablets are compact). The
       tap-to-pin behaviour is covered by the unit test only.
-- [ ] **Full size with a mouse (no-sidebar config):** hover still expands the section pill.
 
 ### Level 6: MANUAL_VALIDATION
 
@@ -562,7 +561,7 @@ seek to 40 for the cue at 45; seek 13.5 for science and 5.5 for meta.
 - [ ] **AC3**: The compact voice-over is a single row ≤ 60px, with play/pause and skip ≥ 40px.
 - [ ] **AC4**: A compact section-pill tap opens Coaching (sheet or sidebar); the pill never expands in the video.
 - [ ] **AC5**: On touch devices that aren't compact, a tap toggles `data-pinned`; hover styles apply only under `(hover:hover)`.
-- [ ] **AC6**: Full-size overlays (players ≥ 760×280) are visually unchanged (no-sidebar config at V6).
+- [ ] **AC6**: Full-size overlays (players ≥ 750×280) are visually unchanged (fresh load at 1920).
 - [ ] **AC7**: `bottom:58px` is unchanged and documented with the measurement.
 - [ ] Level 1–3 pass; Level 5 recorded; e2e mobile green (fixme flipped).
 
@@ -635,5 +634,24 @@ _Append-only history of changes made **after** this plan was first built (newest
   - AC6 is re-scoped.
 - **Not changed:** the tap-to-pin behaviour stays, although it is now only reachable on large touch
   screens.
+
+</details>
+
+<details>
+<summary>2026-09-29T15:00Z — rule corrected to 750; measurements corrected</summary>
+
+The 14:10Z amendment relied on desktop values for 1600 and 1920 that were measured after resizing
+an already-loaded page. Fresh loads give 641×361 at 1600 and 752×424 at 1920 (spec amendment
+(b)). With the correct numbers the user lowered the threshold to 750, so 1920 desktops keep the
+full overlays.
+
+Updated here:
+
+- the Task 1 comment table;
+- Task 2 (rule);
+- the Task 3 test table (752×424 full; boundaries 749/750);
+- the Level 5 full-variant check, now a fresh load at 1920 with the real config (the no-sidebar
+  workaround is gone);
+- AC6.
 
 </details>
