@@ -26,8 +26,12 @@ import {
   readBox,
   seekTo,
   tapHostPlay,
+  waitForDemoMount,
 } from "./support/mobile";
 import { contains } from "./support/geometry";
+// Pure and dependency-free on purpose (see its header), so the expected sheet
+// position is computed by the same rule the runtime uses.
+import { sheetTop } from "../runtime-src/demo-overlays/sheet-geometry";
 import { useRuntimeSource } from "./support/runtime-source";
 import { parseTargetSpec, targetSpecKey } from "./support/target";
 import { readTargetsFile } from "./support/targets-file";
@@ -43,6 +47,8 @@ const SECTION_PILL = "#vp-slot-tl .vp-section-pill";
 const SCIENCE_PILL = '#vp-slot-tr [data-overlay-action="science"]';
 const META_PILL = '#vp-slot-br [data-overlay-action="meta"]';
 const VOICE_OVER = "#vp-slot-lt .vp-audio-card";
+const TAB_BAR = "#vp-mobile-tabs";
+const SHEET = "#vp-demo-sidebar";
 
 for (const video of videos) {
   test.describe(`${courseLabel} · ${video.index}/${video.total} · ${video.title} · phone`, () => {
@@ -63,6 +69,8 @@ for (const video of videos) {
         !(await demoScriptRan(page)),
         "demo-overlays.js never ran on this lesson (no demo config, or its gate did not pass)",
       );
+      // Ran ≠ mounted: every test below measures mounted nodes.
+      await waitForDemoMount(page);
     });
 
     test.afterEach(async ({ page }, testInfo) => {
@@ -117,6 +125,101 @@ for (const video of videos) {
         contains(player, slot!) && contains(slot!, player),
         "the quiz slot must cover exactly the player (inset:0)",
       ).toBe(true);
+    });
+
+    // ── P3: the sheet host ──────────────────────────────────────────────────
+
+    test("the tab bar sits directly under the player", async ({ page }) => {
+      const player = await playerBox(page);
+      const tabs = await readBox(page, TAB_BAR);
+      expect(tabs, "#vp-mobile-tabs is missing on a phone").not.toBeNull();
+      expect(
+        Math.abs(tabs!.y - (player.y + player.h)),
+        `the tab bar must start at the player's bottom edge (tabs y=${tabs!.y}, player bottom=${player.y + player.h})`,
+      ).toBeLessThanOrEqual(1);
+    });
+
+    test("each tab opens the sheet docked at the player's bottom", async ({
+      page,
+    }) => {
+      const keys = await page
+        .locator(`${TAB_BAR} [data-sheet-tab]`)
+        .evaluateAll((els) =>
+          els.map((el) => (el as HTMLElement).dataset.sheetTab ?? ""),
+        );
+      expect(keys.length, "the tab bar has no tabs").toBeGreaterThan(0);
+
+      for (const key of keys) {
+        // Same starting point for every tab, so the expectation is exact.
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(300);
+        const input = await page.evaluate(() => {
+          const r = document
+            .getElementById("vp-slot-tl")!
+            .parentElement!.getBoundingClientRect();
+          const se = document.scrollingElement ?? document.documentElement;
+          return {
+            playerTop: r.top,
+            playerBottom: r.bottom,
+            scrollY: window.scrollY,
+            maxScroll: se.scrollHeight - window.innerHeight,
+            vw: window.innerWidth,
+            vh: window.innerHeight,
+          };
+        });
+        const expected = sheetTop(input);
+
+        await page.locator(`${TAB_BAR} [data-sheet-tab="${key}"]`).tap();
+        await expect(page.locator(`${SHEET}[data-open="1"]`)).toHaveCount(1);
+        // The smooth scroll plus the 250ms slide.
+        await page.waitForTimeout(900);
+
+        const sheet = await readBox(page, SHEET);
+        const player = await playerBox(page);
+        expect(
+          Math.abs(sheet!.y - expected.top),
+          `tab ${key}: the sheet's top must be where the player's bottom lands after scrolling (${sheet!.y} vs ${expected.top})`,
+        ).toBeLessThanOrEqual(2);
+        expect(
+          player.y + player.h,
+          `tab ${key}: the video must stay fully visible above the sheet`,
+        ).toBeLessThanOrEqual(sheet!.y + 1);
+        expect(
+          sheet!.x === 0 && Math.round(sheet!.w) === 390,
+          `tab ${key}: the sheet must span the viewport (a transformed ancestor would capture position:fixed)`,
+        ).toBe(true);
+        await expect(
+          page.locator(`${SHEET} [data-panel="${key}"]`),
+        ).toBeVisible();
+        expect(
+          await page.evaluate(
+            (sel) => !!document.elementFromPoint(195, 800)?.closest(sel),
+            SHEET,
+          ),
+          `tab ${key}: the sheet must be on top of LearningSuite's fixed bottom bar`,
+        ).toBe(true);
+
+        await page.keyboard.press("Escape");
+        await expect(page.locator(`${SHEET}[data-open="1"]`)).toHaveCount(0);
+      }
+    });
+
+    test("the science pill opens Science Corner", async ({ page }) => {
+      const { science } = await demoMoments(page);
+      test.skip(science === null, "this lesson's config has no science moment");
+      await seekTo(page, science! + 1.5);
+      await page.locator(`${SCIENCE_PILL} button`).tap();
+      await expect(page.locator(`${SHEET}[data-open="1"]`)).toHaveCount(1);
+      await expect(
+        page.locator(`${SHEET} [data-panel="science"]`),
+      ).toBeVisible();
+    });
+
+    test("✕ closes the sheet", async ({ page }) => {
+      await page.locator(`${TAB_BAR} [data-sheet-tab]`).first().tap();
+      await expect(page.locator(`${SHEET}[data-open="1"]`)).toHaveCount(1);
+      await page.locator(`${SHEET} .vp-sheet-close`).tap();
+      await expect(page.locator(`${SHEET}[data-open="1"]`)).toHaveCount(0);
     });
 
     // Fails today: the 320×168 voice-over card starts 7px above a 219px-tall

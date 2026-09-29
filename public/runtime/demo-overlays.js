@@ -126,6 +126,10 @@
     "demo.tab.coaching": "Coaching",
     "demo.tab.science": "Science Corner",
     "demo.tab.meta": "Meta Structure",
+    // Mobile sheet (screen-reader labels; the visible tabs reuse demo.tab.*)
+    "demo.sheet.label": "Lesson details",
+    "demo.sheet.close": "Close",
+    "demo.sheet.tabs": "Lesson sections",
     // Section pill (video overlay, top-left)
     "demo.section.eyebrow": "Course Section",
     "demo.section.intro": "Intro",
@@ -172,6 +176,9 @@
     "demo.tab.coaching": "Coaching",
     "demo.tab.science": "Science Corner",
     "demo.tab.meta": "Master-Schritte",
+    "demo.sheet.label": "Lektionsdetails",
+    "demo.sheet.close": "Schließen",
+    "demo.sheet.tabs": "Lektionsbereiche",
     "demo.section.eyebrow": "Sektion",
     "demo.section.intro": "Intro",
     "demo.section.empty": "Startet in Kürze …",
@@ -785,7 +792,7 @@
     radius: "12px"
   };
   var SLOT_CSS = `
-      .vp-slot, .vp-slot * { white-space:normal; }
+      .vp-slot, .vp-slot *, .vp-sheet-ui, .vp-sheet-ui * { white-space:normal; }
     `;
   var ANIM_CSS = `
       @keyframes vp-slide-in-right { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
@@ -1839,6 +1846,302 @@
   </div>`;
   }
 
+  // runtime-src/demo-overlays/sheet-geometry.ts
+  function sheetMaxTop(vw, vh) {
+    return Math.round(vh * (vh >= vw ? 0.55 : 0.4));
+  }
+  function sheetTop(i) {
+    const targetScroll = Math.min(
+      Math.max(i.scrollY + i.playerTop, 0),
+      Math.max(i.maxScroll, 0)
+    );
+    const bottomAfter = i.playerBottom - (targetScroll - i.scrollY);
+    const top = Math.min(Math.max(bottomAfter, 0), sheetMaxTop(i.vw, i.vh));
+    return { top: Math.round(top), targetScroll: Math.round(targetScroll) };
+  }
+
+  // runtime-src/demo-overlays/mobile-sheet.ts
+  var TAB_BAR_ID = "vp-mobile-tabs";
+  var SHEET_Z = 1100;
+  function createMobileSheet(deps) {
+    var _a, _b;
+    const { sidebar, playerHost, tabs, setTab, onCleanup } = deps;
+    let opened = false;
+    let opener = null;
+    let frame = 0;
+    sidebar.classList.add("vp-sheet-ui");
+    sidebar.setAttribute("role", "dialog");
+    sidebar.setAttribute("aria-modal", "false");
+    sidebar.setAttribute("aria-label", t("demo.sheet.label"));
+    sidebar.style.cssText = `position:fixed; left:0; right:0; bottom:0; top:0; width:auto; max-height:none; z-index:${SHEET_Z}; box-sizing:border-box; background:${T.card}; color:${T.fg}; color-scheme:dark; font:14px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif; border:1px solid ${T.border}; border-bottom:0; border-radius:14px 14px 0 0; box-shadow:0 -8px 24px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden;`;
+    sidebar.querySelectorAll(".vp-tab").forEach((b) => b.style.minHeight = "44px");
+    const panels = sidebar.querySelector("#vp-panels");
+    if (panels) panels.style.overscrollBehavior = "contain";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "vp-sheet-close";
+    closeBtn.setAttribute("aria-label", t("demo.sheet.close"));
+    closeBtn.textContent = "✕";
+    closeBtn.style.cssText = `flex:0 0 44px; height:44px; border:0; border-radius:8px; background:transparent; color:${T.mutedFg}; font:600 16px system-ui; cursor:pointer;`;
+    closeBtn.onclick = () => close();
+    (_b = (_a = sidebar.querySelector(".vp-tab")) == null ? void 0 : _a.parentElement) == null ? void 0 : _b.appendChild(closeBtn);
+    function applyClosed(animate) {
+      sidebar.style.transition = animate ? "transform .25s ease, visibility 0s linear .25s" : "";
+      sidebar.style.transform = "translateY(100%)";
+      sidebar.style.visibility = "hidden";
+      sidebar.inert = true;
+      delete sidebar.dataset.open;
+    }
+    applyClosed(false);
+    const fullscreenHost = () => {
+      var _a2;
+      const fs = (_a2 = document.fullscreenElement) != null ? _a2 : null;
+      return fs && fs.contains(playerHost) ? fs : null;
+    };
+    const place = () => {
+      var _a2;
+      const parent = (_a2 = fullscreenHost()) != null ? _a2 : document.body;
+      if (sidebar.parentElement !== parent) parent.appendChild(sidebar);
+    };
+    place();
+    const nav = document.createElement("nav");
+    nav.id = TAB_BAR_ID;
+    nav.className = "vp-sheet-ui";
+    nav.setAttribute("aria-label", t("demo.sheet.tabs"));
+    nav.style.cssText = "display:flex; gap:6px; padding:8px 0; box-sizing:border-box; font:600 13px system-ui;";
+    const tabButtons = tabs.map((tab) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.sheetTab = tab.key;
+      b.setAttribute("aria-controls", sidebar.id);
+      b.setAttribute("aria-expanded", "false");
+      b.textContent = tab.label;
+      b.style.cssText = `flex:1; min-height:44px; border:0; border-radius:10px; background:${T.muted}; color:${T.fg}; font:inherit; cursor:pointer;`;
+      b.onclick = () => open(tab.key);
+      nav.appendChild(b);
+      return b;
+    });
+    playerHost.after(nav);
+    function open(tab) {
+      var _a2;
+      setTab(tab);
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let top;
+      if (fullscreenHost()) {
+        top = sheetMaxTop(vw, vh);
+      } else {
+        const r = playerHost.getBoundingClientRect();
+        const se = (_a2 = document.scrollingElement) != null ? _a2 : document.documentElement;
+        const next = sheetTop({
+          playerTop: r.top,
+          playerBottom: r.bottom,
+          scrollY: window.scrollY,
+          maxScroll: se.scrollHeight - vh,
+          vw,
+          vh
+        });
+        top = next.top;
+        if (Math.abs(next.targetScroll - window.scrollY) >= 1)
+          window.scrollTo({ top: next.targetScroll, behavior: "smooth" });
+      }
+      if (!opened) opener = document.activeElement;
+      opened = true;
+      sidebar.style.top = `${top}px`;
+      sidebar.style.transition = "transform .25s ease";
+      sidebar.style.transform = "none";
+      sidebar.style.visibility = "visible";
+      sidebar.inert = false;
+      sidebar.dataset.open = "1";
+      tabButtons.forEach(
+        (b) => b.setAttribute("aria-expanded", String(b.dataset.sheetTab === tab))
+      );
+      try {
+        closeBtn.focus({ preventScroll: true });
+      } catch {
+      }
+    }
+    function close() {
+      if (!opened) return;
+      opened = false;
+      applyClosed(true);
+      tabButtons.forEach((b) => b.setAttribute("aria-expanded", "false"));
+      const back = opener;
+      opener = null;
+      if (back instanceof HTMLElement && back.isConnected)
+        try {
+          back.focus({ preventScroll: true });
+        } catch {
+        }
+    }
+    const follow = () => {
+      if (!opened || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!opened) return;
+        const max = sheetMaxTop(window.innerWidth, window.innerHeight);
+        const bottom = fullscreenHost() ? max : playerHost.getBoundingClientRect().bottom;
+        sidebar.style.top = `${Math.round(Math.min(Math.max(bottom, 0), max))}px`;
+      });
+    };
+    const onKeydown = (e) => {
+      if (e.key === "Escape" && opened) close();
+    };
+    const onFullscreen = () => {
+      place();
+      follow();
+    };
+    window.addEventListener("scroll", follow, { passive: true });
+    window.addEventListener("resize", follow);
+    document.addEventListener("keydown", onKeydown);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    document.addEventListener("webkitfullscreenchange", onFullscreen);
+    onCleanup(() => {
+      window.removeEventListener("scroll", follow);
+      window.removeEventListener("resize", follow);
+      document.removeEventListener("keydown", onKeydown);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+      document.removeEventListener("webkitfullscreenchange", onFullscreen);
+      if (frame) cancelAnimationFrame(frame);
+      nav.remove();
+      sidebar.remove();
+    });
+    return {
+      open,
+      close,
+      isOpen: () => opened,
+      isConnected: () => nav.isConnected && sidebar.isConnected
+    };
+  }
+
+  // runtime-src/demo-overlays/sidebar-host.ts
+  function chooseHostMode(viewportFits, hasContent) {
+    if (!hasContent) return "none";
+    return viewportFits ? "desktop" : "sheet";
+  }
+  function installSidebarHost(deps) {
+    if (deps.mode === "sheet") {
+      const sheet = createMobileSheet(deps);
+      return {
+        mode: "sheet",
+        open: sheet.open,
+        isConnected: sheet.isConnected
+      };
+    }
+    installDesktop(deps.sidebar, deps.onCleanup);
+    return {
+      mode: "desktop",
+      open: deps.setTab,
+      isConnected: () => deps.sidebar.isConnected
+    };
+  }
+  function installDesktop(sidebar, onCleanup) {
+    function detectTopNavHeight() {
+      let bottom = 0;
+      const candidates = document.querySelectorAll(
+        'header, nav, [role="banner"], [class*="AppBar"], [class*="Toolbar"], [class*="topbar"], [class*="TopBar"], [class*="navbar"]'
+      );
+      for (const el of candidates) {
+        const cs = getComputedStyle(el);
+        if (cs.position !== "fixed" && cs.position !== "sticky") continue;
+        const r = el.getBoundingClientRect();
+        if (r.top > 6 || r.height > 200 || r.height < 24) continue;
+        if (r.bottom > bottom) bottom = r.bottom;
+      }
+      return bottom;
+    }
+    const SIDEBAR_W = "clamp(340px, 30vw, 476px)";
+    const SIDEBAR_GAP = 16;
+    const SIDEBAR_MIN_TOP = 24;
+    function applyFixedRightRail() {
+      const topClear = Math.max(
+        SIDEBAR_MIN_TOP,
+        Math.ceil(detectTopNavHeight() + 8)
+      );
+      sidebar.style.position = "fixed";
+      sidebar.style.top = topClear + "px";
+      sidebar.style.right = SIDEBAR_GAP + "px";
+      sidebar.style.bottom = SIDEBAR_GAP + "px";
+      sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
+      sidebar.style.zIndex = "50";
+      sidebar.style.width = SIDEBAR_W;
+      sidebar.style.alignSelf = "";
+      if (sidebar.parentElement !== document.body)
+        document.body.appendChild(sidebar);
+      const reserve = `calc(${SIDEBAR_W} + ${SIDEBAR_GAP * 2}px)`;
+      const targets = [
+        document.querySelector("main"),
+        document.querySelector('[class*="MainScroll"]'),
+        document.querySelector('[class*="content-scroll"]'),
+        document.body
+      ].filter(Boolean);
+      for (const t2 of targets) {
+        const prev = t2.style.paddingRight;
+        t2.style.paddingRight = reserve;
+        onCleanup(() => {
+          t2.style.paddingRight = prev;
+        });
+      }
+      const onResize = () => {
+        const next = Math.max(
+          SIDEBAR_MIN_TOP,
+          Math.ceil(detectTopNavHeight() + 8)
+        );
+        sidebar.style.top = next + "px";
+        sidebar.style.maxHeight = `calc(100vh - ${next + SIDEBAR_GAP}px)`;
+      };
+      window.addEventListener("resize", onResize);
+      onCleanup(() => window.removeEventListener("resize", onResize));
+    }
+    function tryFlexSibling() {
+      const mainEl = document.querySelector("main");
+      if (!mainEl) return false;
+      const flexParent = mainEl.parentElement;
+      if (!flexParent) return false;
+      const mainBox = mainEl.getBoundingClientRect();
+      if (mainBox.width <= 0 || mainBox.height <= 0) return false;
+      const prevDisplays = /* @__PURE__ */ new Map();
+      [...flexParent.children].forEach((child) => {
+        const c = child;
+        if (c !== mainEl && c.id !== "vp-demo-sidebar") {
+          prevDisplays.set(c, c.style.display);
+          c.style.display = "none";
+        }
+      });
+      const prevParentDisplay = flexParent.style.display;
+      const prevParentGap = flexParent.style.gap;
+      const prevMainFlex = mainEl.style.flex;
+      const prevMainMinWidth = mainEl.style.minWidth;
+      if (getComputedStyle(flexParent).display !== "flex")
+        flexParent.style.display = "flex";
+      flexParent.style.gap = "24px";
+      mainEl.style.flex = "1 1 0";
+      mainEl.style.minWidth = "0";
+      flexParent.appendChild(sidebar);
+      const mainRect = mainEl.getBoundingClientRect();
+      const sbRect = sidebar.getBoundingClientRect();
+      const fitsToRightOfMain = sbRect.left + 5 >= mainRect.right;
+      const visibleInViewport = sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
+      const restoreHost = () => {
+        prevDisplays.forEach((v, child) => {
+          child.style.display = v;
+        });
+        flexParent.style.display = prevParentDisplay;
+        flexParent.style.gap = prevParentGap;
+        mainEl.style.flex = prevMainFlex;
+        mainEl.style.minWidth = prevMainMinWidth;
+      };
+      if (fitsToRightOfMain && visibleInViewport) {
+        onCleanup(restoreHost);
+        return true;
+      }
+      restoreHost();
+      return false;
+    }
+    if (!tryFlexSibling()) applyFixedRightRail();
+    onCleanup(() => sidebar.remove());
+  }
+
   // runtime-src/demo-overlays/index.ts
   var CLEANUP_KEY = "__vpDemoCleanup";
   var AUDIO_EL_ID = "vp-audio-el";
@@ -1882,6 +2185,7 @@
     "vp-slot-lt",
     "vp-slot-quiz",
     "vp-demo-sidebar",
+    TAB_BAR_ID,
     "vp-anim-style",
     "__vp-slot-style",
     "__vp-section-style",
@@ -2024,7 +2328,10 @@
       const showScienceTab = sciences.length > 0;
       const showMetaTab = metaSteps.length > 0;
       const sidebarFits = sidebarViewport.matches;
-      const showSidebar = sidebarFits && (showCoachingTab || showScienceTab || showMetaTab);
+      const hostMode = chooseHostMode(
+        sidebarFits,
+        showCoachingTab || showScienceTab || showMetaTab
+      );
       const showAudio = audios.length > 0;
       const showQuiz = quiz !== null;
       w.__vpConfig = {
@@ -2717,112 +3024,14 @@
       ).join("")}
     </div>
   `;
-      function detectTopNavHeight() {
-        let bottom = 0;
-        const candidates = document.querySelectorAll(
-          'header, nav, [role="banner"], [class*="AppBar"], [class*="Toolbar"], [class*="topbar"], [class*="TopBar"], [class*="navbar"]'
-        );
-        for (const el of candidates) {
-          const cs = getComputedStyle(el);
-          if (cs.position !== "fixed" && cs.position !== "sticky") continue;
-          const r = el.getBoundingClientRect();
-          if (r.top > 6 || r.height > 200 || r.height < 24) continue;
-          if (r.bottom > bottom) bottom = r.bottom;
-        }
-        return bottom;
-      }
-      const SIDEBAR_W = "clamp(340px, 30vw, 476px)";
-      const SIDEBAR_GAP = 16;
-      const SIDEBAR_MIN_TOP = 24;
-      function applyFixedRightRail() {
-        const topClear = Math.max(
-          SIDEBAR_MIN_TOP,
-          Math.ceil(detectTopNavHeight() + 8)
-        );
-        sidebar.style.position = "fixed";
-        sidebar.style.top = topClear + "px";
-        sidebar.style.right = SIDEBAR_GAP + "px";
-        sidebar.style.bottom = SIDEBAR_GAP + "px";
-        sidebar.style.maxHeight = `calc(100vh - ${topClear + SIDEBAR_GAP}px)`;
-        sidebar.style.zIndex = "50";
-        sidebar.style.width = SIDEBAR_W;
-        sidebar.style.alignSelf = "";
-        if (sidebar.parentElement !== document.body)
-          document.body.appendChild(sidebar);
-        const reserve = `calc(${SIDEBAR_W} + ${SIDEBAR_GAP * 2}px)`;
-        const targets = [
-          document.querySelector("main"),
-          document.querySelector('[class*="MainScroll"]'),
-          document.querySelector('[class*="content-scroll"]'),
-          document.body
-        ].filter(Boolean);
-        for (const t2 of targets) {
-          const prev = t2.style.paddingRight;
-          t2.style.paddingRight = reserve;
-          onCleanup(() => {
-            t2.style.paddingRight = prev;
-          });
-        }
-        const onResize = () => {
-          const next = Math.max(
-            SIDEBAR_MIN_TOP,
-            Math.ceil(detectTopNavHeight() + 8)
-          );
-          sidebar.style.top = next + "px";
-          sidebar.style.maxHeight = `calc(100vh - ${next + SIDEBAR_GAP}px)`;
-        };
-        window.addEventListener("resize", onResize);
-        onCleanup(() => window.removeEventListener("resize", onResize));
-      }
-      function tryFlexSibling() {
-        const mainEl = document.querySelector("main");
-        if (!mainEl) return false;
-        const flexParent = mainEl.parentElement;
-        if (!flexParent) return false;
-        const mainBox = mainEl.getBoundingClientRect();
-        if (mainBox.width <= 0 || mainBox.height <= 0) return false;
-        const prevDisplays = /* @__PURE__ */ new Map();
-        [...flexParent.children].forEach((child) => {
-          const c = child;
-          if (c !== mainEl && c.id !== "vp-demo-sidebar") {
-            prevDisplays.set(c, c.style.display);
-            c.style.display = "none";
-          }
-        });
-        const prevParentDisplay = flexParent.style.display;
-        const prevParentGap = flexParent.style.gap;
-        const prevMainFlex = mainEl.style.flex;
-        const prevMainMinWidth = mainEl.style.minWidth;
-        if (getComputedStyle(flexParent).display !== "flex")
-          flexParent.style.display = "flex";
-        flexParent.style.gap = "24px";
-        mainEl.style.flex = "1 1 0";
-        mainEl.style.minWidth = "0";
-        flexParent.appendChild(sidebar);
-        const mainRect = mainEl.getBoundingClientRect();
-        const sbRect = sidebar.getBoundingClientRect();
-        const fitsToRightOfMain = sbRect.left + 5 >= mainRect.right;
-        const visibleInViewport = sbRect.right <= window.innerWidth + 1 && sbRect.width >= 200;
-        const restoreHost = () => {
-          prevDisplays.forEach((v, child) => {
-            child.style.display = v;
-          });
-          flexParent.style.display = prevParentDisplay;
-          flexParent.style.gap = prevParentGap;
-          mainEl.style.flex = prevMainFlex;
-          mainEl.style.minWidth = prevMainMinWidth;
-        };
-        if (fitsToRightOfMain && visibleInViewport) {
-          onCleanup(restoreHost);
-          return true;
-        }
-        restoreHost();
-        return false;
-      }
-      if (showSidebar) {
-        if (!tryFlexSibling()) applyFixedRightRail();
-        onCleanup(() => sidebar.remove());
-      }
+      const host = hostMode === "none" ? null : installSidebarHost({
+        mode: hostMode,
+        sidebar,
+        playerHost,
+        tabs: tabDefs,
+        setTab,
+        onCleanup
+      });
       function setTab(name) {
         var _a2;
         const target = tabDefs.some((tab) => tab.key === name) ? name : (_a2 = tabDefs[0]) == null ? void 0 : _a2.key;
@@ -2839,8 +3048,8 @@
           p.style.display = p.getAttribute("data-panel") === target ? "" : "none";
         });
       }
-      if (showSidebar) {
-        w.__vpSidebarTab = setTab;
+      if (host) {
+        w.__vpSidebarTab = host.open;
         onCleanup(() => {
           delete w.__vpSidebarTab;
         });
@@ -2959,7 +3168,8 @@
         const card = sciencePanel.querySelector(
           `[data-sci-card="${CSS.escape(id)}"]`
         );
-        if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        if (card && !sidebar.inert)
+          card.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
       renderSciencePanel();
       const metaPanel = sidebar.querySelector('[data-panel="meta"]');
@@ -3083,7 +3293,7 @@
         if (!slotBR.isConnected) return false;
         if (!slotLowerThird.isConnected) return false;
         if (showQuiz && !(slotQuiz == null ? void 0 : slotQuiz.isConnected)) return false;
-        if (showSidebar && !sidebar.isConnected) return false;
+        if (host && !host.isConnected()) return false;
         if (sidebarViewport.matches !== sidebarFits) return false;
         return true;
       };

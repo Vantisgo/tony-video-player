@@ -34,8 +34,12 @@ export const T = {
 // `display:block` wrappers rendered 160px and 178px tall against a 62px design,
 // taking the card to 200px. Resetting at the slot roots covers every renderer,
 // present and future, instead of one template at a time.
+//
+// `.vp-sheet-ui` carries the same reset to the mobile tab bar (a sibling of the
+// player, so inside LearningSuite's pre-wrap block) and to the sidebar while it
+// is a sheet (it leaves the slots entirely).
 export const SLOT_CSS = `
-      .vp-slot, .vp-slot * { white-space:normal; }
+      .vp-slot, .vp-slot *, .vp-sheet-ui, .vp-sheet-ui * { white-space:normal; }
     `;
 
 export const ANIM_CSS = `

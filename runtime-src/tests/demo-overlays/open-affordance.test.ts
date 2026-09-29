@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerApi, PlayerEvent } from "../../common/types";
 
-// The science and meta pills promise to open a sidebar tab. Below 1024px no
+// The science and meta pills promise to open a sidebar tab. Before P3, below 1024px no
 // sidebar is installed, and before this fix `__vpSidebarTab` still pointed at
 // the detached <aside>, so "Öffnen" was a dead tap (spec M1, measured on the
 // live tenant 2026-09-29). These tests pin the rule: the open affordance exists
@@ -146,13 +146,12 @@ afterEach(() => {
 });
 
 describe("pill open affordances", () => {
-  it("AC1+AC2: offers no open action below 1024px", async () => {
-    // Narrow BEFORE the import: happy-dom's matchMedia listener does not fire
-    // on the first flip away from an already-true query.
-    happyDOM().setViewport({ width: 390 });
+  it("AC1+AC2: offers no open action while no sidebar host is installed", async () => {
+    // Since P3 every viewport with content gets a host (desktop sidebar or the
+    // mobile sheet), so "no host" is reached by removing the function the host
+    // publishes — the pills read it at render time.
     await mount();
-
-    expect(typeof w.__vpSidebarTab).toBe("undefined");
+    delete w.__vpSidebarTab;
 
     emitTime(11);
     const sci = sciencePill();
