@@ -64,9 +64,9 @@ the column is hidden before the next paint.
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T15:40Z
-- **Modified:** 2026-09-29T15:40Z
-- **Commits:**
-- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
+- **Modified:** 2026-09-29T15:40Z · 2026-09-29T18:50Z (implemented)
+- **Commits:** 91a4c88 (fix) · 55decb6 (happy-dom 20.14.5)
+- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7 · claude-opus-5-5 (implementation), same session
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (amendment (b): M15, P6 design) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 6) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (moves `tryFlexSibling` into `sidebar-host.ts`)
 - **Forward refs:**
 
@@ -252,7 +252,7 @@ expect(document.getElementById("vp-slot-tl")).toBe(before);
 
 ## Step-by-Step Tasks
 
-### `[ ]` Task 1: UPDATE happy-dom to ≥ 20.11.2 (optional, test environment only)
+### `[x]` Task 1: UPDATE happy-dom to ≥ 20.11.2 (optional, test environment only)
 
 - **ACTION**: `bun update happy-dom`. `^20.11.1` already allows it, so only `bun.lock` changes.
 - **GOTCHA**: 20.11.1 registers the observer callback in a `WeakRef` that can be collected
@@ -262,7 +262,7 @@ expect(document.getElementById("vp-slot-tl")).toBe(before);
   by the cleanup (Task 2 does).
 - **VALIDATE**: `bun run test` (the whole suite is still green on the new patch)
 
-### `[ ]` Task 2: UPDATE `runtime-src/demo-overlays/sidebar-host.ts` — `siblingWatch`
+### `[x]` Task 2: UPDATE `runtime-src/demo-overlays/sidebar-host.ts` — `siblingWatch`
 
 - **ACTION**: In `tryFlexSibling`'s success branch, after `onCleanup(restoreHost);` and before
   `return true;`, add the observer from the Solution Statement with this comment:
@@ -293,7 +293,7 @@ expect(document.getElementById("vp-slot-tl")).toBe(before);
     is.
 - **VALIDATE**: `bun run typecheck:runtime && bun run lint`
 
-### `[ ]` Task 3: CREATE `runtime-src/tests/demo-overlays/flex-sibling-watch.test.ts`
+### `[x]` Task 3: CREATE `runtime-src/tests/demo-overlays/flex-sibling-watch.test.ts`
 
 - **IMPLEMENT**:
   - **Harness:** copy the helpers and hooks from `safety-net.test.ts:1-92` (player stub,
@@ -318,7 +318,7 @@ expect(document.getElementById("vp-slot-tl")).toBe(before);
   disconnect.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/flex-sibling-watch.test.ts`
 
-### `[ ]` Task 4: UPDATE `e2e/support/assertions.ts` and `e2e/overlay-canary.spec.ts`
+### `[x]` Task 4: UPDATE `e2e/support/assertions.ts` and `e2e/overlay-canary.spec.ts`
 
 - **IMPLEMENT**:
   - `assertions.ts`: `export async function hostBox(page: Page): Promise<{ w: number; h: number }>`,
@@ -340,11 +340,11 @@ expect(document.getElementById("vp-slot-tl")).toBe(before);
     appears. The test sets its own sizes.
 - **VALIDATE**: `E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js bun run e2e -- --grep "xl breakpoint"`
 
-### `[ ]` Task 5: REGENERATE `public/runtime/demo-overlays.js`
+### `[x]` Task 5: REGENERATE `public/runtime/demo-overlays.js`
 
 - **VALIDATE**: `bun run build:runtime && git status --short public/runtime`
 
-### `[ ]` Task 6: VERIFY in Chrome (Level 5)
+### `[x]` Task 6: VERIFY in Chrome (Level 5)
 
 - **VALIDATE**: all Level 5 boxes checked, with values in Agent Notes.
 
@@ -479,3 +479,21 @@ tests. Decline by marking Task 1 `[f]`.
 ## Amendments
 
 _Append-only history of changes made **after** this plan was first built (newest at the bottom)._
+
+<details>
+<summary>2026-09-29T18:50Z — implemented</summary>
+
+- **Built as planned:**
+  - `siblingWatch` on the success branch;
+  - `flex-sibling-watch.test.ts` (9 cases; the watcher and the `has()` guard are both
+    mutation-checked);
+  - `hostBox` and the desktop e2e test, which fails on the pre-P6 runtime.
+- **Deviation:** happy-dom went to 20.14.5 via `bun update` (the specifier is now `^20.14.5`).
+- **Chrome:**
+  - 1440 → 1600 now gives 641×361 (was 317×179);
+  - the round trip and 30s of playback are stable;
+  - a fresh load at 1600 is unchanged;
+  - teardown restores LearningSuite's column.
+- **Final e2e:** 18/18.
+
+</details>

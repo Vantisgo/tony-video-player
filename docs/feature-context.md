@@ -968,3 +968,24 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
 - **Gotcha**: the 1024px desktop player (461×260) is compact too, so its quiz
   covers the browser window. That is consistent with phones, and flagged to
   the user with a screenshot.
+
+## 2026-09-29 · mobile-overlays · P6 — desktop squeeze past 1536px
+
+- **Decision**: on the flex-sibling path the desktop host keeps its layout
+  change in place with a `childList` `MutationObserver` on `<main>`'s parent.
+  Any element LearningSuite adds there later, other than `<main>` and our
+  sidebar, is hidden. Its first-seen inline `display` goes into
+  `restoreHost`'s map, and nothing is remounted. Any future change to the
+  host's layout has to survive LearningSuite re-rendering it, not just be
+  right at mount.
+- **Decision**: the watcher hides synchronously in the callback (a microtask,
+  so before the next paint) and is never debounced, unlike the body watcher.
+  It never hides a `<main>` or an element containing one: a replaced lesson is
+  `checkAlive`'s job.
+- **Gotcha**: DOM moves arrive as remove+add record pairs. Guard with
+  `prevDisplays.has(n)`, or a moved node records our own `none` as its
+  "original" value.
+- **Gotcha**: Playwright's `setViewportSize` resolves before the page's
+  `resize` event, media-query `change` and React commit. Resize tests must wait
+  for the DOM they expect (here: the inserted column) before measuring, or they
+  pass without testing anything.
