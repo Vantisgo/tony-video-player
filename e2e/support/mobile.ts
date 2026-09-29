@@ -50,15 +50,52 @@ export async function playerBox(page: Page): Promise<Box> {
 // Seeks through the runtime's PlayerApi and waits until the time has landed.
 // Seeking is not the subject of any mobile test (the overlays are), so driving
 // window.player here is fine; playback itself is always started by a real tap.
+//
+// Re-issued until it sticks: LearningSuite restores the account's saved watch
+// position right after load (measured 2026-09-29: playback resumed at 70s), and
+// that seek can land after ours and silently undo it.
 export async function seekTo(page: Page, t: number): Promise<void> {
-  await page.evaluate((to) => {
-    (window as unknown as PlayerWindow).player.seek(to);
-  }, t);
+  const deadline = Date.now() + 15_000;
+  for (;;) {
+    await page.evaluate((to) => {
+      (window as unknown as PlayerWindow).player.seek(to);
+    }, t);
+    const landed = await page
+      .waitForFunction(
+        (to) =>
+          Math.abs((window as unknown as PlayerWindow).player.current - to) < 1,
+        t,
+        { timeout: 1_500 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    if (landed) {
+      // A late host seek can still arrive; confirm the time held.
+      await page.waitForTimeout(500);
+      const current = await page.evaluate(
+        () => (window as unknown as PlayerWindow).player.current,
+      );
+      if (Math.abs(current - t) < 2) return;
+    }
+    if (Date.now() > deadline)
+      throw new Error(
+        `seekTo(${t}) never held: window.player.current kept returning elsewhere. ` +
+          "LearningSuite's own resume seek (or a stalled player) is overriding ours.",
+      );
+  }
+}
+
+// The demo controller has MOUNTED against this lesson: its config is published
+// and the slots exist. `__vpDemoStatus` (what demoScriptRan waits for) is set
+// when the controller ARMS, a couple of frames earlier — tests that measure
+// straight after it raced the mount (2026-09-29).
+export async function waitForDemoMount(page: Page): Promise<void> {
   await page.waitForFunction(
-    (to) =>
-      Math.abs((window as unknown as PlayerWindow).player.current - to) < 1,
-    t,
-    { timeout: 15_000 },
+    () =>
+      !!(window as unknown as { __vpConfig?: unknown }).__vpConfig &&
+      !!document.getElementById("vp-slot-tl")?.parentElement,
+    undefined,
+    { timeout: 30_000 },
   );
 }
 
@@ -116,14 +153,8 @@ export type DemoMoments = {
 };
 
 export async function demoMoments(page: Page): Promise<DemoMoments> {
-  // `__vpDemoStatus` (what demoScriptRan waits for) is set when the controller
-  // ARMS; `__vpConfig` only once it has MOUNTED, two animation frames later.
-  // Reading too early returned nulls and silently skipped a test (2026-09-29).
-  await page.waitForFunction(
-    () => !!(window as unknown as { __vpConfig?: unknown }).__vpConfig,
-    undefined,
-    { timeout: 30_000 },
-  );
+  // Reading before the mount returned nulls and silently skipped a test.
+  await waitForDemoMount(page);
   return page.evaluate(() => {
     const data = (
       window as unknown as {
