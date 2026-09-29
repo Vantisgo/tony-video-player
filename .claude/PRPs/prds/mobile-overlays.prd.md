@@ -58,15 +58,15 @@ Playwright project.
 
 ## Success Metrics
 
-| Metric                                            | Target                                             | How Measured                                                 |
-| ------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
-| Overlays inside the player at V1/V5               | 100% of visible overlays                           | `expectInsidePlayer` in devtools and `canary-mobile`         |
-| Pairwise overlap of pills and voice-over at V1/V5 | 0px²                                               | `expectNoOverlap`                                            |
-| Dead taps (visible "Öffnen" without a host)       | 0                                                  | P1 check: no "Öffnen" and no `__vpSidebarTab` without a host |
-| Sheet reachability                                | every tab, from tab bar and every pill             | P3 check at V1                                               |
-| Tap target size in compact mode                   | ≥ 40px                                             | button rects at V1                                           |
-| Quiz fully visible on a phone                     | card `scrollHeight === clientHeight`               | P5 check at V1                                               |
-| Desktop regression                                | none at V6 (voice-over 320×168, sidebar unchanged) | P3/P4/P5 checks at V6                                        |
+| Metric                                            | Target                                                                                | How Measured                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Overlays inside the player at V1/V5               | 100% of visible overlays                                                              | `expectInsidePlayer` in devtools and `canary-mobile`          |
+| Pairwise overlap of pills and voice-over at V1/V5 | 0px²                                                                                  | `expectNoOverlap`                                             |
+| Dead taps (visible "Öffnen" without a host)       | 0                                                                                     | P1 check: no "Öffnen" and no `__vpSidebarTab` without a host  |
+| Sheet reachability                                | every tab, from tab bar and every pill                                                | P3 check at V1                                                |
+| Tap target size in compact mode                   | ≥ 40px                                                                                | button rects at V1                                            |
+| Quiz fully visible on a phone                     | card `scrollHeight === clientHeight`                                                  | P5 check at V1                                                |
+| Full-size regression                              | none for players ≥ 760×280 (voice-over 320×168; sidebar placement unchanged at V5/V6) | P4 check with a no-sidebar config at 1920; P3 checks at V5/V6 |
 
 ## Open Questions
 
@@ -180,13 +180,14 @@ later phases can assert against it. P5 completes mobile parity.
   PRP: link to generated plan file once created
 -->
 
-| #   | Phase                 | Description                                                                      | Status      | Parallel | Depends | PRP Plan                                                                         |
-| --- | --------------------- | -------------------------------------------------------------------------------- | ----------- | -------- | ------- | -------------------------------------------------------------------------------- |
-| 1   | Dead affordances      | `__vpSidebarTab` and "Öffnen" only while a host is installed                     | in-progress | with 2   | -       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md`      |
-| 2   | Mobile canary harness | `canary-mobile` Playwright project and test-only helpers                         | in-progress | with 1   | -       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` |
-| 3   | Mobile sheet          | `sidebar-host.ts` and `mobile-sheet.ts`: tab bar, docked sheet, `open(tab)`      | in-progress | -        | 1, 2    | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md`          |
-| 4   | Compact overlays      | `compact.ts` and compact CSS for voice-over and pills; tap targets; hover guards | in-progress | -        | 3       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md`      |
-| 5   | Quiz on mobile        | Move the quiz slot to `body` on compact players and cover the whole screen       | in-progress | -        | 4       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p5-quiz-on-mobile.plan.md`        |
+| #   | Phase                    | Description                                                                             | Status      | Parallel | Depends | PRP Plan                                                                         |
+| --- | ------------------------ | --------------------------------------------------------------------------------------- | ----------- | -------- | ------- | -------------------------------------------------------------------------------- |
+| 1   | Dead affordances         | `__vpSidebarTab` and "Öffnen" only while a host is installed                            | in-progress | with 2   | -       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md`      |
+| 2   | Mobile canary harness    | `canary-mobile` Playwright project and test-only helpers                                | in-progress | with 1   | -       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` |
+| 3   | Mobile sheet             | `sidebar-host.ts` and `mobile-sheet.ts`: tab bar, docked sheet, `open(tab)`             | in-progress | -        | 1, 2    | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md`          |
+| 4   | Compact overlays         | `compact.ts` and compact CSS for voice-over and pills; tap targets; hover guards        | in-progress | -        | 3       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md`      |
+| 5   | Quiz on mobile           | Move the quiz slot to `body` on compact players and cover the whole screen              | in-progress | -        | 4       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p5-quiz-on-mobile.plan.md`        |
+| 6   | Desktop squeeze ≥ 1536px | Our sidebar and LearningSuite's `xl` lesson column shrink the player to 317×179 at 1600 | pending     | -        | 3       | - (needs design first)                                                           |
 
 ### Phase Details
 
@@ -250,6 +251,21 @@ later phases can assert against it. P5 completes mobile parity.
 - **Success signal:** at V1 the scrim rect is (0, 0, 390, 844), the scrim is on top at y=812, and
   the card needs no scrolling; at V6 the quiz is unchanged.
 
+**Phase 6: Desktop squeeze at ≥ 1536px**
+
+- **Goal:** on wide desktops the player is not squeezed below phone size by our sidebar.
+- **Context (measured, spec M14):**
+  - from 1536px (MUI `xl`) LearningSuite shows its own lesson column;
+  - it is not a sibling of `<main>`, so `tryFlexSibling` leaves it visible;
+  - with our sidebar growing with 30vw (`b87c8fd`), four columns share the width and the player
+    is 317×179 at 1600 and 504×284 at 1920.
+- **Scope:** TBD — needs design (brainstorming) before a plan. Candidate directions to weigh:
+  - stop the sidebar growing once LearningSuite's column is shown;
+  - hide or collapse LearningSuite's lesson column as `tryFlexSibling` already does below `xl`;
+  - place our sidebar in LearningSuite's column instead.
+- **Success signal:** TBD with the design. At minimum, the player at 1600 is not smaller than at
+  1440 (553px).
+
 ### Parallelism Notes
 
 Phases 1 and 2 touch disjoint files (`runtime-src/demo-overlays/` vs `e2e/` and
@@ -264,20 +280,26 @@ plans for phases 3–5 were drafted before their dependencies were implemented. 
 "planned ahead" note listing the contracts it relies on, and must be re-checked against the code
 before its first task. "in-progress" here means "plan written", not "implementation started".
 
+Phase 6 depends on P3, because the desktop placement code lives in `sidebar-host.ts` from then on.
+It mostly touches that file, but it may also change the sidebar width set in `index.ts`, so run it
+after P5 unless its design shows otherwise.
+
 ---
 
 ## Decisions Log
 
-| Decision        | Choice                                                                 | Alternatives                                     | Rationale                                                                                                             |
-| --------------- | ---------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Architecture    | One sidebar, two hosts, compact mode via `ResizeObserver`              | Separate mobile renderer; viewport media queries | No duplicated card rendering; M12 shows the viewport is the wrong signal                                              |
-| Mobile launcher | Tab bar under the player                                               | In-player button; floating button; pills only    | Always visible, never covers the video, mirrors the desktop tabs                                                      |
-| Sheet behaviour | Docked at the player bottom, video keeps playing                       | 70vh standard sheet; full-screen pausing sheet   | The video stays visible (sheet top 428 on iPhone); no new pause logic                                                 |
-| Sheet stacking  | z-index 1100                                                           | Above everything                                 | Above LearningSuite's bar (999), below its overlay layers (1200) so its menus win                                     |
-| Quiz on phones  | Move the slot to `body` and cover the whole screen                     | Keep it in the player; fixed inside the player   | The player clips its content and has its own stacking layer; moving the element avoids both                           |
-| Verification    | Devtools per phase and `canary-mobile`                                 | Devtools only; Playwright only                   | Fast iteration plus regression protection                                                                             |
-| Success measure | Geometry checks only                                                   | Plus usage telemetry                             | Demo stage; no tracking or privacy question                                                                           |
-| Branch          | `git flow feature start mobile-overlays feature/e2e-canary-playwright` | Plain branch; commit on base                     | Follows CLAUDE.md git flow while keeping the sidebar commits. Finish as a PR into the base branch, not into `develop` |
+| Decision        | Choice                                                                 | Alternatives                                     | Rationale                                                                                                                                                                             |
+| --------------- | ---------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture    | One sidebar, two hosts, compact mode via `ResizeObserver`              | Separate mobile renderer; viewport media queries | No duplicated card rendering; M12 shows the viewport is the wrong signal                                                                                                              |
+| Mobile launcher | Tab bar under the player                                               | In-player button; floating button; pills only    | Always visible, never covers the video, mirrors the desktop tabs                                                                                                                      |
+| Sheet behaviour | Docked at the player bottom, video keeps playing                       | 70vh standard sheet; full-screen pausing sheet   | The video stays visible (sheet top 428 on iPhone); no new pause logic                                                                                                                 |
+| Sheet stacking  | z-index 1100                                                           | Above everything                                 | Above LearningSuite's bar (999), below its overlay layers (1200) so its menus win                                                                                                     |
+| Quiz on phones  | Move the slot to `body` and cover the whole screen                     | Keep it in the player; fixed inside the player   | The player clips its content and has its own stacking layer; moving the element avoids both                                                                                           |
+| Verification    | Devtools per phase and `canary-mobile`                                 | Devtools only; Playwright only                   | Fast iteration plus regression protection                                                                                                                                             |
+| Success measure | Geometry checks only                                                   | Plus usage telemetry                             | Demo stage; no tracking or privacy question                                                                                                                                           |
+| Branch          | `git flow feature start mobile-overlays feature/e2e-canary-playwright` | Plain branch; commit on base                     | Follows CLAUDE.md git flow while keeping the sidebar commits. Finish as a PR into the base branch, not into `develop`                                                                 |
+| Compact rule    | `width < 760 \|\| height < 280` (user-written in P4)                   | ~540 threshold; width only                       | 760 is where the full overlays cannot collide for any config (worst case 753); 540 would flip the look between desktop widths (M14). The height check covers players that aren't 16:9 |
+| Desktop squeeze | New phase P6                                                           | Separate bug; ignore                             | User choice: keep it tracked with this work                                                                                                                                           |
 
 ---
 

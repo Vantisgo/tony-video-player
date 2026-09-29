@@ -264,3 +264,47 @@ mobile from then on.
   in `body`, which avoids this. P5's scrim-rect check proves it.
 - **The tenant's script tag loads the runtime from the `feature/e2e-canary-playwright` Vercel
   preview.** Pushing to that branch deploys to the live lesson.
+
+## Amendment 2026-09-29 — the compact rule, agreed with the user
+
+**Rule (the user writes it in P4):** a player is compact when `width < 760 || height < 280`.
+
+- **760** is the width at which the full overlays cannot collide for any config:
+  - top pills: 24 + section pill (at most 384) + science pill (at most about 345) = 753;
+  - at W ≥ 760 the voice-over card's left edge (W − 334 ≥ 426) is always right of the section
+    pill (x ≤ 398).
+- **280** is the height the full voice-over card needs under the science pill, which shares its
+  column at every width: 10 + 35 + 8 + 168 + 58 = 279.
+- The earlier P4 table (632×356 and 708×399 as "full") only held for typical titles. It is
+  replaced by the table below.
+
+**M14 — player size by desktop width** (live lesson, sidebar installed, measured 2026-09-29):
+
+| Viewport | Player  | Note                                                                      |
+| -------- | ------- | ------------------------------------------------------------------------- |
+| 1024     | 461×260 |                                                                           |
+| 1180     | 632×356 |                                                                           |
+| 1280     | 441×249 | LearningSuite's left course navigation appears from 1280 (`<main>` x=304) |
+| 1366     | 501×283 |                                                                           |
+| 1440     | 553×312 |                                                                           |
+| 1600     | 317×179 | LearningSuite's own lesson column appears from 1536 (MUI `xl`); see P6    |
+| 1920     | 504×284 |                                                                           |
+
+**Consequences:**
+
+- **Compact is the normal desktop look.** Every measured desktop player with our sidebar is
+  compact (317–553px wide). The full overlays remain for players ≥ 760×280, in practice lessons
+  without sidebar content on wide screens.
+- **Success criterion revised.** "Desktop ≥ 1180px looks exactly as today" becomes "players ≥ 760
+  wide and ≥ 280 tall look as today". The old criterion would have preserved a defect: at 1920
+  today's full voice-over card needs 302px of height in a 284px player and collides with the
+  section pill.
+- **Verifying the full variants** needs a no-sidebar config at a wide viewport. No real desktop
+  width gives a 760px player while the sidebar is installed.
+- **Touch plus full size** is practically unreachable (tablets are compact), so P4's
+  tap-to-pin only applies to rare large touch screens.
+
+**P6 added:** LearningSuite's `xl` lesson column is not a sibling of `<main>`, so `tryFlexSibling`
+leaves it visible. Four columns then share the width (navigation, `<main>`, our sidebar growing
+with 30vw since `b87c8fd`, LearningSuite's lesson column), and the player shrinks to 317×179 at 1600. This is a desktop layout defect, tracked as P6 in the PRD. It needs its own design before a
+plan.
