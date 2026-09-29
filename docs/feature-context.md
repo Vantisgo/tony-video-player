@@ -877,3 +877,26 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   runtime: 255 errors in the generated `playwright-report/trace/` (not
   ESLint-ignored) and 7 in `app/`/`components/`. Lint the changed files
   (`bunx eslint <files>`) to validate a runtime change.
+
+## 2026-09-29 · mobile-overlays · P2 — phone canary project
+
+- **Decision**: `canary-mobile` (390×844, `isMobile`, `hasTouch`) runs
+  `e2e/overlay-mobile.spec.ts` only. `canary` has `testIgnore` for it,
+  because the top-level `testMatch` would otherwise hand the phone spec to
+  the desktop project. `bun run e2e` runs both in phase 2. Geometry a later
+  phase fixes is declared `test.fixme` naming that phase.
+- **Gotcha**: preview mode against a local dev server
+  (`E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js`) only works
+  because loopback requests are fulfilled from the Node side
+  (`runtime-source.ts`). Let the https tenant page request `http://localhost`
+  itself and Chrome's Local Network Access check silently blocks it: no
+  bundle runs and `__vpReskinStatus` is never set.
+- **Gotcha**: read overlay boxes only after their entrance animation
+  (`vp-anim-*`, 350ms slide). A mid-slide box is up to 20px off.
+  `settleAnimations` waits for the element's own finite animations; infinite
+  ones (the voice-over pulse) never finish.
+- **Gotcha**: `__vpDemoStatus` means the controller is armed, not mounted.
+  `__vpConfig` appears only at mount (two frames later). Wait for it before
+  reading the lesson's moments, or a test silently skips.
+- **Gotcha**: in Playwright it is `hasTouch`, not `isMobile`, that makes
+  `(hover:hover)` false and `(pointer:coarse)` true.

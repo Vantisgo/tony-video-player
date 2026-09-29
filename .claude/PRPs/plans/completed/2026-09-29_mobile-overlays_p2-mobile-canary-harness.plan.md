@@ -56,9 +56,9 @@ tricks that are not written down in code:
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T12:40Z
-- **Modified:** 2026-09-29T12:40Z
-- **Commits:**
-- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
+- **Modified:** 2026-09-29T12:40Z · 2026-09-29T15:55Z (implemented)
+- **Commits:** 879fc7a
+- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7 · claude-opus-5-5 (implementation), same session
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (Verification) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 2)
 - **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` · `…_p4-compact-overlays.plan.md` · `…_p5-quiz-on-mobile.plan.md` (each adds assertions to `overlay-mobile.spec.ts`)
 
@@ -225,7 +225,7 @@ import { describeDiag, diagSchema } from "./diag";
 
 ## Step-by-Step Tasks
 
-### `[ ]` Task 1: CREATE `e2e/support/geometry.ts`
+### `[x]` Task 1: CREATE `e2e/support/geometry.ts`
 
 - **ACTION**: CREATE a Playwright-free module.
 - **IMPLEMENT**:
@@ -250,7 +250,7 @@ import { describeDiag, diagSchema } from "./diag";
 - **GOTCHA**: zero-size boxes (empty slots) must count as inside when their origin is inside, and must never overlap anything.
 - **VALIDATE**: `bunx tsc --noEmit -p tsconfig.json`
 
-### `[ ]` Task 2: CREATE `e2e/support/geometry.test.ts`
+### `[x]` Task 2: CREATE `e2e/support/geometry.test.ts`
 
 - **ACTION**: CREATE vitest tests.
 - **IMPLEMENT**: Use the measured numbers as fixtures:
@@ -261,14 +261,14 @@ import { describeDiag, diagSchema } from "./diag";
 - **MIRROR**: `e2e/support/assertions.test.ts`, `e2e/support/target.test.ts` (relative imports).
 - **VALIDATE**: `bun run test e2e/support/geometry.test.ts`
 
-### `[ ]` Task 3: UPDATE `e2e/support/assertions.ts` — share the point finding
+### `[x]` Task 3: UPDATE `e2e/support/assertions.ts` — share the point finding
 
 - **ACTION**: Split `pressHostControl` (49-88) into `export async function hostControlPoint(page, selector, what): Promise<{ x: number; y: number }>` (poll and throw exactly as today) plus the existing mouse click. Add an optional `press` parameter to `startHostPlayback` (93-122), defaulting to `(p, pt) => p.mouse.click(pt.x, pt.y)`, and export it.
 - **MIRROR**: the existing function bodies, verbatim.
 - **GOTCHA**: The desktop canary's behaviour must not change. Every existing caller keeps the default mouse press.
 - **VALIDATE**: `bunx tsc --noEmit -p tsconfig.json`
 
-### `[ ]` Task 4: CREATE `e2e/support/mobile.ts`
+### `[x]` Task 4: CREATE `e2e/support/mobile.ts`
 
 - **ACTION**: CREATE the page helpers.
 - **IMPLEMENT** (each helper has a "why" comment in the style of `assertions.ts`):
@@ -291,7 +291,7 @@ import { describeDiag, diagSchema } from "./diag";
   - Do not use `locator.boundingBox()` for overlays: slot children can be judged invisible.
 - **VALIDATE**: `bunx tsc --noEmit -p tsconfig.json && bun run lint`
 
-### `[ ]` Task 5: CREATE `e2e/overlay-mobile.spec.ts`
+### `[x]` Task 5: CREATE `e2e/overlay-mobile.spec.ts`
 
 - **ACTION**: CREATE the spec, mirroring `overlay-canary.spec.ts`.
 - **IMPLEMENT**:
@@ -311,7 +311,7 @@ import { describeDiag, diagSchema } from "./diag";
   - The science timestamp at 12s and the voice-over at 45s are specific to the canary lesson `pgWcT1Bk`. Read them from `window.__vpConfig.data` rather than hard-coding where practical (e.g. `sciences[0].timestampsSec[0] + 1.5`), and skip with a reason when absent. A different `E2E_TARGET` may not have them.
 - **VALIDATE**: `bunx playwright test --list --project=canary-mobile` lists 5 tests (1 fixme).
 
-### `[ ]` Task 6: UPDATE `playwright.config.ts` and `scripts/e2e.ts`
+### `[x]` Task 6: UPDATE `playwright.config.ts` and `scripts/e2e.ts`
 
 - **ACTION**: Add the project and run it.
 - **IMPLEMENT**:
@@ -339,7 +339,7 @@ import { describeDiag, diagSchema } from "./diag";
 - **GOTCHA**: Keep `resolve` out of `dependencies` (config comment 51-57). `canary-mobile` reads the same `targets.json` written by phase 1.
 - **VALIDATE**: `bunx playwright test --list` shows `canary` without `overlay-mobile.spec.ts` and `canary-mobile` with only it.
 
-### `[ ]` Task 7: RUN the mobile project against local bundles
+### `[x]` Task 7: RUN the mobile project against local bundles
 
 - **ACTION**: With `bun dev` running: `E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js bun run e2e`.
 - **VALIDATE**: exit 0. The `canary-mobile` report shows 4 passed and 1 fixme; `canary` is unchanged.
@@ -462,3 +462,20 @@ invocation keeps the exit code logic in `scripts/e2e.ts` unchanged.
 ## Amendments
 
 _Append-only history of changes made **after** this plan was first built (newest at the bottom)._
+
+<details>
+<summary>2026-09-29T15:55Z — implemented</summary>
+
+- **Built as planned:** `geometry.ts` (+ vitest), `mobile.ts`, the `hostControlPoint` split, the
+  phone spec with a P4 `fixme`, the `canary-mobile` project, `canary.testIgnore`, and the runner
+  running both projects.
+- **Deviations** (each found on the live run):
+  1. `runtime-source.ts` serves loopback previews from the Node side. Chrome's Local Network
+     Access blocked the https tenant from loading http://localhost bundles, so this plan's Task 7
+     could not work unmodified.
+  2. `settleAnimations` runs before every geometry assertion. The science pill was measured
+     mid-slide, 4px outside the player.
+  3. `demoMoments` waits for `__vpConfig`. An early read silently skipped a test.
+- **Result:** desktop 5/5; phone 4 passed + 1 fixme.
+
+</details>
