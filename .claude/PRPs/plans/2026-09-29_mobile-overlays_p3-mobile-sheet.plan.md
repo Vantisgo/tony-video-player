@@ -54,7 +54,7 @@ that; this phase makes the content reachable.
 - **Modified:** 2026-09-29T12:40Z
 - **Commits:**
 - **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
-- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P3) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 3) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md` (the guard this replaces) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (helpers used here)
+- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P3) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 3) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md` (the guard this replaces) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (helpers used here)
 - **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (section-pill tap calls `open("coaching")`) · `…_p5-quiz-on-mobile.plan.md` (quiz stacks above the sheet) · `…_p6-desktop-squeeze.plan.md` (extends the moved `tryFlexSibling` in `sidebar-host.ts`)
 
 > **Append-only:** `Created` is set once; every other field is a list you only ever add to — never overwrite or remove existing entries. Keep references bidirectional: when you add a back/forward ref here, add the reciprocal ref on the other plan.

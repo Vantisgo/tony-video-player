@@ -47,9 +47,9 @@ currently assumes the button exists.
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T12:40Z
-- **Modified:** 2026-09-29T12:40Z
-- **Commits:**
-- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
+- **Modified:** 2026-09-29T12:40Z · 2026-09-29T15:30Z (implemented)
+- **Commits:** 3f1a352 (P1 fix) · 8bc639b (pre-existing `.at()` typecheck fix, needed for Level 1)
+- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7 · claude-opus-5-5 (implementation), same session
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (design, M1) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 1)
 - **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (replaces the assignment with `host.open`)
 
@@ -225,7 +225,7 @@ happyDOM.setViewport({ width: 1024 }); // restore default so later tests see a w
 
 ## Step-by-Step Tasks
 
-### `[ ]` Task 1: UPDATE `runtime-src/demo-overlays/index.ts` — install-scoped `__vpSidebarTab`
+### `[x]` Task 1: UPDATE `runtime-src/demo-overlays/index.ts` — install-scoped `__vpSidebarTab`
 
 - **ACTION**: Move `w.__vpSidebarTab = setTab;` and its `onCleanup(() => { delete w.__vpSidebarTab; })` (lines 1399-1402) into a block guarded by `showSidebar`. `setTab` stays defined unconditionally: tab clicks and the panels use it.
 - **IMPLEMENT**: After the `setTab` declaration:
@@ -245,7 +245,7 @@ happyDOM.setViewport({ width: 1024 }); // restore default so later tests see a w
 - **GOTCHA**: A remount below 1024px must also leave no stale function behind. The previous mount's cleanup deletes it, and this mount no longer re-assigns it. Verify with the teardown test in Task 3.
 - **VALIDATE**: `bun run typecheck:runtime`
 
-### `[ ]` Task 2: UPDATE `runtime-src/demo-overlays/index.ts` — `canOpen` in both pill renderers
+### `[x]` Task 2: UPDATE `runtime-src/demo-overlays/index.ts` — `canOpen` in both pill renderers
 
 - **ACTION**: In `renderScience` (641-678) and `renderMetaStep` (1175-1202), compute `const canOpen = typeof w.__vpSidebarTab === "function";` right before writing `innerHTML`.
 - **IMPLEMENT**:
@@ -272,7 +272,7 @@ happyDOM.setViewport({ width: 1024 }); // restore default so later tests see a w
   - The early return `if (slotTR.dataset.activeSci === active.id) return;` (658) means a pill rendered once is not re-rendered while the same science stays active. That is fine: `canOpen` cannot change within a mount (Task 1 assigns once per mount).
 - **VALIDATE**: `bun run typecheck:runtime && bun run lint`
 
-### `[ ]` Task 3: CREATE `runtime-src/tests/demo-overlays/open-affordance.test.ts`
+### `[x]` Task 3: CREATE `runtime-src/tests/demo-overlays/open-affordance.test.ts`
 
 - **ACTION**: CREATE a test file covering every acceptance criterion.
 - **IMPLEMENT**:
@@ -296,14 +296,14 @@ happyDOM.setViewport({ width: 1024 }); // restore default so later tests see a w
   - Use `vi.resetModules()` and a fresh `await import("../../demo-overlays/index")` per test.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/open-affordance.test.ts`
 
-### `[ ]` Task 4: REGENERATE `public/runtime/demo-overlays.js`
+### `[x]` Task 4: REGENERATE `public/runtime/demo-overlays.js`
 
 - **ACTION**: `bun run build:runtime`, then include the regenerated `public/runtime/*.js` in the commit. `.js.map` is gitignored.
 - **MIRROR**: every runtime commit on this branch, e.g. `90f3d6a` touches `public/runtime/demo-overlays.js`.
 - **GOTCHA**: never hand-edit `public/runtime/*.js` (feature-context, line 12).
 - **VALIDATE**: `bun run build:runtime && git status --short public/runtime`. This shows only `demo-overlays.js` modified.
 
-### `[ ]` Task 5: VERIFY in Chrome (live lesson, local runtime)
+### `[x]` Task 5: VERIFY in Chrome (live lesson, local runtime)
 
 - **ACTION**: Run the Level 5 checks below and record the measured values in Agent Notes.
 - **VALIDATE**: all Level 5 boxes checked.
@@ -444,3 +444,18 @@ throwaway copy.
 ## Amendments
 
 _Append-only history of changes made **after** this plan was first built (newest at the bottom)._
+
+<details>
+<summary>2026-09-29T15:30Z — implemented</summary>
+
+- **Built as planned:** install-scoped `__vpSidebarTab`; `canOpen` guards in both pill renderers,
+  with a null-guarded button lookup; `open-affordance.test.ts` (4 cases, and AC1 fails on the
+  unfixed code).
+- **Deviations:**
+  - the science pill's right padding is 12px without the button;
+  - fixed the pre-existing `science-card.ts` `.at()` typecheck failure in `8bc639b`.
+- **Level 5:**
+  - V1: no button, default cursor, `__vpSidebarTab` undefined; the science pill is 249px wide.
+  - V6: real clicks open Science Corner and Master-Schritte.
+
+</details>

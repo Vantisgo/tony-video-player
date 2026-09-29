@@ -115,6 +115,17 @@
   LearningSuite origin. Consequence for any new rule: `.vp-slot *` is specificity
   0,1,0, so a `white-space` declaration meant to survive it needs **two**
   classes, not one — do not rely on stylesheet order to break the tie.
+- **The runtime is ES2020-lib: no ES2021+ built-ins.** `tsconfig.runtime.json`
+  has `lib: es2020`, and esbuild only rewrites _syntax_ down to ES2019. It never
+  polyfills built-ins. So `Array.prototype.at`, `String.prototype.replaceAll`,
+  `WeakRef` and similar fail `typecheck:runtime`, and would throw on older
+  Safari if they slipped through. `science-card.ts` shipped `.at(-1)` and left
+  the check red on the base branch until 2026-09-29.
+- **Measure LearningSuite's layout on fresh loads.** Their layout inserts and
+  removes columns at runtime by breakpoint (left navigation from 1280px; a
+  lesson column next to `<main>` from 1536px, re-inserted on every crossing). A
+  page resized after load is a different scenario, not a baseline. See the
+  2026-09-29 mobile-overlays spec, amendment (b).
 
 ---
 
@@ -846,3 +857,23 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   canary's video has no pack; `window.__vpLanguagePacks` is the hook), `renderSubtitleCue`'s
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
   host's bar" (moved from a JS guard to CSS stacking, which happy-dom cannot test).
+
+## 2026-09-29 · mobile-overlays · P1 — no dead open affordances on the pills
+
+- **Decision**: `window.__vpSidebarTab` exists exactly while a sidebar is
+  installed (assigned inside `if (showSidebar)`). The science and meta pills read
+  it at render time (`canOpen`) and emit their "Öffnen" button, pointer cursor,
+  tooltip and click handler only then. `setTab` itself stays unconditional,
+  because the panels and tab buttons still use it on a detached `<aside>`.
+- **Deviation**: without the button the science pill's right padding is 12px
+  (was 6px, sized for the button), so the pill does not look cut off. Also fixed
+  the pre-existing `.at()` in `science-card.ts` in its own commit (see Standing
+  Constraints).
+- **Gotcha**: `bun run build:runtime` bundles the whole working tree. When
+  committing one change while another is uncommitted, stash the other before
+  building, or the committed `public/runtime/*.js` contains code its source
+  commit does not.
+- **Gotcha**: `bun run lint` is red repo-wide for reasons unrelated to the
+  runtime: 255 errors in the generated `playwright-report/trace/` (not
+  ESLint-ignored) and 7 in `app/`/`components/`. Lint the changed files
+  (`bunx eslint <files>`) to validate a runtime change.
