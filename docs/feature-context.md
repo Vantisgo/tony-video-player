@@ -949,3 +949,22 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
 - **Gotcha**: pressing play on the live lesson makes LearningSuite jump to the
   shared e2e account's saved watch position. e2e tests that need a moment
   must start playback first and seek afterwards.
+
+## 2026-09-29 · mobile-overlays · P5 — the quiz covers the whole screen on compact players
+
+- **Decision**: on compact players outside fullscreen, `placeQuizSlot` moves the
+  same `#vp-slot-quiz` element to `<body>` (fixed, z-index 1150). The stacking
+  order is LearningSuite's bar 999 < our sheet 1100 < promoted quiz 1150 <
+  LearningSuite's overlays 1200. The quiz controller, `checkAlive` and the
+  event swallowing hold the slot by reference, so moving it needs no other
+  change. Placement follows compact mode, not quiz activity: an empty promoted
+  slot stays under `<body>` and lets taps through.
+- **Decision**: the slot is the fixed element and the scrim stays `absolute`
+  inside it, so nothing depends on whether `container-type` on the slot
+  captures fixed descendants (it no longer does in Chrome 129+; unconfirmed on
+  iOS 17/18).
+- **Gotcha**: re-inserting a node drops focus. Moving a live dialog must put
+  focus back (`hadFocus`, then refocus `.vp-quiz-card`).
+- **Gotcha**: the 1024px desktop player (461×260) is compact too, so its quiz
+  covers the browser window. That is consistent with phones, and flagged to
+  the user with a screenshot.

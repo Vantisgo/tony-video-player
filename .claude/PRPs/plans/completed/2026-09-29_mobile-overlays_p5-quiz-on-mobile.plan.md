@@ -50,9 +50,9 @@ descendants: it no longer does in Chrome 129+, but iOS 17/18 is unconfirmed.
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T12:40Z
-- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750)
-- **Commits:**
-- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
+- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750) · 2026-09-29T18:10Z (implemented)
+- **Commits:** 7b4d8f7
+- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7 · claude-opus-5-5 (implementation), same session
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P5) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 5) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (`observeCompact`, `apply`, `isCompactNow`) · `completed/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (sheet z-index 1100)
 - **Forward refs:**
 
@@ -187,7 +187,7 @@ expect(z("vp-slot-quiz")).toBeGreaterThan(z("vp-slot-tl"));
 
 ## Step-by-Step Tasks
 
-### `[ ]` Task 1: UPDATE `runtime-src/demo-overlays/index.ts` — constant
+### `[x]` Task 1: UPDATE `runtime-src/demo-overlays/index.ts` — constant
 
 - **IMPLEMENT**: Below `QUIZ_SLOT_Z`:
   ```ts
@@ -199,7 +199,7 @@ expect(z("vp-slot-quiz")).toBeGreaterThan(z("vp-slot-tl"));
   ```
 - **VALIDATE**: `bun run typecheck:runtime`
 
-### `[ ]` Task 2: UPDATE `runtime-src/demo-overlays/index.ts` — `placeQuizSlot`
+### `[x]` Task 2: UPDATE `runtime-src/demo-overlays/index.ts` — `placeQuizSlot`
 
 - **IMPLEMENT**: after `slotQuiz` exists, and before the `observeCompact` call from P4:
 
@@ -236,7 +236,7 @@ expect(z("vp-slot-quiz")).toBeGreaterThan(z("vp-slot-tl"));
   - `makeSlot` appended the slot to `playerHost`, and its cleanup `el.remove()` works from any parent, as do the `OWNED_NODE_IDS` sweeps (by id).
 - **VALIDATE**: `bun run typecheck:runtime && bun run lint`
 
-### `[ ]` Task 3: UPDATE `runtime-src/demo-overlays/styles.ts` — single column when promoted
+### `[x]` Task 3: UPDATE `runtime-src/demo-overlays/styles.ts` — single column when promoted
 
 - **IMPLEMENT**: in `QUIZ_CSS`, after the `@container` rule:
   ```css
@@ -249,7 +249,7 @@ expect(z("vp-slot-quiz")).toBeGreaterThan(z("vp-slot-tl"));
   Specificity (1,3,0) beats the container rule's (0,2,0).
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/render.test.ts`
 
-### `[ ]` Task 4: CREATE `runtime-src/tests/demo-overlays/quiz-placement.test.ts`
+### `[x]` Task 4: CREATE `runtime-src/tests/demo-overlays/quiz-placement.test.ts`
 
 - **IMPLEMENT**:
   - **Harness:** mount with a quiz config (shape from `quiz.test.ts`), plus `FakeResizeObserver` and a stubbed player-host rect.
@@ -265,7 +265,7 @@ expect(z("vp-slot-quiz")).toBeGreaterThan(z("vp-slot-tl"));
 - **MIRROR**: `stacking.test.ts:95-135`, `discovery.test.ts:42-73`, `quiz.test.ts:52-118`.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/`
 
-### `[ ]` Task 5: UPDATE `e2e/overlay-mobile.spec.ts`
+### `[x]` Task 5: UPDATE `e2e/overlay-mobile.spec.ts`
 
 - **IMPLEMENT**: `"a quiz covers the whole phone screen and needs no scrolling"`:
   1. `injectQuiz(QUIZ_FIXTURE)` (t 70), `seekTo(68)`, `tapHostPlay`, wait for `.vp-quiz-card`.
@@ -278,7 +278,7 @@ expect(z("vp-slot-quiz")).toBeGreaterThan(z("vp-slot-tl"));
 - Replace P2's weaker "an injected quiz break covers the player" test with this one on mobile.
 - **VALIDATE**: `E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js bun run e2e`
 
-### `[ ]` Task 6: REGENERATE the bundle; VERIFY in Chrome
+### `[x]` Task 6: REGENERATE the bundle; VERIFY in Chrome
 
 - **VALIDATE**: `bun run build:runtime && git status --short public/runtime`, then Level 5.
 
@@ -438,5 +438,20 @@ With fresh-load measurements (spec amendment (b)), 1920 gives a 752×424 player,
 under the corrected rule `width < 750 || height < 280`. Level 5 now expects promotion at V5 and
 1600, and an unchanged in-player quiz on a fresh load at 1920. The desktop Questionable was
 updated.
+
+</details>
+
+<details>
+<summary>2026-09-29T18:10Z — implemented</summary>
+
+- **Built as planned:**
+  - `PROMOTED_QUIZ_Z`, and `placeQuizSlot` driven by the compact callback and `fullscreenchange`,
+    with focus restore;
+  - the single-column rule;
+  - `quiz-placement.test.ts` (the focus-restore test is mutation-checked);
+  - the phone e2e test, which replaces P2's "covers the player".
+- **Settled:** the spec criterion "afterwards the slot is back in the player" became "afterwards
+  nothing of ours blocks the page".
+- **Result:** e2e run 5 is 17/17 green. Chrome V2, V5 and V6 are recorded in the report.
 
 </details>
