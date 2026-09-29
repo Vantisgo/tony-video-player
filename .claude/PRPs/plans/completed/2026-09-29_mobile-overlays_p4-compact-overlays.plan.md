@@ -62,9 +62,9 @@ At 1024px desktop the player is 461×260 (M12), so the problem is not phone-only
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T12:40Z
-- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750)
-- **Commits:**
-- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
+- **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750) · 2026-09-29T17:40Z (implemented)
+- **Commits:** dd175ec
+- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7 · claude-opus-5-5 (implementation), same session
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P4) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 4) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (`host.open`, `__vpSidebarTab`) · `completed/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (fixme flipped here)
 - **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p5-quiz-on-mobile.plan.md` (keys quiz promotion on `observeCompact`)
 
@@ -251,7 +251,7 @@ if (showAudio) {
 
 ## Step-by-Step Tasks
 
-### `[ ]` Task 1: CREATE `runtime-src/demo-overlays/compact.ts` (scaffold)
+### `[x]` Task 1: CREATE `runtime-src/demo-overlays/compact.ts` (scaffold)
 
 - **ACTION**: CREATE the module with `observeCompact` implemented and `isCompact` as a prepared
   signature for the user.
@@ -299,7 +299,7 @@ if (showAudio) {
 - **MIRROR**: `reskin-player/index.ts:606-614`.
 - **VALIDATE**: `bun run typecheck:runtime`
 
-### `[ ]` Task 2: USER CONTRIBUTION — `isCompact(width, height)`
+### `[x]` Task 2: USER CONTRIBUTION — `isCompact(width, height)`
 
 - **ACTION**: **STOP and hand this function to the user.** The rule was agreed with the user on
   2026-09-29 (and corrected the same day from 760 to 750): compact when
@@ -313,7 +313,7 @@ if (showAudio) {
 
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/compact.test.ts -t isCompact`
 
-### `[ ]` Task 3: CREATE `runtime-src/tests/demo-overlays/compact.test.ts`
+### `[x]` Task 3: CREATE `runtime-src/tests/demo-overlays/compact.test.ts`
 
 - **IMPLEMENT** (write this BEFORE Task 2 is resumed, so the table is the contract):
   - **`isCompact` table (spec amendment (b), M14 corrected):**
@@ -331,7 +331,7 @@ if (showAudio) {
 - **MIRROR**: `discovery.test.ts:42-73,128-145`; table style `format.test.ts`.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/compact.test.ts`
 
-### `[ ]` Task 4: UPDATE `runtime-src/demo-overlays/styles.ts` — `PILL_CSS`
+### `[x]` Task 4: UPDATE `runtime-src/demo-overlays/styles.ts` — `PILL_CSS`
 
 - **ACTION**: ADD `export const PILL_CSS`, holding the science and meta pills' current inline declarations moved **1:1** into classes, plus the compact rules.
 - **IMPLEMENT**:
@@ -347,7 +347,7 @@ if (showAudio) {
   - The full-size look must not change. Compare computed styles at V6 before and after, in Level 5.
 - **VALIDATE**: `bun run typecheck:runtime`
 
-### `[ ]` Task 5: UPDATE `runtime-src/demo-overlays/styles.ts` — section, audio, hover guards
+### `[x]` Task 5: UPDATE `runtime-src/demo-overlays/styles.ts` — section, audio, hover guards
 
 - **IMPLEMENT**:
   - **`SECTION_CSS`:**
@@ -371,7 +371,7 @@ if (showAudio) {
 - **GOTCHA**: The card height must come out ≤ 60px (8 + 40 + 8 + 2 border = 58). Verified in Level 5, not in happy-dom.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/render.test.ts`
 
-### `[ ]` Task 6: UPDATE `runtime-src/demo-overlays/index.ts` — observe and apply
+### `[x]` Task 6: UPDATE `runtime-src/demo-overlays/index.ts` — observe and apply
 
 - **IMPLEMENT**:
   - After the slots are created (≈488), apply compact mode:
@@ -403,7 +403,7 @@ if (showAudio) {
 - **IMPORTS**: `import { observeCompact } from "./compact"; import { …, PILL_CSS } from "./styles";`
 - **VALIDATE**: `bun run typecheck:runtime`
 
-### `[ ]` Task 7: UPDATE `runtime-src/demo-overlays/index.ts` — pill markup to classes
+### `[x]` Task 7: UPDATE `runtime-src/demo-overlays/index.ts` — pill markup to classes
 
 - **IMPLEMENT**:
   - Rewrite the science pill (663-669) as `<div data-overlay-action="science" class="vp-sci-pill vp-anim-right" data-can-open="${canOpen ? "1" : ""}">`, with inner `<span class="vp-sci-icon">🧪</span><span class="vp-sci-label">…</span><span class="vp-sci-name">…</span>`, then `${canOpen ? `<button class="vp-sci-open">…</button>` : ""}`.
@@ -413,7 +413,7 @@ if (showAudio) {
 - **GOTCHA**: `no-bare-strings.test.ts` scans `index.ts`. The markup keeps its copy in `tr()`, and class names are not in its lists.
 - **VALIDATE**: `bun run test runtime-src/tests/common/ runtime-src/tests/demo-overlays/`
 
-### `[ ]` Task 8: UPDATE `runtime-src/demo-overlays/index.ts` — section-pill tap
+### `[x]` Task 8: UPDATE `runtime-src/demo-overlays/index.ts` — section-pill tap
 
 - **IMPLEMENT**: extend the handler at 545-552:
   ```ts
@@ -445,7 +445,7 @@ if (showAudio) {
   - `isCompactNow` is declared before the pill handler runs, because the handler fires on user events after the mount.
 - **VALIDATE**: `bun run typecheck:runtime && bun run lint`
 
-### `[ ]` Task 9: CREATE `runtime-src/tests/demo-overlays/compact-overlays.test.ts`; UPDATE `open-affordance.test.ts`
+### `[x]` Task 9: CREATE `runtime-src/tests/demo-overlays/compact-overlays.test.ts`; UPDATE `open-affordance.test.ts`
 
 - **IMPLEMENT**:
   - **Harness:** `render.test.ts` plus `FakeResizeObserver`. Stub the player host's `getBoundingClientRect` to 390×219 (compact) or 708×399 (full).
@@ -462,7 +462,7 @@ if (showAudio) {
 - **MIRROR**: `render.test.ts:186-257` (CSS string tests), `discovery.test.ts:42-73`.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/`
 
-### `[ ]` Task 10: UPDATE `e2e/overlay-mobile.spec.ts`
+### `[x]` Task 10: UPDATE `e2e/overlay-mobile.spec.ts`
 
 - **IMPLEMENT**:
   - Turn P2's `test.fixme("pills and the voice-over never overlap …")` into `test(…)`.
@@ -473,7 +473,7 @@ if (showAudio) {
     - `"the slots are marked compact on a phone"`: `#vp-slot-tl[data-vp-compact="1"]`.
 - **VALIDATE**: `E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js bun run e2e`
 
-### `[ ]` Task 11: REGENERATE the bundle; VERIFY in Chrome
+### `[x]` Task 11: REGENERATE the bundle; VERIFY in Chrome
 
 - **VALIDATE**: `bun run build:runtime && git status --short public/runtime`, then Level 5.
 
@@ -653,5 +653,24 @@ Updated here:
 - the Level 5 full-variant check, now a fresh load at 1920 with the real config (the no-sidebar
   workaround is gone);
 - AC6.
+
+</details>
+
+<details>
+<summary>2026-09-29T17:40Z — implemented</summary>
+
+- **Built as planned:**
+  - `compact.ts`, with a `classify` seam added for tests;
+  - `PILL_CSS` and the compact rules;
+  - `(hover:hover)` guards across section, audio, quiz and pill CSS;
+  - the observe/apply wiring and the section-pill tap;
+  - the unit tests and the e2e P4 assertions (the fixme is flipped).
+- **User feedback:** the user asked for `isCompact` to be written for them (Task 2).
+- **Deviations:**
+  - `data-can-open` replaces the inline cursor;
+  - the e2e voice-over test plays first and seeks second, because of LearningSuite's saved-position
+    jump.
+- **Result:** e2e run 4 is 17/17 green. The overlap test fails on the pre-P4 runtime. Chrome
+  checks at V1, V3, V5 and V6 pass.
 
 </details>

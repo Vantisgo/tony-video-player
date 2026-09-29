@@ -927,3 +927,25 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
 - **Open**: which element LearningSuite puts into fullscreen on Android and
   iPad is unverified (spec M13). The sheet re-parents into
   `document.fullscreenElement` when that contains the player.
+
+## 2026-09-29 · mobile-overlays · P4 — compact overlays keyed on the player box
+
+- **Decision**: `observeCompact` (`demo-overlays/compact.ts`) watches the
+  player host and sets `data-vp-compact="1"` on every `.vp-slot` when
+  `isCompact(w, h)`: `width < 750 || height < 280`. This is the player box,
+  never the viewport (spec M14): every measured player up to the 1600px
+  desktop is compact, and 1920 (752×424) is full size. New in-player UI gets
+  its compact variant as CSS under `.vp-slot[data-vp-compact="1"]`, not a
+  second template.
+- **Decision**: the pills are styled by class (`PILL_CSS`), not inline. P1's
+  open/no-open state is the `data-can-open` attribute. The voice-over slot's
+  320px width stays inline and is switched by the `observeCompact` callback.
+- **Decision**: every `:hover` rule lives under `@media (hover:hover)`, and
+  `compact-overlays.test.ts` enforces it for the four stylesheets. Touch
+  expansion of the section pill is an explicit tap-pin (`data-pinned`). In
+  compact mode the pill never expands and a tap opens Coaching instead.
+- **User feedback**: the user chose to have `isCompact` written for them
+  rather than author it (planned as their contribution).
+- **Gotcha**: pressing play on the live lesson makes LearningSuite jump to the
+  shared e2e account's saved watch position. e2e tests that need a moment
+  must start playback first and seek afterwards.

@@ -53,7 +53,7 @@ descendants: it no longer does in Chrome 129+, but iOS 17/18 is unconfirmed.
 - **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750)
 - **Commits:**
 - **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
-- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P5) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 5) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (`observeCompact`, `apply`, `isCompactNow`) · `completed/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (sheet z-index 1100)
+- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P5) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 5) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (`observeCompact`, `apply`, `isCompactNow`) · `completed/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (sheet z-index 1100)
 - **Forward refs:**
 
 > **Append-only:** `Created` is set once; every other field is a list you only ever add to — never overwrite or remove existing entries. Keep references bidirectional: when you add a back/forward ref here, add the reciprocal ref on the other plan.
