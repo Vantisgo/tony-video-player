@@ -51,10 +51,10 @@ that; this phase makes the content reachable.
 ## Lifecycle (append-only)
 
 - **Created:** 2026-09-29T12:40Z
-- **Modified:** 2026-09-29T12:40Z
-- **Commits:**
-- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
-- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P3) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 3) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md` (the guard this replaces) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (helpers used here)
+- **Modified:** 2026-09-29T12:40Z · 2026-09-29T16:40Z (implemented)
+- **Commits:** 3b850a1 (feature) · 0f26c6e (phone canary harness fix found on this run)
+- **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7 · claude-opus-5-5 (implementation), same session
+- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P3) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 3) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md` (the guard this replaces) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (helpers used here)
 - **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (section-pill tap calls `open("coaching")`) · `…_p5-quiz-on-mobile.plan.md` (quiz stacks above the sheet) · `…_p6-desktop-squeeze.plan.md` (extends the moved `tryFlexSibling` in `sidebar-host.ts`)
 
 > **Append-only:** `Created` is set once; every other field is a list you only ever add to — never overwrite or remove existing entries. Keep references bidirectional: when you add a back/forward ref here, add the reciprocal ref on the other plan.
@@ -235,7 +235,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 
 ## Step-by-Step Tasks
 
-### `[ ]` Task 1: CREATE `runtime-src/demo-overlays/sheet-geometry.ts`
+### `[x]` Task 1: CREATE `runtime-src/demo-overlays/sheet-geometry.ts`
 
 - **ACTION**: CREATE pure geometry.
 - **IMPLEMENT**:
@@ -273,7 +273,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 - **MIRROR**: `runtime-src/common/format.ts` (small pure export, rule in the header comment).
 - **VALIDATE**: `bun run typecheck:runtime`
 
-### `[ ]` Task 2: CREATE `runtime-src/tests/demo-overlays/sheet-geometry.test.ts`
+### `[x]` Task 2: CREATE `runtime-src/tests/demo-overlays/sheet-geometry.test.ts`
 
 - **IMPLEMENT**: A table using the measured numbers:
   - **M9 iPhone:** `{playerTop:315, playerBottom:534, scrollY:0, maxScroll:106, vw:390, vh:844}` → `{top:428, targetScroll:106}`.
@@ -284,7 +284,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 - **MIRROR**: `runtime-src/tests/common/format.test.ts`.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/sheet-geometry.test.ts`
 
-### `[ ]` Task 3: UPDATE `runtime-src/common/i18n/demo.ts`
+### `[x]` Task 3: UPDATE `runtime-src/common/i18n/demo.ts`
 
 - **ACTION**: ADD under a `// Mobile sheet` comment:
   - `demo.sheet.label`: EN "Lesson details", DE "Lektionsdetails"
@@ -293,13 +293,13 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 - **GOTCHA**: no `<`, `>` or `&` in messages (`i18n.test.ts` catalogue rules); keys stay in `demo.*`.
 - **VALIDATE**: `bun run typecheck:runtime && bun run test runtime-src/tests/common/i18n.test.ts`
 
-### `[ ]` Task 4: UPDATE `runtime-src/demo-overlays/styles.ts` — pre-wrap reset for sheet UI
+### `[x]` Task 4: UPDATE `runtime-src/demo-overlays/styles.ts` — pre-wrap reset for sheet UI
 
 - **ACTION**: `SLOT_CSS` becomes `.vp-slot, .vp-slot *, .vp-sheet-ui, .vp-sheet-ui * { white-space:normal; }`, with one comment line: the tab bar is a sibling of the player inside LearningSuite's pre-wrap block, and the sheet leaves the slots.
 - **MIRROR**: `styles.ts:20-39` (keep the existing comment; append the reason).
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/render.test.ts`
 
-### `[ ]` Task 5: CREATE `runtime-src/demo-overlays/mobile-sheet.ts`
+### `[x]` Task 5: CREATE `runtime-src/demo-overlays/mobile-sheet.ts`
 
 - **ACTION**: CREATE `createMobileSheet(deps: MobileSheetDeps): MobileSheet`.
 - **TYPES**:
@@ -355,7 +355,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
   - happy-dom has no `fullscreenElement`: read it defensively (`document.fullscreenElement ?? null`).
 - **VALIDATE**: `bun run typecheck:runtime && bun run lint`
 
-### `[ ]` Task 6: CREATE `runtime-src/demo-overlays/sidebar-host.ts`
+### `[x]` Task 6: CREATE `runtime-src/demo-overlays/sidebar-host.ts`
 
 - **ACTION**: CREATE the host module and MOVE the desktop placement.
 - **IMPLEMENT**:
@@ -395,7 +395,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 - **GOTCHA**: The moved functions reference `sidebar` and `onCleanup` as closure variables. Pass both in and keep the bodies byte-identical otherwise (review with `git diff --color-moved`).
 - **VALIDATE**: `bun run typecheck:runtime`
 
-### `[ ]` Task 7: UPDATE `runtime-src/demo-overlays/index.ts` — use the host
+### `[x]` Task 7: UPDATE `runtime-src/demo-overlays/index.ts` — use the host
 
 - **IMPLEMENT**:
   - **Imports:** `chooseHostMode`, `installSidebarHost`, `type SidebarHost` from `./sidebar-host`; `TAB_BAR_ID` from `./mobile-sheet`.
@@ -429,7 +429,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
   - `sidebar.inert` is `false` on desktop, so desktop behaviour is unchanged.
 - **VALIDATE**: `bun run typecheck:runtime && bun run lint`
 
-### `[ ]` Task 8: CREATE `runtime-src/tests/demo-overlays/sidebar-host.test.ts` and `mobile-sheet.test.ts`
+### `[x]` Task 8: CREATE `runtime-src/tests/demo-overlays/sidebar-host.test.ts` and `mobile-sheet.test.ts`
 
 - **IMPLEMENT**:
   - **`sidebar-host.test.ts`:** the `chooseHostMode` truth table (4 rows).
@@ -451,7 +451,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 - **MIRROR**: `render.test.ts:1-115`, `safety-net.test.ts:39-53,184-193`, `stacking.test.ts:95-135`.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/sidebar-host.test.ts runtime-src/tests/demo-overlays/mobile-sheet.test.ts`
 
-### `[ ]` Task 9: UPDATE the existing tests that assert today's mobile behaviour
+### `[x]` Task 9: UPDATE the existing tests that assert today's mobile behaviour
 
 - **IMPLEMENT**:
   - **`lifecycle.test.ts:256-282`:**
@@ -464,7 +464,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
   - **`open-affordance.test.ts` (P1) case 1:** the no-host case now needs the function removed. Mount at 390, `delete window.__vpSidebarTab` before `emitTime(11)`, and expect no button. Rename the case accordingly.
 - **VALIDATE**: `bun run test runtime-src/tests/demo-overlays/`
 
-### `[ ]` Task 10: UPDATE `e2e/overlay-mobile.spec.ts`
+### `[x]` Task 10: UPDATE `e2e/overlay-mobile.spec.ts`
 
 - **IMPLEMENT** (P3 assertions, using the P2 helpers):
   - `"the tab bar sits directly under the player"`: `|tabs.y - (player.y + player.h)| <= 1`.
@@ -480,11 +480,11 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
   - `sheet-geometry.ts` must stay dependency-free, so the Playwright transpile of the import does not pull in the runtime's i18n.
 - **VALIDATE**: `E2E_RUNTIME_BASE_URL=http://localhost:3000/runtime/loader.js bun run e2e`
 
-### `[ ]` Task 11: REGENERATE `public/runtime/demo-overlays.js`
+### `[x]` Task 11: REGENERATE `public/runtime/demo-overlays.js`
 
 - **VALIDATE**: `bun run build:runtime && git status --short public/runtime`
 
-### `[ ]` Task 12: VERIFY in Chrome (Level 5)
+### `[x]` Task 12: VERIFY in Chrome (Level 5)
 
 - **VALIDATE**: all Level 5 boxes checked, with measured values in Agent Notes.
 
@@ -645,3 +645,21 @@ leaving focus on the tab, which keeps screen-reader users outside the new conten
 ## Amendments
 
 _Append-only history of changes made **after** this plan was first built (newest at the bottom)._
+
+<details>
+<summary>2026-09-29T16:40Z — implemented</summary>
+
+- **Built as planned:**
+  - `sheet-geometry.ts`, `mobile-sheet.ts`, `sidebar-host.ts` (desktop code moved unchanged);
+  - the host wiring in `index.ts`, including the `scrollIntoView` guard;
+  - the EN/DE strings and the `.vp-sheet-ui` reset;
+  - the new and updated unit tests;
+  - the phone e2e assertions.
+- **Deviations:**
+  - on the live page the sheet docks at 368, not 428, because the tab bar adds 60px of scroll
+    room; the e2e test uses the computed `sheetTop`;
+  - two P2 harness races were fixed in `0f26c6e`.
+- **Level 5:** V1, V2, V5, V6 and the breakpoint switch passed, with no tab bar flicker over 25s of
+  playback. Level 6 (fullscreen on a device) is still open.
+
+</details>

@@ -65,7 +65,7 @@ At 1024px desktop the player is 461×260 (M12), so the problem is not phone-only
 - **Modified:** 2026-09-29T12:40Z · 2026-09-29T14:10Z (compact rule agreed) · 2026-09-29T15:00Z (rule corrected to 750)
 - **Commits:**
 - **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
-- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P4) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 4) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (`host.open`, `__vpSidebarTab`) · `completed/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (fixme flipped here)
+- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P4) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 4) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (`host.open`, `__vpSidebarTab`) · `completed/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (fixme flipped here)
 - **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p5-quiz-on-mobile.plan.md` (keys quiz promotion on `observeCompact`)
 
 > **Append-only:** `Created` is set once; every other field is a list you only ever add to — never overwrite or remove existing entries. Keep references bidirectional: when you add a back/forward ref here, add the reciprocal ref on the other plan.

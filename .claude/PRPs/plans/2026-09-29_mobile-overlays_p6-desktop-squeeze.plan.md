@@ -67,7 +67,7 @@ the column is hidden before the next paint.
 - **Modified:** 2026-09-29T15:40Z
 - **Commits:**
 - **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
-- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (amendment (b): M15, P6 design) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 6) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (moves `tryFlexSibling` into `sidebar-host.ts`)
+- **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (amendment (b): M15, P6 design) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 6) · `.claude/PRPs/plans/completed/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md` (moves `tryFlexSibling` into `sidebar-host.ts`)
 - **Forward refs:**
 
 > **Append-only:** `Created` is set once; every other field is a list you only ever add to — never overwrite or remove existing entries. Keep references bidirectional: when you add a back/forward ref here, add the reciprocal ref on the other plan.

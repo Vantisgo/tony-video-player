@@ -900,3 +900,30 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   reading the lesson's moments, or a test silently skips.
 - **Gotcha**: in Playwright it is `hasTouch`, not `isMobile`, that makes
   `(hover:hover)` false and `(pointer:coarse)` true.
+
+## 2026-09-29 · mobile-overlays · P3 — sidebar as a docked sheet on phones
+
+- **Decision**: one `<aside>`, two hosts (`demo-overlays/sidebar-host.ts`):
+  `desktop` is the flex sibling or fixed rail (moved unchanged from
+  `index.ts`); `sheet` (< 1024px) is `mobile-sheet.ts`, a tab bar after the
+  player plus the same aside as a fixed sheet under `<body>`, z-index 1100,
+  `inert` while closed. `window.__vpSidebarTab` is `host.open`, and
+  `checkAlive` uses `host.isConnected()`. Anything that opens the sidebar must
+  go through `open(tab)`, never `setTab` directly.
+- **Decision**: the sheet's top is computed from the scroll target
+  (`sheet-geometry.ts`, pure, also imported by the e2e spec), never measured
+  after scrolling: iOS before 26.2 fires no `scrollend`. While open, it follows
+  the player's bottom on scroll and resize. The page scroll is never locked.
+- **Deviation**: on the live lesson the sheet docks at 368, not the spec's 428.
+  The 60px tab bar gives the page 60px more scroll room. Assert against
+  `sheetTop()` computed on the page, not a constant.
+- **Gotcha**: code that scrolls sidebar content into view must skip a closed
+  sheet (`sidebar.inert`). `renderScienceHighlight` would otherwise scroll the
+  learner's page on every science moment.
+- **Gotcha**: the tab bar is a sibling of the player inside LearningSuite's
+  React tree and their pre-wrap block. It carries `.vp-sheet-ui` (the
+  `white-space` reset). React did not remove it during 25s of playback, and
+  `checkAlive` would remount if it ever did.
+- **Open**: which element LearningSuite puts into fullscreen on Android and
+  iPad is unverified (spec M13). The sheet re-parents into
+  `document.fullscreenElement` when that contains the player.
