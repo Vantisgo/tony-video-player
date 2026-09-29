@@ -107,6 +107,29 @@ describe("demo applySetup rollback (F2)", () => {
     expect(document.getElementById("vp-slot-br")).toBeNull();
   });
 
+  it("AC2 (phone): a throw during setup also removes the sheet and its tab bar", async () => {
+    const happyDOM = (
+      window as unknown as {
+        happyDOM: { setViewport(v: { width: number }): void };
+      }
+    ).happyDOM;
+    happyDOM.setViewport({ width: 390 });
+    try {
+      installPlayerStub({ throwOnSubscribe: true });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      addConfig(VALID_CONFIG);
+
+      await import("../../demo-overlays/index");
+      await nextFrames();
+
+      expect(document.getElementById("vp-mobile-tabs")).toBeNull();
+      expect(document.getElementById("vp-demo-sidebar")).toBeNull();
+      expect(document.getElementById("vp-slot-tl")).toBeNull();
+    } finally {
+      happyDOM.setViewport({ width: 1024 });
+    }
+  });
+
   it("an empty config section is no longer a fault — it mounts and renders nothing", async () => {
     installPlayerStub();
     // Previously this threw at `phases[0].id`. Absent sections are now a
@@ -173,7 +196,7 @@ describe("demo flex-sibling precondition (F3)", () => {
     expect(sidebar?.parentElement).toBe(flexParent);
   });
 
-  it("gives LearningSuite's column back when a narrowed viewport drops the sidebar", async () => {
+  it("gives LearningSuite's column back when a narrowed viewport swaps the sidebar for the sheet", async () => {
     installPlayerStub();
     const flexParent = document.createElement("div");
     const main = document.createElement("main");
@@ -205,7 +228,13 @@ describe("demo flex-sibling precondition (F3)", () => {
     await nextFrames();
     happyDOM.setViewport({ width: 1024 });
 
-    expect(document.getElementById("vp-demo-sidebar")).toBeNull();
+    // The desktop host's teardown restored LearningSuite's column, and the
+    // remount below 1024px installed the sheet host, which touches no host
+    // layout: the <aside> is now a sheet under <body>, not beside <main>.
     expect(lsColumn.style.display).toBe("");
+    expect(document.getElementById("vp-mobile-tabs")).not.toBeNull();
+    expect(document.getElementById("vp-demo-sidebar")?.parentElement).toBe(
+      document.body,
+    );
   });
 });

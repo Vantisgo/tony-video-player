@@ -34,8 +34,75 @@ export const T = {
 // `display:block` wrappers rendered 160px and 178px tall against a 62px design,
 // taking the card to 200px. Resetting at the slot roots covers every renderer,
 // present and future, instead of one template at a time.
+//
+// `.vp-sheet-ui` carries the same reset to the mobile tab bar (a sibling of the
+// player, so inside LearningSuite's pre-wrap block) and to the sidebar while it
+// is a sheet (it leaves the slots entirely).
 export const SLOT_CSS = `
-      .vp-slot, .vp-slot * { white-space:normal; }
+      .vp-slot, .vp-slot *, .vp-sheet-ui, .vp-sheet-ui * { white-space:normal; }
+    `;
+
+// The science and meta pills. Their declarations used to be inline styles in
+// the templates (index.ts), where no stylesheet could vary them; moved here 1:1
+// so the compact rules below can (P4, 2026-09-29). Every `white-space` rule
+// carries two classes to outrank SLOT_CSS's `.vp-slot *` reset (0,1,0).
+//
+// Compact (`.vp-slot[data-vp-compact="1"]`, set by observeCompact on players
+// under 750×280): the science pill drops its label and name — 🧪 plus a 40px
+// "Öffnen" — so it fits beside the section pill on a 390px phone (spec M3);
+// the meta pill drops its "Schritt n / N" label and truncates its title.
+export const PILL_CSS = `
+      .vp-slot .vp-sci-pill {
+        display:inline-flex; align-items:center; gap:8px; box-sizing:border-box;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38); border-radius:999px;
+        padding:5px 12px 5px 12px; backdrop-filter:blur(10px);
+        box-shadow:0 10px 24px rgba(0,0,0,.30); color:#f4f7f6;
+        pointer-events:auto; cursor:default;
+      }
+      .vp-slot .vp-sci-pill[data-can-open="1"] { padding-right:6px; cursor:pointer; }
+      .vp-slot .vp-sci-icon { font-size:14px; line-height:1; }
+      .vp-slot .vp-sci-label { font:600 12px system-ui; color:#f4f7f6; letter-spacing:.2px; }
+      .vp-slot .vp-sci-name {
+        font:500 12px system-ui; color:rgba(168,191,186,.9); max-width:160px;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .vp-slot .vp-sci-open {
+        background:#00e1a5; color:#062b22; border:0; border-radius:999px;
+        padding:4px 11px; font:600 11.5px system-ui; cursor:pointer;
+        flex-shrink:0; line-height:1.3; pointer-events:auto;
+      }
+      .vp-slot .vp-meta-pill {
+        display:inline-flex; align-items:center; gap:10px; box-sizing:border-box; max-width:100%;
+        background:linear-gradient(135deg, rgba(50,51,51,.94), rgba(22,79,73,.92));
+        border:1px solid rgba(0,225,165,.38); border-radius:999px;
+        padding:5px 14px 5px 5px; backdrop-filter:blur(10px);
+        box-shadow:0 12px 28px rgba(0,0,0,.30); color:#f4f7f6;
+        pointer-events:auto; white-space:nowrap; cursor:default;
+      }
+      .vp-slot .vp-meta-pill[data-can-open="1"] { cursor:pointer; }
+      .vp-slot .vp-meta-num {
+        width:28px; height:28px; border-radius:50%; background:#00e1a5; color:#062b22;
+        display:flex; align-items:center; justify-content:center;
+        font:700 13px system-ui; flex-shrink:0;
+      }
+      .vp-slot .vp-meta-step {
+        font:600 10.5px system-ui; letter-spacing:.5px; text-transform:uppercase;
+        color:rgba(168,191,186,.82);
+      }
+      .vp-slot .vp-meta-divider { width:1px; height:14px; background:rgba(0,225,165,.28); flex-shrink:0; }
+      .vp-slot .vp-meta-title {
+        font:600 13px system-ui; color:#f4f7f6; line-height:1;
+        min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+
+      .vp-slot[data-vp-compact="1"] .vp-sci-label,
+      .vp-slot[data-vp-compact="1"] .vp-sci-name { display:none; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-pill { min-height:40px; padding:0 12px; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-pill[data-can-open="1"] { padding:0 0 0 12px; }
+      .vp-slot[data-vp-compact="1"] .vp-sci-open { min-height:40px; padding:0 14px; font-size:13px; }
+      .vp-slot[data-vp-compact="1"] .vp-meta-step,
+      .vp-slot[data-vp-compact="1"] .vp-meta-divider { display:none; }
     `;
 
 export const ANIM_CSS = `
@@ -64,11 +131,16 @@ export const SECTION_CSS = `
       }
       .vp-section-pill .vp-sec-collapsed { display:flex; flex-direction:column; gap:2px; min-width:0; }
       .vp-section-pill .vp-sec-expanded  { display:none; }
-      .vp-section-pill:hover .vp-sec-card,
+      /* Hover only where there is real hover: on touch screens a tap left the
+         sticky :hover on, opening a 228×191 panel over a 219px-tall video
+         (spec M5). Touch devices pin it with a tap instead (data-pinned). */
+      @media (hover:hover) {
+        .vp-section-pill:hover .vp-sec-card { border-radius:18px; padding:18px 18px 16px; }
+        .vp-section-pill:hover .vp-sec-collapsed { display:none; }
+        .vp-section-pill:hover .vp-sec-expanded { display:block; }
+      }
       .vp-section-pill[data-pinned="1"] .vp-sec-card { border-radius:18px; padding:18px 18px 16px; }
-      .vp-section-pill:hover .vp-sec-collapsed,
       .vp-section-pill[data-pinned="1"] .vp-sec-collapsed { display:none; }
-      .vp-section-pill:hover .vp-sec-expanded,
       .vp-section-pill[data-pinned="1"] .vp-sec-expanded { display:block; }
       .vp-section-pill .vp-sec-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .vp-section-pill .vp-sec-cur-row { display:flex; align-items:center; gap:6px; color:rgba(168,191,186,.9); min-width:0; }
@@ -82,7 +154,9 @@ export const SECTION_CSS = `
       .vp-section-pill .vp-sec-rows { display:grid; gap:4px; }
       .vp-section-pill .vp-sec-row { display:flex; gap:10px; align-items:flex-start; padding:6px 8px; border-radius:8px; cursor:pointer; transition:background .2s; }
       .vp-section-pill .vp-sec-row[data-current="1"] { background:rgba(255,255,255,.12); }
-      .vp-section-pill .vp-sec-row[data-current="0"]:hover { background:rgba(255,255,255,.06); }
+      @media (hover:hover) {
+        .vp-section-pill .vp-sec-row[data-current="0"]:hover { background:rgba(255,255,255,.06); }
+      }
       .vp-section-pill .vp-sec-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; }
       .vp-section-pill .vp-sec-dot[data-state="completed"] { background:#00e1a5; }
       .vp-section-pill .vp-sec-dot[data-state="completed"]::after { content:"✓"; color:#062b22; font-size:10px; font-weight:700; }
@@ -93,6 +167,17 @@ export const SECTION_CSS = `
       .vp-section-pill .vp-sec-row[data-state="current"]   .vp-sec-row-title { color:#f4f7f6; font-weight:500; }
       .vp-section-pill .vp-sec-row[data-state="completed"] .vp-sec-row-title { color:rgba(168,191,186,.68); font-weight:400; }
       .vp-section-pill .vp-sec-row[data-state="upcoming"]  .vp-sec-row-title { color:rgba(168,191,186,.48); font-weight:400; }
+
+      /* Compact: the top-right corner stays reserved for the science pill even
+         when none is showing, so the section pill never jumps when one appears:
+         250px of the 362px-wide #vp-slot-tl on a phone, ending at x≤264 against
+         the compact science pill's x≥280. It never expands inside the video —
+         a tap opens the Coaching tab instead (index.ts). (0,4,0) beats the
+         hover/pinned rules above (0,3,0). */
+      .vp-slot[data-vp-compact="1"] .vp-section-pill { max-width:calc(100% - 112px); cursor:pointer; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-card { border-radius:12px; padding:8px 14px; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-collapsed { display:flex; }
+      .vp-slot[data-vp-compact="1"] .vp-section-pill .vp-sec-expanded { display:none; }
     `;
 
 // Voice-over card (lower-third slot, bottom-right). Composition ported from the
@@ -174,12 +259,16 @@ export const AUDIO_CSS = `
         background:rgba(22,79,73,.72); color:${T.fg};
         font:600 11.5px system-ui; padding:9px 10px; min-width:0; flex:0 0 auto;
       }
-      .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      @media (hover:hover) {
+        .vp-audio-btn:hover { background:rgba(22,79,73,.95); }
+      }
       .vp-audio-btn:focus-visible { outline:2px solid ${T.primary}; outline-offset:2px; }
       .vp-audio-btn-primary {
         background:${T.primary}; color:${T.primaryFg}; padding:9px 13px;
       }
-      .vp-audio-btn-primary:hover { background:#2edbb1; }
+      @media (hover:hover) {
+        .vp-audio-btn-primary:hover { background:#2edbb1; }
+      }
       /* Skip absorbs the leftover width and truncates instead of overflowing —
          "Überspringen" is 12 characters in a 320px card. */
       .vp-audio-btn-skip { flex:1 1 auto; }
@@ -191,6 +280,33 @@ export const AUDIO_CSS = `
       /* The transport icon swap: one attribute write per state change. */
       .vp-audio-card[data-playing="1"] .vp-audio-icon-play { display:none; }
       .vp-audio-card[data-playing="0"] .vp-audio-icon-pause { display:none; }
+
+      /* Compact: one row of ~58px (8 + 40 + 8 + borders) instead of a 320×168
+         card that started 7px above a 219px-tall phone player and covered the
+         section pill (spec M4). Avatar, title, play/pause and icon-only skip;
+         progress becomes a 3px line on the bottom edge. The slot itself is
+         widened to the player by JS (its 320px width is inline). */
+      .vp-slot[data-vp-compact="1"] .vp-audio-card {
+        display:flex; align-items:center; gap:10px; position:relative;
+        padding:8px 8px 8px 10px; border-radius:14px; overflow:hidden;
+      }
+      .vp-slot[data-vp-compact="1"] .vp-audio-head { flex:1 1 auto; min-width:0; align-items:center; gap:10px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-avatar,
+      .vp-slot[data-vp-compact="1"] .vp-audio-portrait,
+      .vp-slot[data-vp-compact="1"] .vp-audio-initials { width:32px; height:32px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-initials { font-size:12px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-badge,
+      .vp-slot[data-vp-compact="1"] .vp-audio-byline,
+      .vp-slot[data-vp-compact="1"] .vp-audio-state,
+      .vp-slot[data-vp-compact="1"] .vp-audio-times,
+      .vp-slot[data-vp-compact="1"] .vp-audio-skip-label,
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn[data-action="audio-back"],
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn[data-action="audio-fwd"] { display:none; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-progress { position:absolute; left:0; right:0; bottom:0; gap:0; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-bar { height:3px; border-radius:0; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-controls { flex:0 0 auto; gap:6px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn { min-width:40px; min-height:40px; padding:0 10px; }
+      .vp-slot[data-vp-compact="1"] .vp-audio-btn-skip { flex:0 0 auto; }
     `;
 
 // Quiz-break dialog. #vp-slot-quiz is a container so the option grid can go
@@ -226,6 +342,10 @@ export const QUIZ_CSS = `
       @container vp-quiz (min-width: 380px) {
         .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr 1fr; }
       }
+      /* Promoted to the viewport on compact players (index.ts placeQuizSlot):
+         the slot is now as wide as the phone (≥ 380px), so the container
+         query would pick two cramped columns of 158px. (1,3,0) beats it. */
+      #vp-slot-quiz[data-vp-promoted="1"] .vp-quiz-options[data-cols="2"] { grid-template-columns:1fr; }
       .vp-quiz-option {
         display:flex; align-items:center; gap:10px; width:100%;
         text-align:left; cursor:pointer; font:500 13.5px system-ui; color:#f4f7f6;
@@ -233,7 +353,9 @@ export const QUIZ_CSS = `
         border-radius:12px; padding:9px 11px;
         transition:background .18s ease, border-color .18s ease;
       }
-      .vp-quiz-option:hover:not(:disabled) { background:rgba(22,79,73,.7); }
+      @media (hover:hover) {
+        .vp-quiz-option:hover:not(:disabled) { background:rgba(22,79,73,.7); }
+      }
       .vp-quiz-option:focus-visible { outline:2px solid #00e1a5; outline-offset:2px; }
       .vp-quiz-option[data-state="correct"] { border-color:#4ade80; background:rgba(74,222,128,.16); }
       .vp-quiz-option[data-state="wrong"] { border-color:#f87171; background:rgba(248,113,113,.16); animation:vp-quiz-shake .4s ease; }
