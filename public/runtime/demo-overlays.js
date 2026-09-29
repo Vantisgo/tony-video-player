@@ -739,24 +739,6 @@
       timestampsSec: [40]
     }
   ];
-  var DEFAULT_AUDIOS = [
-    {
-      id: "a1",
-      t: 30,
-      dur: 9,
-      title: "Voice-Over: Klarheit als Werkzeug",
-      voice: "Dr. Frederik Hümmeke",
-      script: "Klarheit ist nicht nur eine Eigenschaft. Sie ist ein wiederholbares Werkzeug, mit dem du im Alltag wirken kannst."
-    },
-    {
-      id: "a2",
-      t: 115,
-      dur: 8,
-      title: "Voice-Over: Reflexionsimpuls",
-      voice: "Dr. Frederik Hümmeke",
-      script: "Halte einen Moment inne. Frage dich: wo handle ich heute schon klar, und wo zögere ich noch?"
-    }
-  ];
   var DEFAULT_META_STEPS = [
     { id: "m1", n: 1, title: "Self-Localization", t: 4 },
     { id: "m2", n: 2, title: "Pattern Visibility", t: 25 },
@@ -2472,7 +2454,7 @@
       const isDemo = parsed.demo === true;
       const phases = (_a = parsed.phases) != null ? _a : isDemo ? DEFAULT_PHASES : [];
       const sciences = (_b = parsed.sciences) != null ? _b : isDemo ? DEFAULT_SCIENCES : [];
-      const audios = (_c = parsed.audios) != null ? _c : isDemo ? DEFAULT_AUDIOS : [];
+      const audios = (_c = parsed.audios) != null ? _c : [];
       const metaSteps = (_d = parsed.metaSteps) != null ? _d : isDemo ? DEFAULT_META_STEPS : [];
       const assets = (_e = parsed.assets) != null ? _e : {};
       const quiz = (_f = parsed.quiz) != null ? _f : null;
@@ -2809,7 +2791,7 @@
         if (!failure) return url;
         const { errorType, hint } = ASSET_FAILURES[failure];
         console.warn(
-          `[vp] audio cue "${a.id}": ${hint} — speaking the script instead`,
+          `[vp] audio cue "${a.id}": ${hint} — skipping the cue`,
           a.asset
         );
         reportFailure(errorType);
@@ -2828,83 +2810,65 @@
         const letters = String(voice != null ? voice : "").split(/[\s\-_.]+/).filter((word) => /\p{L}/u.test(word)).slice(0, 2).map((word) => word.match(/\p{L}/u)[0]).join("");
         return (letters || "?").toUpperCase();
       }
-      function startFile(a, url) {
-        audioCtrl.mode = "file";
-        audioEl.src = url;
-        try {
-          audioEl.currentTime = 0;
-        } catch {
-        }
-        const p = audioEl.play();
-        if (p && typeof p.catch === "function") p.catch(() => fallbackToTts(a));
+      function abandonCue(reason) {
+        if (audioCtrl.state === "idle") return;
+        if (reason instanceof DOMException && reason.name === "AbortError")
+          return;
+        console.warn("[vp] audio playback failed; skipping the cue", reason);
+        audioCtrl.end({ resume: true });
       }
-      function fallbackToTts(a) {
-        if (audioCtrl.state === "idle" || audioCtrl.mode !== "file") return;
-        audioCtrl.mode = "tts";
-        try {
-          audioEl.pause();
-        } catch {
-        }
-        audioCtrl._speak(a);
-        audioCtrl._scheduleTick();
+      let cueGeneration = 0;
+      function playCue() {
+        var _a2;
+        const generation2 = cueGeneration;
+        (_a2 = audioEl.play()) == null ? void 0 : _a2.catch((reason) => {
+          if (generation2 === cueGeneration) abandonCue(reason);
+        });
       }
       const audioCtrl = {
         state: "idle",
-        mode: "tts",
         active: null,
         audioTime: 0,
         videoResumeTime: 0,
         triggered: /* @__PURE__ */ new Set(),
         audioEl,
-        _tickHandle: null,
         activate(a, videoT) {
           if (audioCtrl.state !== "idle") return;
+          audioCtrl.triggered.add(a.id);
+          const url = resolveAudioUrl(a);
+          if (!url) return;
           audioCtrl.state = "playing";
           audioCtrl.active = a;
           audioCtrl.audioTime = 0;
           audioCtrl.videoResumeTime = videoT;
-          audioCtrl.triggered.add(a.id);
           try {
             videoEl == null ? void 0 : videoEl.pause();
           } catch {
           }
-          const url = resolveAudioUrl(a);
-          if (url) {
-            startFile(a, url);
-            audioCtrl._render();
-            return;
+          audioEl.src = url;
+          try {
+            audioEl.currentTime = 0;
+          } catch {
           }
-          audioCtrl.mode = "tts";
-          audioCtrl._speak(a);
-          audioCtrl._scheduleTick();
+          playCue();
+          audioCtrl._render();
         },
         togglePlay() {
           if (audioCtrl.state === "idle") return;
           const pausing = audioCtrl.state === "playing";
           audioCtrl.state = pausing ? "paused" : "playing";
           try {
-            if (audioCtrl.mode === "file") {
-              if (pausing) audioEl.pause();
-              else {
-                const p = audioEl.play();
-                if (p && typeof p.catch === "function")
-                  p.catch((err) => console.warn("[vp] audio resume failed", err));
-              }
-            } else if (pausing) speechSynthesis.pause();
-            else speechSynthesis.resume();
+            if (pausing) audioEl.pause();
+            else playCue();
           } catch {
           }
-          audioCtrl._scheduleTick();
           audioCtrl._render();
         },
         end({ resume = true } = {}) {
+          cueGeneration++;
           audioCtrl.state = "idle";
           audioCtrl.active = null;
           audioCtrl.audioTime = 0;
-          if (audioCtrl._tickHandle) {
-            clearTimeout(audioCtrl._tickHandle);
-            audioCtrl._tickHandle = null;
-          }
           if (audioEl.hasAttribute("src")) {
             try {
               audioEl.pause();
@@ -2912,11 +2876,6 @@
               audioEl.load();
             } catch {
             }
-          }
-          audioCtrl.mode = "tts";
-          try {
-            speechSynthesis.cancel();
-          } catch {
           }
           slotLowerThird.innerHTML = "";
           slotLowerThird.dataset.kind = "";
@@ -2936,56 +2895,19 @@
         },
         seekRel(delta) {
           if (audioCtrl.state === "idle" || !audioCtrl.active) return;
-          const from = audioCtrl.mode === "file" ? audioEl.currentTime : audioCtrl.audioTime;
-          const next = Math.max(0, Math.min(audioCtrl.active.dur, from + delta));
+          const next = Math.max(
+            0,
+            Math.min(audioCtrl.active.dur, audioEl.currentTime + delta)
+          );
           audioCtrl.audioTime = next;
-          if (audioCtrl.mode === "file") {
-            try {
-              audioEl.currentTime = next;
-            } catch {
-            }
+          try {
+            audioEl.currentTime = next;
+          } catch {
           }
           audioCtrl._render();
         },
-        _speak(a) {
-          try {
-            if (!("speechSynthesis" in window)) return;
-            speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(a.script || a.title);
-            u.lang = "de-DE";
-            u.rate = 1;
-            u.pitch = 1;
-            u.onend = () => {
-              if (audioCtrl.state !== "idle") audioCtrl.end({ resume: true });
-            };
-            speechSynthesis.speak(u);
-          } catch {
-          }
-        },
         isActive() {
           return audioCtrl.state !== "idle";
-        },
-        _scheduleTick() {
-          if (audioCtrl._tickHandle) {
-            clearTimeout(audioCtrl._tickHandle);
-            audioCtrl._tickHandle = null;
-          }
-          if (audioCtrl.mode === "file") return;
-          if (audioCtrl.state !== "playing") return;
-          audioCtrl._tickHandle = setTimeout(() => {
-            audioCtrl._tickHandle = null;
-            if (audioCtrl.state !== "playing" || !audioCtrl.active) return;
-            audioCtrl.audioTime = Math.min(
-              audioCtrl.active.dur,
-              audioCtrl.audioTime + 0.1
-            );
-            if (audioCtrl.audioTime >= audioCtrl.active.dur) {
-              audioCtrl.end({ resume: true });
-              return;
-            }
-            audioCtrl._render();
-            audioCtrl._scheduleTick();
-          }, 100);
         },
         _render() {
           renderAudio();
@@ -3001,25 +2923,14 @@
         onCleanup
       }) : null;
       const onAudioTimeUpdate = () => {
-        if (audioCtrl.state === "idle" || audioCtrl.mode !== "file" || !audioCtrl.active)
-          return;
+        if (audioCtrl.state === "idle" || !audioCtrl.active) return;
         audioCtrl.audioTime = Math.min(audioCtrl.active.dur, audioEl.currentTime);
         audioCtrl._render();
       };
       const onAudioEnded = () => {
-        if (audioCtrl.state !== "idle" && audioCtrl.mode === "file")
-          audioCtrl.end({ resume: true });
+        if (audioCtrl.state !== "idle") audioCtrl.end({ resume: true });
       };
-      const onAudioError = () => {
-        const active = audioCtrl.active;
-        if (audioCtrl.state === "idle" || audioCtrl.mode !== "file" || !active)
-          return;
-        console.warn(
-          "[vp] audio load failed; falling back to TTS",
-          audioEl.error
-        );
-        fallbackToTts(active);
-      };
+      const onAudioError = () => abandonCue(audioEl.error);
       audioEl.addEventListener("timeupdate", onAudioTimeUpdate);
       audioEl.addEventListener("ended", onAudioEnded);
       const onVideoSeeked = () => {

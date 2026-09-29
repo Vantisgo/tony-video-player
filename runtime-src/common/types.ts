@@ -43,13 +43,11 @@ export interface Audio {
   dur: number;
   title: string;
   voice: string;
-  script: string;
   // Reference to the voice-over uploaded as an asset of the LearningSuite
   // custom-code block. Either the `{{asset:…}}` placeholder the code editor
   // hands out (the platform expands it to a signed URL at render time) or a key
-  // into the config's top-level `assets` table. Optional: without it — or when
-  // it cannot be resolved — the overlay falls back to speaking `script` via
-  // SpeechSynthesis. See ./assets.
+  // into the config's top-level `assets` table. A cue without it — or whose
+  // reference cannot be resolved — is skipped. See ./assets.
   asset?: string;
   // Portrait of whoever is speaking, resolved the same two ways as `asset`.
   // Optional: without it — or when it cannot be resolved — the card falls back
