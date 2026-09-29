@@ -858,6 +858,26 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
   host's bar" (moved from a JS guard to CSS stacking, which happy-dom cannot test).
 
+
+## 2026-09-28 · admin-diagnostics · Say why an embed is not recognised
+
+- **Decision (user)**: no opt-in. Whenever a player is on the page and a saved "Code einbetten"
+  block contains `<pre data-vp-config>`, a panel below the launch button says whether the runtime
+  will recognise it — an "✓ erkannt" confirmation, or the reasons it will not. Embeds without
+  that wrapper are not ours and get no panel.
+- **Decision**: the diagnosis runs in the **editor**, on the raw saved string, not in Vorschau.
+  LearningSuite's sanitiser hides a block it emptied, so in Vorschau a broken payload is
+  indistinguishable from no payload; only the editor still has the string.
+  `admin-toggle/diagnose.ts` checks what `common/config.ts` expects of the block: Markdown fences,
+  JSON syntax (position plus the offending excerpt — the editor's `<input>` strips newlines, so
+  single-line code gets a character position), section types, unknown keys, a quiz whose every
+  question fails validation (the runtime then drops the whole quiz), and voice-over assets.
+- **Constraint**: like the config-presence check, the input scan runs on attach and on dialog
+  close only, plus an explicit "check again" button — never on an interval or observer (see the
+  renderer-pegging note in `admin-toggle/index.ts`).
+- **Gap**: "In Pop-Up anzeigen" cannot be detected from the saved string; it still only shows up
+  as `audio-asset-unexpanded` telemetry.
+
 ## 2026-09-28 · vo-no-tts · Text-to-speech removed
 
 - **Decision (user)**: the voice-over has **no text-to-speech fallback** any more. A cue plays
@@ -872,6 +892,7 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   defaults had no asset, so they could never play.
 - **Gotcha**: a pending `play()` rejects with `AbortError` when our own `pause()` or src swap
   interrupts it. That is not a playback failure and must not end the cue.
+
 
 ## 2026-09-29 · mobile-overlays · P1 — no dead open affordances on the pills
 

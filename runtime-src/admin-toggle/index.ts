@@ -5,17 +5,32 @@
 // `/admin/editor/` and no `?view=preview`). Watches every <hls-video> and inserts
 // a quiet text button BELOW its container, labelled from a one-shot
 // config-presence check, that opens a dialog explaining the two-step setup (add a
-// "Code einbetten" block, paste an LLM prompt's output). Idempotent +
-// re-injectable.
+// "Code einbetten" block, paste an LLM prompt's output). Once a block with
+// <pre data-vp-config> is saved, a panel below the button says whether the
+// runtime will recognise it, and if not, why. Idempotent + re-injectable.
 import { pushCleanup, resetCleanup } from "../common/cleanup";
 import { esc } from "../common/escape";
 // Aliased to `tr` for consistency with the other entries, where `t` is the
 // established name for the current playback time.
 import { t as tr } from "../common/i18n/admin";
+import { diagnoseEmbed, type Finding } from "./diagnose";
 import { PROMPT_TEXT } from "./prompt";
 import { ADMIN_CSS } from "./styles";
 
 const CLEANUP_KEY = "__vpAdminCleanup";
+// Everything admin-toggle adds next to a player, swept on teardown and re-run.
+const OWNED_SELECTOR = ".vp-admin-launch, .vp-admin-diag, .vp-admin-banner";
+
+// Finding vars come from the admin's own code and the browser's JSON error, and
+// the messages are `*Html` keys, so every var is escaped before interpolation.
+function findingHtml({ key, vars }: Finding): string {
+  const safe = vars
+    ? Object.fromEntries(
+        Object.entries(vars).map(([name, value]) => [name, esc(String(value))]),
+      )
+    : undefined;
+  return tr(key, safe);
+}
 
 type AdminHlsEl = HTMLElement & { __vpAdminAttached?: boolean };
 
@@ -25,9 +40,7 @@ function main(): string {
   document.getElementById("vp-admin-toggle-style")?.remove();
   // Sweep the legacy .vp-admin-banner too, so upgrading over an already-deployed
   // older script removes the banner it left behind.
-  document
-    .querySelectorAll(".vp-admin-launch, .vp-admin-banner")
-    .forEach((el) => el.remove());
+  document.querySelectorAll(OWNED_SELECTOR).forEach((el) => el.remove());
   document.getElementById("vp-admin-dialog-host")?.remove();
   document.querySelectorAll("hls-video").forEach((v) => {
     delete (v as AdminHlsEl).__vpAdminAttached;
@@ -47,6 +60,52 @@ function main(): string {
         typeof (i as HTMLInputElement).value === "string" &&
         (i as HTMLInputElement).value.includes("data-vp-config"),
     );
+  }
+
+  // The diagnosis of the first saved embed that carries our block, or null.
+  function diagnoseEmbedOnPage(): Finding[] | null {
+    for (const input of document.querySelectorAll<HTMLInputElement>(
+      'input[type="text"]',
+    )) {
+      const findings = diagnoseEmbed(input.value);
+      if (findings) return findings;
+    }
+    return null;
+  }
+
+  function renderDiagnostics(panel: HTMLElement): void {
+    const findings = diagnoseEmbedOnPage();
+    panel.hidden = findings === null;
+    if (findings === null) {
+      panel.innerHTML = "";
+      return;
+    }
+    const hasError = findings.some((f) => f.level === "error");
+    panel.dataset.state = hasError
+      ? "error"
+      : findings.length
+        ? "warning"
+        : "ok";
+    const heading = findings.length
+      ? tr(hasError ? "admin.diag.titleError" : "admin.diag.titleWarning")
+      : tr("admin.diag.ok");
+    panel.innerHTML = `
+      <strong>${esc(heading)}</strong>
+      ${
+        findings.length
+          ? `<ul>${findings
+              .map((f) => `<li data-level="${f.level}">${findingHtml(f)}</li>`)
+              .join("")}</ul>`
+          : ""
+      }
+      <button type="button" class="vp-admin-diag-recheck">${esc(tr("admin.diag.recheck"))}</button>`;
+    (
+      panel.querySelector(".vp-admin-diag-recheck") as HTMLButtonElement
+    ).onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      renderDiagnostics(panel);
+    };
   }
 
   function openDialog(onAfterClose?: () => void): void {
@@ -150,24 +209,29 @@ function main(): string {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "vp-admin-launch";
+    const panel = document.createElement("div");
+    panel.className = "vp-admin-diag";
 
     // Read the config-presence signal EXACTLY twice per attach: once here, and
     // once when the dialog closes. It scans input values, which LearningSuite's
     // React app rewrites constantly — the 2s poll this replaces was pegging the
-    // renderer. Never re-arm an interval or observer on it.
-    function labelButton(): void {
+    // renderer. Never re-arm an interval or observer on it; the diagnosis has an
+    // explicit "check again" button for the same reason.
+    function refresh(): void {
       button.textContent = hasVpConfigOnPage()
         ? tr("admin.launch.edit")
         : tr("admin.launch.enable");
+      renderDiagnostics(panel);
     }
-    labelButton();
+    refresh();
 
     button.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      openDialog(labelButton);
+      openDialog(refresh);
     };
     insertParent.insertBefore(button, playerHost.nextSibling);
+    insertParent.insertBefore(panel, button.nextSibling);
   }
 
   function isEditMode(): boolean {
@@ -178,9 +242,7 @@ function main(): string {
   }
 
   function teardownLaunchButtons(): void {
-    document
-      .querySelectorAll(".vp-admin-launch, .vp-admin-banner")
-      .forEach((el) => el.remove());
+    document.querySelectorAll(OWNED_SELECTOR).forEach((el) => el.remove());
     document.getElementById("vp-admin-dialog-host")?.remove();
     document.querySelectorAll("hls-video").forEach((v) => {
       delete (v as AdminHlsEl).__vpAdminAttached;
