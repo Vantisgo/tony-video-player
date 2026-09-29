@@ -55,7 +55,7 @@ that; this phase makes the content reachable.
 - **Commits:**
 - **Agent / Session:** claude-opus-5-5 (planning), session c9261ef3-2af4-4ce2-826b-0ee1520bc2a7
 - **Back refs:** `docs/superpowers/specs/2026-09-29-mobile-overlays-sidebar-design.md` (P3) · `.claude/PRPs/prds/mobile-overlays.prd.md` (phase 3) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p1-dead-affordances.plan.md` (the guard this replaces) · `.claude/PRPs/plans/2026-09-29_mobile-overlays_p2-mobile-canary-harness.plan.md` (helpers used here)
-- **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (section-pill tap calls `open("coaching")`) · `…_p5-quiz-on-mobile.plan.md` (quiz stacks above the sheet)
+- **Forward refs:** `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md` (section-pill tap calls `open("coaching")`) · `…_p5-quiz-on-mobile.plan.md` (quiz stacks above the sheet) · `…_p6-desktop-squeeze.plan.md` (extends the moved `tryFlexSibling` in `sidebar-host.ts`)
 
 > **Append-only:** `Created` is set once; every other field is a list you only ever add to — never overwrite or remove existing entries. Keep references bidirectional: when you add a back/forward ref here, add the reciprocal ref on the other plan.
 
@@ -359,6 +359,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 
 - **ACTION**: CREATE the host module and MOVE the desktop placement.
 - **IMPLEMENT**:
+
   ```ts
   export type HostMode = "desktop" | "sheet" | "none";
   // The 1024px query decides the page layout (room beside <main>), content decides
@@ -389,6 +390,7 @@ vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function
 
   - **desktop:** move `detectTopNavHeight`, `SIDEBAR_W`, `SIDEBAR_GAP`, `SIDEBAR_MIN_TOP`, `applyFixedRightRail`, `tryFlexSibling` from `index.ts:1256-1372` **verbatim**, including their comments, into an internal `installDesktop(sidebar, onCleanup)`, then `if (!tryFlexSibling()) applyFixedRightRail(); onCleanup(() => sidebar.remove());`. `open = setTab`; `isConnected = () => sidebar.isConnected`.
   - **sheet:** `const sheet = createMobileSheet(deps)`; `open = sheet.open`; `isConnected = sheet.isConnected`.
+
 - **MIRROR**: the moved code itself; `quiz.ts` deps factory.
 - **GOTCHA**: The moved functions reference `sidebar` and `onCleanup` as closure variables. Pass both in and keep the bodies byte-identical otherwise (review with `git diff --color-moved`).
 - **VALIDATE**: `bun run typecheck:runtime`

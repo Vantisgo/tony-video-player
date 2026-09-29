@@ -188,7 +188,7 @@ later phases can assert against it. P5 completes mobile parity.
 | 3   | Mobile sheet             | `sidebar-host.ts` and `mobile-sheet.ts`: tab bar, docked sheet, `open(tab)`                                | in-progress | -         | 1, 2    | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p3-mobile-sheet.plan.md`          |
 | 4   | Compact overlays         | `compact.ts` and compact CSS for voice-over and pills; tap targets; hover guards                           | in-progress | -         | 3       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p4-compact-overlays.plan.md`      |
 | 5   | Quiz on mobile           | Move the quiz slot to `body` on compact players and cover the whole screen                                 | in-progress | -         | 4       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p5-quiz-on-mobile.plan.md`        |
-| 6   | Desktop squeeze ≥ 1536px | Hide the lesson column LearningSuite inserts next to `<main>` after our mount (resize past 1536 → 317×179) | pending     | with 4, 5 | 3       | -                                                                                |
+| 6   | Desktop squeeze ≥ 1536px | Hide the lesson column LearningSuite inserts next to `<main>` after our mount (resize past 1536 → 317×179) | in-progress | with 4, 5 | 3       | `.claude/PRPs/plans/2026-09-29_mobile-overlays_p6-desktop-squeeze.plan.md`       |
 
 ### Phase Details
 

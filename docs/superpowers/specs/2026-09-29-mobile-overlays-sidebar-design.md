@@ -367,6 +367,11 @@ A fresh load at 1600 is fine (641×361). Every later crossing of 1536 inserts a 
   - Entries for nodes LearningSuite has removed stay in the map; restoring a detached node is
     harmless.
   - Text nodes and our sidebar are ignored.
+  - A `<main>`, or an element containing one, is never hidden. A replaced lesson is handled by
+    `checkAlive`'s remount. (Added while planning, 2026-09-29: moves arrive as remove+add records,
+    so any node, including a new `<main>`, can show up in `addedNodes`.)
+  - The hide runs synchronously in the callback, never debounced. Callbacks are microtasks, so
+    the column is never painted.
   - The fixed-rail fallback and the mobile sheet install no observer.
   - Style writes cause no `childList` records, so the observer cannot loop.
 - **Depends on P3** (desktop placement lives in `sidebar-host.ts`).
