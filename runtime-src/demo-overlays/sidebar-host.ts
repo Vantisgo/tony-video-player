@@ -173,6 +173,34 @@ function installDesktop(
     // own column must come back rather than stay hidden with nothing beside it.
     if (fitsToRightOfMain && visibleInViewport) {
       onCleanup(restoreHost);
+
+      // LearningSuite renders some columns only at certain widths: its lesson
+      // column is inserted as a NEW sibling of <main> whenever the window
+      // crosses 1536px (MUI xl), long after the loop above ran. Unhidden, it
+      // squeezed the player from 553×312 to 317×179 (measured 2026-09-29,
+      // spec M15). Keep the invariant — only <main> and our sidebar are
+      // visible here — instead of the mount-time snapshot.
+      //
+      // Synchronous in the callback, never debounced: records arrive as a
+      // microtask, before the next paint, so the column is never drawn. Moves
+      // arrive as remove+add; `has()` keeps the first-seen display so a moved
+      // node never records our own "none". A <main> (or a wrapper around one)
+      // is never hidden: a replaced lesson is checkAlive's remount, not ours.
+      // Registered after restoreHost so it disconnects first (LIFO); disconnect
+      // also drops queued records, e.g. the one sidebar.remove() produces
+      // during the same teardown.
+      const siblingWatch = new MutationObserver((records) => {
+        for (const rec of records)
+          rec.addedNodes.forEach((n) => {
+            if (!(n instanceof HTMLElement)) return;
+            if (n === mainEl || n.id === "vp-demo-sidebar") return;
+            if (n.tagName === "MAIN" || n.querySelector("main")) return;
+            if (!prevDisplays.has(n)) prevDisplays.set(n, n.style.display);
+            n.style.display = "none";
+          });
+      });
+      siblingWatch.observe(flexParent, { childList: true });
+      onCleanup(() => siblingWatch.disconnect());
       return true;
     }
     restoreHost();

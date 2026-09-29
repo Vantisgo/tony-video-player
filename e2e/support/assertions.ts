@@ -156,6 +156,19 @@ async function revealHostBar(page: Page): Promise<void> {
   await page.waitForTimeout(400);
 }
 
+// The reskinned player host's box, read the same way pressHostControl reads
+// boxes (evaluate + getBoundingClientRect, never locator.boundingBox(), which is
+// null for elements Playwright judges invisible).
+export async function hostBox(page: Page): Promise<{ w: number; h: number }> {
+  return page
+    .locator(HOST)
+    .first()
+    .evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { w: r.width, h: r.height };
+    });
+}
+
 // The demo mount creates these unconditionally, so their absence means it did
 // not mount (as opposed to `#vp-demo-sidebar`, which the config can legitimately
 // switch off).

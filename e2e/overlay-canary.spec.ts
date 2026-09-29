@@ -7,11 +7,12 @@
 // Moving this call into `beforeAll` would collect zero tests and report a green
 // run that asserted nothing — which is also why `bun run e2e` is a script that
 // invokes Playwright twice, rather than a `dependencies: ["resolve"]` chain.
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   attachDiag,
   demoScriptRan,
+  hostBox,
   expectDemoMounted,
   expectHostChromePresent,
   expectHostMuteWorks,
@@ -84,6 +85,78 @@ for (const video of videos) {
         "demo-overlays.js never ran on this lesson (no demo config, or its gate did not pass)",
       );
       await expectDemoMounted(page, testInfo);
+    });
+
+    // P6 (spec M15): LearningSuite inserts its lesson column next to <main>
+    // when the window crosses 1536px (MUI xl) after load. Unhidden, it squeezed
+    // the player from 553×312 to 317×179. Lesson-independent invariant:
+    // widening the window never shrinks the player.
+    test("widening past LearningSuite's xl breakpoint never shrinks the player", async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForReskinSettled(page);
+      test.skip(
+        !(await demoScriptRan(page)),
+        "demo-overlays.js never ran on this lesson",
+      );
+      await page.waitForFunction(
+        () => !!document.getElementById("vp-slot-tl")?.parentElement,
+        undefined,
+        { timeout: 30_000 },
+      );
+      const flexSibling = await page.evaluate(() => {
+        const sb = document.getElementById("vp-demo-sidebar");
+        return (
+          !!sb &&
+          sb.parentElement === document.querySelector("main")?.parentElement
+        );
+      });
+      test.skip(
+        !flexSibling,
+        "the sidebar is not a flex sibling of <main> on this lesson, so there is nothing to squeeze",
+      );
+      const before = await hostBox(page);
+
+      await page.setViewportSize({ width: 1600, height: 900 });
+      // setViewportSize resolves BEFORE the page's resize/media-query change and
+      // React's commit (verified), so wait for the column itself.
+      const inserted = await page
+        .waitForFunction(
+          () =>
+            (document.querySelector("main")?.parentElement?.children.length ??
+              0) >= 3,
+          undefined,
+          { timeout: 10_000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      test.skip(
+        !inserted,
+        "LearningSuite rendered no extra column next to <main> at 1600 on this lesson",
+      );
+      await page.evaluate(
+        () =>
+          new Promise((r) =>
+            requestAnimationFrame(() => requestAnimationFrame(r)),
+          ),
+      );
+
+      const extraHidden = await page.evaluate(() => {
+        const parent = document.querySelector("main")!.parentElement!;
+        return [...parent.children]
+          .filter((c) => c.tagName !== "MAIN" && c.id !== "vp-demo-sidebar")
+          .every((c) => getComputedStyle(c).display === "none");
+      });
+      expect(
+        extraHidden,
+        "the column LearningSuite inserted next to <main> must be hidden",
+      ).toBe(true);
+      expect(
+        (await hostBox(page)).w,
+        "widening the window must never shrink the lesson player (spec M15)",
+      ).toBeGreaterThanOrEqual(before.w - 1);
     });
   });
 }

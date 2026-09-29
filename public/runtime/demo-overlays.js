@@ -2272,6 +2272,18 @@
       };
       if (fitsToRightOfMain && visibleInViewport) {
         onCleanup(restoreHost);
+        const siblingWatch = new MutationObserver((records) => {
+          for (const rec of records)
+            rec.addedNodes.forEach((n) => {
+              if (!(n instanceof HTMLElement)) return;
+              if (n === mainEl || n.id === "vp-demo-sidebar") return;
+              if (n.tagName === "MAIN" || n.querySelector("main")) return;
+              if (!prevDisplays.has(n)) prevDisplays.set(n, n.style.display);
+              n.style.display = "none";
+            });
+        });
+        siblingWatch.observe(flexParent, { childList: true });
+        onCleanup(() => siblingWatch.disconnect());
         return true;
       }
       restoreHost();
