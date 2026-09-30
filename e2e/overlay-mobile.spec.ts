@@ -283,13 +283,26 @@ for (const video of videos) {
     test("pills and the voice-over never overlap and stay inside the player", async ({
       page,
     }) => {
-      const { audio } = await demoMoments(page);
-      test.skip(audio === null, "this lesson's config has no voice-over cue");
+      const { voiceOver } = await demoMoments(page);
+      if (voiceOver.kind === "none") {
+        test.skip(true, "this lesson's config has no voice-over cue");
+        return;
+      }
+      // Failed, not skipped: a skip here would hide this layout from the canary
+      // for as long as the lesson stays unfixed.
+      if (voiceOver.kind === "unplayable")
+        throw new Error(
+          "The runtime skips every voice-over cue on this lesson (" +
+            voiceOver.skipped.map((c) => `${c.id}: ${c.reason}`).join(", ") +
+            "), so no card can mount. A cue plays only its uploaded audio: give " +
+            "each cue an `asset` in the lesson's code block — see Audio.asset in " +
+            "runtime-src/common/types.ts.",
+        );
       // Play first, then seek: starting playback makes LearningSuite jump to
       // the shared account's saved watch position, which can lie past the cue
       // (measured: playback resumed at 70s with the cue at 45s).
       await tapHostPlay(page);
-      await seekTo(page, Math.max(0, audio! - 3));
+      await seekTo(page, Math.max(0, voiceOver.t - 3));
       await expect(page.locator(VOICE_OVER)).toHaveCount(1, {
         timeout: 20_000,
       });
