@@ -16,6 +16,9 @@ import { T } from "./styles";
 // matching either before every mount (index.ts).
 export const TAB_BAR_ID = "vp-mobile-tabs";
 
+// Same naming constraint as TAB_BAR_ID.
+const ROOM_ID = "vp-sheet-room";
+
 // Above LearningSuite's fixed bottom bar (z-index 999), below its full-viewport
 // overlay layers (1200) so their menus still cover us (measured 2026-09-29).
 const SHEET_Z = 1100;
@@ -112,6 +115,26 @@ export function createMobileSheet(deps: MobileSheetDeps): MobileSheet {
   });
   playerHost.after(nav);
 
+  // ── Scroll room for a page too short to lift the video above the sheet ──
+  // An empty block at the end of <body>, present only while the sheet is open
+  // (see `room` in sheet-geometry). Closing drops it and the browser clamps the
+  // scroll back, so nothing of ours outlives the sheet.
+  const room = document.createElement("div");
+  room.id = ROOM_ID;
+  room.setAttribute("aria-hidden", "true");
+  room.style.cssText =
+    "display:block; margin:0; padding:0; border:0; pointer-events:none;";
+  let roomPx = 0;
+  function setRoom(px: number): void {
+    roomPx = px;
+    if (px <= 0) {
+      room.remove();
+      return;
+    }
+    room.style.height = `${px}px`;
+    if (room.parentElement !== document.body) document.body.appendChild(room);
+  }
+
   function open(tab: string): void {
     setTab(tab);
     const vw = window.innerWidth;
@@ -130,11 +153,14 @@ export function createMobileSheet(deps: MobileSheetDeps): MobileSheet {
         playerTop: r.top,
         playerBottom: r.bottom,
         scrollY: window.scrollY,
-        maxScroll: se.scrollHeight - vh,
+        // The page's own scroll: a tab switch re-measures with our room in it.
+        maxScroll: se.scrollHeight - vh - roomPx,
         vw,
         vh,
       });
       top = next.top;
+      // Before scrolling, or the smooth scroll stops at the old page end.
+      setRoom(next.room);
       if (Math.abs(next.targetScroll - window.scrollY) >= 1)
         window.scrollTo({ top: next.targetScroll, behavior: "smooth" });
     }
@@ -160,6 +186,7 @@ export function createMobileSheet(deps: MobileSheetDeps): MobileSheet {
     if (!opened) return;
     opened = false;
     applyClosed(true);
+    setRoom(0);
     tabButtons.forEach((b) => b.setAttribute("aria-expanded", "false"));
     const back = opener;
     opener = null;
@@ -209,6 +236,7 @@ export function createMobileSheet(deps: MobileSheetDeps): MobileSheet {
     if (frame) cancelAnimationFrame(frame);
     nav.remove();
     sidebar.remove();
+    room.remove();
   });
 
   return {

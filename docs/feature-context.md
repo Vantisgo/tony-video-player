@@ -858,7 +858,6 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   dirty check (its only driver was the deleted transcript source), and "a quiz blocks the
   host's bar" (moved from a JS guard to CSS stacking, which happy-dom cannot test).
 
-
 ## 2026-09-28 · admin-diagnostics · Say why an embed is not recognised
 
 - **Decision (user)**: no opt-in. Whenever a player is on the page and a saved "Code einbetten"
@@ -892,7 +891,6 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   defaults had no asset, so they could never play.
 - **Gotcha**: a pending `play()` rejects with `AbortError` when our own `pause()` or src swap
   interrupts it. That is not a playback failure and must not end the cue.
-
 
 ## 2026-09-29 · mobile-overlays · P1 — no dead open affordances on the pills
 
@@ -1025,3 +1023,30 @@ Portrait-Assets ═══`), never the audio list. Two existing audio rules woul
   `resize` event, media-query `change` and React commit. Resize tests must wait
   for the DOM they expect (here: the inserted column) before measuring, or they
   pass without testing anything.
+
+## 2026-09-30 · bugfix · canary voice-over, pre-roll and short-page sheet
+
+- **Decision**: a page too short to scroll the video above the sheet's minimum
+  height gets temporary scroll room: `sheetTop()` returns `room`, and
+  `mobile-sheet.ts` adds it as an empty `#vp-sheet-room` at the end of `<body>`
+  while the sheet is open, dropping it on close. Only when it can work: a player
+  taller than the space above the sheet (landscape, M10) is clamped as before.
+  Without it, a lesson without attachments had the sheet over the video's
+  timeline and play control.
+- **Gotcha**: the canary lesson's config lives only in LearningSuite. A cue with
+  no `asset` is skipped silently (no warning, no beacon), so a stale config shows
+  up as a card that never mounts. The phone canary now picks a cue with
+  `pickVoiceOver` (`e2e/support/voice-over.ts`, the runtime's own
+  `resolveAssetUrl`) and fails, rather than skips, when none can play.
+- **Gotcha**: a t:0 voice-over (pre-roll) takes the first play press, and the
+  press is followed by transient pauses: the host re-asserts play while the cue
+  is live, the resume seek can land in a later cue's window, and a remount
+  re-arms the pre-roll. `startHostPlayback` therefore skips any live cue through
+  `window.__audioCtrl` until 500ms of uninterrupted playback. Any new "the video
+  is playing" check needs the same settled condition, not one `paused` read.
+- **Gotcha**: a t:0 cue cannot be measured on the shared account: the resume
+  seek withdraws it, and a seek never re-arms it. The voice-over canary measures
+  the first playable cue at t ≥ 1s.
+- **Decision**: Playwright keeps traces and videos for the first failure only
+  (`retain-on-first-failure`). A trace records every HLS segment (~90MB for a
+  playing test); keeping all retries made one report 2.5GB.

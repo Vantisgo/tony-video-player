@@ -10,6 +10,11 @@ import { expect, type Page } from "@playwright/test";
 
 import { startHostPlayback } from "./assertions";
 import { contains, formatBox, overlappingPairs, type Box } from "./geometry";
+import {
+  pickVoiceOver,
+  type VoiceOverCue,
+  type VoiceOverPick,
+} from "./voice-over";
 
 type PlayerWindow = {
   player: { seek(t: number): void; current: number };
@@ -101,21 +106,30 @@ export async function waitForDemoMount(page: Page): Promise<void> {
 
 // Starts playback with a real touchscreen tap on LearningSuite's play control.
 // A script play() carries no user activation (measured 2026-09-29), so a
-// voice-over cue could not start its audio.
+// voice-over cue could not start its audio. A pre-roll voice-over is skipped
+// (see startHostPlayback).
 export async function tapHostPlay(page: Page): Promise<void> {
   await startHostPlayback(page, (p, point) =>
     p.touchscreen.tap(point.x, point.y),
   );
 }
 
-// Keeps a TTS voice-over cue open for its full `dur`. In automated Chrome the
-// utterance ends at once (the voice requests are rate-limited, 429s observed),
-// which closes the card before it can be measured. MUST be registered before
+// Keeps a voice-over cue open so its card can be measured. The runtime plays a
+// cue's asset on one persistent <audio id="vp-audio-el"> (AUDIO_EL_ID in
+// runtime-src/demo-overlays/index.ts) and closes the card on its `ended`, or
+// when play() rejects. Real playback does work in automated Chrome (measured
+// 2026-09-30: a 62s asset played through), but it ties a layout test to the
+// asset's length — a short clip ends mid-measurement — and to fetching a signed
+// storage URL. Resolving play() on that element without starting it holds the
+// cue in its playing state: nothing is fetched or played, so no `ended` arrives.
+// LearningSuite's own video still plays for real. MUST be registered before
 // page.goto: init scripts run on the next navigation.
 export async function holdVoiceOver(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const synth = window.speechSynthesis;
-    if (synth) synth.speak = () => {};
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      return this.id === "vp-audio-el" ? Promise.resolve() : play.call(this);
+    };
   });
 }
 
@@ -145,23 +159,29 @@ export async function injectQuiz(page: Page, quiz: unknown): Promise<void> {
 }
 
 // The first timestamp of each overlay kind in the resolved lesson's config, so
-// tests seek to real moments instead of hard-coding the canary lesson's.
+// tests seek to real moments instead of hard-coding the canary lesson's. The
+// voice-over is the first cue the runtime will actually play (see
+// ./voice-over), not simply the first cue — and one a seek can bring up. A cue
+// at t:0 cannot be: it takes the first press, LearningSuite's resume seek
+// withdraws it moments later (measured 2026-09-30: gone by 1:12), and a seek
+// never re-arms it, since that needs a time 0.5s before the cue.
 export type DemoMoments = {
   readonly science: number | null;
-  readonly audio: number | null;
+  readonly voiceOver: VoiceOverPick;
   readonly meta: number | null;
 };
 
 export async function demoMoments(page: Page): Promise<DemoMoments> {
   // Reading before the mount returned nulls and silently skipped a test.
   await waitForDemoMount(page);
-  return page.evaluate(() => {
+  const { audios, assets, ...moments } = await page.evaluate(() => {
     const data = (
       window as unknown as {
         __vpConfig?: {
           data?: {
             sciences?: { timestampsSec?: number[] }[];
-            audios?: { t?: number }[];
+            audios?: VoiceOverCue[];
+            assets?: Record<string, string>;
             metaSteps?: { t?: number }[];
           };
         };
@@ -169,10 +189,18 @@ export async function demoMoments(page: Page): Promise<DemoMoments> {
     ).__vpConfig?.data;
     return {
       science: data?.sciences?.[0]?.timestampsSec?.[0] ?? null,
-      audio: data?.audios?.[0]?.t ?? null,
+      audios: data?.audios ?? [],
+      assets: data?.assets ?? {},
       meta: data?.metaSteps?.[0]?.t ?? null,
     };
   });
+  return {
+    ...moments,
+    voiceOver: pickVoiceOver(
+      audios.filter((cue) => cue.t >= 1),
+      assets,
+    ),
+  };
 }
 
 // Waits until each element's own entrance animation has finished. The pills and

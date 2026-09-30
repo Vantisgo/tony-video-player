@@ -1972,17 +1972,28 @@
     return Math.round(vh * (vh >= vw ? 0.55 : 0.4));
   }
   function sheetTop(i) {
-    const targetScroll = Math.min(
-      Math.max(i.scrollY + i.playerTop, 0),
-      Math.max(i.maxScroll, 0)
-    );
+    const maxTop = sheetMaxTop(i.vw, i.vh);
+    const available = Math.max(i.maxScroll, 0);
+    const playerAtTop = Math.max(i.scrollY + i.playerTop, 0);
+    const clear = i.scrollY + i.playerBottom - maxTop;
+    let targetScroll = Math.min(playerAtTop, available);
+    let room = 0;
+    if (targetScroll < clear && clear <= playerAtTop) {
+      room = clear - available;
+      targetScroll = clear;
+    }
     const bottomAfter = i.playerBottom - (targetScroll - i.scrollY);
-    const top = Math.min(Math.max(bottomAfter, 0), sheetMaxTop(i.vw, i.vh));
-    return { top: Math.round(top), targetScroll: Math.round(targetScroll) };
+    const top = Math.min(Math.max(bottomAfter, 0), maxTop);
+    return {
+      top: Math.round(top),
+      targetScroll: Math.round(targetScroll),
+      room: Math.ceil(room)
+    };
   }
 
   // runtime-src/demo-overlays/mobile-sheet.ts
   var TAB_BAR_ID = "vp-mobile-tabs";
+  var ROOM_ID = "vp-sheet-room";
   var SHEET_Z = 1100;
   function createMobileSheet(deps) {
     var _a, _b;
@@ -2043,6 +2054,20 @@
       return b;
     });
     playerHost.after(nav);
+    const room = document.createElement("div");
+    room.id = ROOM_ID;
+    room.setAttribute("aria-hidden", "true");
+    room.style.cssText = "display:block; margin:0; padding:0; border:0; pointer-events:none;";
+    let roomPx = 0;
+    function setRoom(px) {
+      roomPx = px;
+      if (px <= 0) {
+        room.remove();
+        return;
+      }
+      room.style.height = `${px}px`;
+      if (room.parentElement !== document.body) document.body.appendChild(room);
+    }
     function open(tab) {
       var _a2;
       setTab(tab);
@@ -2058,11 +2083,13 @@
           playerTop: r.top,
           playerBottom: r.bottom,
           scrollY: window.scrollY,
-          maxScroll: se.scrollHeight - vh,
+          // The page's own scroll: a tab switch re-measures with our room in it.
+          maxScroll: se.scrollHeight - vh - roomPx,
           vw,
           vh
         });
         top = next.top;
+        setRoom(next.room);
         if (Math.abs(next.targetScroll - window.scrollY) >= 1)
           window.scrollTo({ top: next.targetScroll, behavior: "smooth" });
       }
@@ -2086,6 +2113,7 @@
       if (!opened) return;
       opened = false;
       applyClosed(true);
+      setRoom(0);
       tabButtons.forEach((b) => b.setAttribute("aria-expanded", "false"));
       const back = opener;
       opener = null;
@@ -2126,6 +2154,7 @@
       if (frame) cancelAnimationFrame(frame);
       nav.remove();
       sidebar.remove();
+      room.remove();
     });
     return {
       open,

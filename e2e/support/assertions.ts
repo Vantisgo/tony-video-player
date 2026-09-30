@@ -113,6 +113,17 @@ const mousePress: HostPress = (page, point) =>
 // LearningSuite renders its full control bar only once playback has started —
 // before that the player shows a poster and a centre play affordance. So every
 // bar assertion has to start the video first.
+//
+// A voice-over cue at t:0 (a pre-roll) takes the first press: demo-overlays
+// starts the cue and pauses the video again in the same call stack as the
+// native `play`, before a frame (the pre-roll note in
+// runtime-src/demo-overlays/index.ts), so the video does not play. The canary
+// lesson gained one on 2026-09-30 and every play-based test timed out.
+// So the wait below skips a live cue through the runtime's published
+// controller, which ends it and resumes the video. In-page on purpose, not a
+// press on the card's skip button: LearningSuite's resume seek can withdraw the
+// cue at any moment (onVideoSeeked), and a press landing where the card just was
+// hits the video and pauses it. Here the check and the skip are one step.
 export async function startHostPlayback(
   page: Page,
   press: HostPress = mousePress,
@@ -140,11 +151,27 @@ export async function startHostPlayback(
     page,
     await hostControlPoint(page, hasOverlay ? overlayPlay : anyPlay, "play"),
   );
+  // Settled means half a second of uninterrupted playback with no cue live.
+  // One reading is not enough, because the press sets off a burst (measured
+  // 2026-09-30 by logging the media events): the host re-asserts play while the
+  // cue is live, so `paused` reads false for a moment before the runtime parks
+  // the video again; the resume seek can land inside a later cue's window (45.16
+  // on a cue at 45); and a remount during the press re-arms the pre-roll.
   await page.waitForFunction(
-    () =>
-      (
-        window as unknown as { player?: { _diag?: () => { paused?: boolean } } }
-      ).player?._diag?.()?.paused === false,
+    () => {
+      const w = window as unknown as {
+        player?: { _diag?: () => { paused?: boolean } };
+        __audioCtrl?: { isActive(): boolean; skip(): void };
+        __canaryPlayingSince?: number;
+      };
+      if (w.__audioCtrl?.isActive()) w.__audioCtrl.skip();
+      if (w.__audioCtrl?.isActive() || w.player?._diag?.()?.paused !== false) {
+        w.__canaryPlayingSince = undefined;
+        return false;
+      }
+      w.__canaryPlayingSince ??= performance.now();
+      return performance.now() - w.__canaryPlayingSince >= 500;
+    },
     undefined,
     { timeout: 20_000 },
   );

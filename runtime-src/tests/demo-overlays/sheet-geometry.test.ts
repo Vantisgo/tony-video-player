@@ -27,7 +27,7 @@ describe("sheetTop", () => {
         vw: 390,
         vh: 844,
       }),
-    ).toEqual({ top: 428, targetScroll: 106 });
+    ).toEqual({ top: 428, targetScroll: 106, room: 0 });
   });
 
   it("clamps to 60% in landscape, where the player is taller than the screen (M10)", () => {
@@ -40,7 +40,40 @@ describe("sheetTop", () => {
         vw: 844,
         vh: 390,
       }),
-    ).toEqual({ top: 156, targetScroll: 400 });
+    ).toEqual({ top: 156, targetScroll: 400, room: 0 });
+  });
+
+  // 2026-09-30: the lesson lost its attachments and the page could scroll only
+  // 24px. The video's bottom stayed at 510, and the 45% minimum put the sheet's
+  // top at 464, so the sheet covered the video's bottom 46px — the timeline and
+  // play control. M9's player position with that 24px of scroll reproduces it.
+  it("asks for the scroll room a short page lacks to lift the video above the sheet", () => {
+    // 534 − 464 = 70px of scroll clears the sheet; the page has 24, so 46 more.
+    expect(
+      sheetTop({
+        playerTop: 315,
+        playerBottom: 534,
+        scrollY: 0,
+        maxScroll: 24,
+        vw: 390,
+        vh: 844,
+      }),
+    ).toEqual({ top: 464, targetScroll: 70, room: 46 });
+  });
+
+  it("asks for no room when the video could not fit above the sheet anyway (landscape)", () => {
+    // Clearing the 156px top would need 662px of scroll, past the player's own
+    // top at 405: no amount of room makes this video fully visible.
+    expect(
+      sheetTop({
+        playerTop: 405,
+        playerBottom: 818,
+        scrollY: 0,
+        maxScroll: 100,
+        vw: 844,
+        vh: 390,
+      }),
+    ).toEqual({ top: 156, targetScroll: 100, room: 0 });
   });
 
   it("scrolls back up to a player that has scrolled out of view", () => {
@@ -53,7 +86,7 @@ describe("sheetTop", () => {
         vw: 390,
         vh: 844,
       }),
-    ).toEqual({ top: 219, targetScroll: 200 });
+    ).toEqual({ top: 219, targetScroll: 200, room: 0 });
   });
 
   it("docks at the current player bottom when the page cannot scroll", () => {
@@ -66,7 +99,7 @@ describe("sheetTop", () => {
         vw: 390,
         vh: 844,
       }),
-    ).toEqual({ top: 319, targetScroll: 0 });
+    ).toEqual({ top: 319, targetScroll: 0, room: 0 });
     expect(
       sheetTop({
         playerTop: 100,
