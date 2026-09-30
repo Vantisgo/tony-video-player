@@ -106,7 +106,8 @@ export async function waitForDemoMount(page: Page): Promise<void> {
 
 // Starts playback with a real touchscreen tap on LearningSuite's play control.
 // A script play() carries no user activation (measured 2026-09-29), so a
-// voice-over cue could not start its audio.
+// voice-over cue could not start its audio. A pre-roll voice-over is skipped
+// (see startHostPlayback).
 export async function tapHostPlay(page: Page): Promise<void> {
   await startHostPlayback(page, (p, point) =>
     p.touchscreen.tap(point.x, point.y),
@@ -160,7 +161,10 @@ export async function injectQuiz(page: Page, quiz: unknown): Promise<void> {
 // The first timestamp of each overlay kind in the resolved lesson's config, so
 // tests seek to real moments instead of hard-coding the canary lesson's. The
 // voice-over is the first cue the runtime will actually play (see
-// ./voice-over), not simply the first cue.
+// ./voice-over), not simply the first cue — and one a seek can bring up. A cue
+// at t:0 cannot be: it takes the first press, LearningSuite's resume seek
+// withdraws it moments later (measured 2026-09-30: gone by 1:12), and a seek
+// never re-arms it, since that needs a time 0.5s before the cue.
 export type DemoMoments = {
   readonly science: number | null;
   readonly voiceOver: VoiceOverPick;
@@ -190,7 +194,13 @@ export async function demoMoments(page: Page): Promise<DemoMoments> {
       meta: data?.metaSteps?.[0]?.t ?? null,
     };
   });
-  return { ...moments, voiceOver: pickVoiceOver(audios, assets) };
+  return {
+    ...moments,
+    voiceOver: pickVoiceOver(
+      audios.filter((cue) => cue.t >= 1),
+      assets,
+    ),
+  };
 }
 
 // Waits until each element's own entrance animation has finished. The pills and

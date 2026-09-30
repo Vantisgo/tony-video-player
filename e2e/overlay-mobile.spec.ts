@@ -285,7 +285,7 @@ for (const video of videos) {
     }) => {
       const { voiceOver } = await demoMoments(page);
       if (voiceOver.kind === "none") {
-        test.skip(true, "this lesson's config has no voice-over cue");
+        test.skip(true, "this lesson's config has no voice-over cue after t:0");
         return;
       }
       // Failed, not skipped: a skip here would hide this layout from the canary
