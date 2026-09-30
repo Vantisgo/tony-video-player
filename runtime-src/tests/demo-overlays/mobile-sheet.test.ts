@@ -254,6 +254,39 @@ describe("mobile sheet host", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
+  // 2026-09-30: with 24px of scroll the 45% minimum covered the video's bottom
+  // 46px (see sheet-geometry.test.ts). The page's height here grows with the
+  // room, as a real layout would.
+  it("adds the scroll room a short page lacks while open, and takes it away on close", async () => {
+    const room = (): HTMLElement | null =>
+      document.getElementById("vp-sheet-room");
+    Object.defineProperty(document.documentElement, "scrollHeight", {
+      configurable: true,
+      get: () => 868 + (parseFloat(room()?.style.height ?? "") || 0),
+    });
+    await mount();
+
+    tabButton("coaching").click();
+    expect(room()?.parentElement).toBe(document.body);
+    expect(room()!.style.height).toBe("46px");
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 70, behavior: "smooth" });
+    expect(sheet().style.top).toBe("464px");
+
+    // Switching tabs re-measures a page that already carries the room.
+    tabButton("science").click();
+    expect(room()!.style.height).toBe("46px");
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 70, behavior: "smooth" });
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(room()).toBeNull();
+  });
+
+  it("adds no scroll room to a page tall enough for the sheet (M9)", async () => {
+    await mount();
+    tabButton("coaching").click();
+    expect(document.getElementById("vp-sheet-room")).toBeNull();
+  });
+
   it("follows the player's bottom while open, within the 45% portrait minimum", async () => {
     await mount();
     tabButton("coaching").click();
