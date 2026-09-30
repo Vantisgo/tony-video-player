@@ -36,8 +36,13 @@ export default defineConfig({
     // reason that has nothing to do with our runtime. Pinned on purpose — do not
     // downgrade to `chromium` to make a machine without Chrome pass.
     channel: "chrome",
-    trace: "retain-on-failure",
-    video: "retain-on-failure",
+    // First failure only, never the retries: a trace records every network body,
+    // HLS segments included, so each failed attempt of a playing test adds
+    // ~90MB. Keeping all three attempts made run 36717980370's report 2.5GB
+    // (6 tests × 3 attempts); the retries fail the same way and add nothing a
+    // reader of the first trace lacks.
+    trace: "retain-on-first-failure",
+    video: "retain-on-first-failure",
     screenshot: "only-on-failure",
     launchOptions: {
       args: ["--mute-audio", "--autoplay-policy=no-user-gesture-required"],
