@@ -10,6 +10,14 @@ export default defineConfig({
     seed: "bun prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: requireChannelBinding(env("DATABASE_URL")),
   },
 });
+
+// Prisma's migration engine never verifies certificates; channel_binding=require makes a man-in-the-middle login fail.
+function requireChannelBinding(url: string) {
+  const parsed = URL.parse(url);
+  if (parsed?.searchParams.get("sslmode") !== "require") return url;
+  parsed.searchParams.set("channel_binding", "require");
+  return parsed.href;
+}
