@@ -19,6 +19,7 @@ bun prisma studio      # Open Prisma Studio
 ## Architecture
 
 This is a Next.js 16 application using the App Router with:
+
 - **React 19** with Server Components
 - **Tailwind CSS v4** (via PostCSS)
 - **Prisma 7** with Neon PostgreSQL adapter
@@ -30,10 +31,15 @@ This is a Next.js 16 application using the App Router with:
 - `prisma/` - Database schema and generated client
   - `schema.prisma` - Database schema (generates to `prisma/generated/`)
   - `prisma.ts` - Singleton Prisma client instance with Neon adapter
+    (WebSocket over TLS; the URL's `sslmode` does not apply to it)
+- `prisma.config.ts` - CLI config; migrations run through Prisma's schema
+  engine, so it adds `sslaccept=strict` to a `sslmode=require` URL to make
+  them verify the server certificate
 
 ### Path Alias
 
 Use `~/` to import from project root (configured in tsconfig.json):
+
 ```typescript
 import { env } from "~/env";
 import prisma from "~/prisma/prisma";
@@ -46,6 +52,7 @@ Environment validation uses `@t3-oss/env-nextjs` with Zod in `env.ts`.
 **Adding new server variables:** Add to the `server` object with Zod validation - they are automatically spread to `runtimeEnv`.
 
 **Adding new client variables:** Must be added both to the `client` object AND manually to `runtimeEnv`:
+
 ```typescript
 client: {
   NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -57,6 +64,7 @@ runtimeEnv: {
 ```
 
 **Using env in code:**
+
 ```typescript
 import { env } from "~/env";
 

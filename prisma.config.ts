@@ -3,6 +3,21 @@
 import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
+/**
+ * Prisma's schema engine (migrate, db push) accepts any server certificate
+ * under `sslmode=require` unless the URL also says `sslaccept=strict`.
+ */
+function verifyServerCertificate(url: string): string {
+  const parsed = URL.parse(url);
+  if (
+    parsed?.searchParams.get("sslmode") !== "require" ||
+    parsed.searchParams.has("sslaccept")
+  )
+    return url;
+  parsed.searchParams.set("sslaccept", "strict");
+  return parsed.href;
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -10,6 +25,6 @@ export default defineConfig({
     seed: "bun prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: verifyServerCertificate(env("DATABASE_URL")),
   },
 });
